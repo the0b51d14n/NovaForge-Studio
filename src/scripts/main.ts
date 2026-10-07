@@ -165,13 +165,52 @@ const initSteps = (form: HTMLFormElement) => {
   };
 };
 
+/* Envoi au serveur (src/pages/api) ; en cas d'échec, l'adresse e-mail est proposée en secours */
+const failureMessages: Record<string, string> = {
+  indisponible: "L'envoi en ligne n'est pas encore activé. Écrivez-nous directement à ",
+  invalide: 'Certaines informations semblent incomplètes. Vérifiez le formulaire ou écrivez-nous à ',
+  verrouille: 'Votre accès au site a expiré : rechargez la page, ou écrivez-nous à ',
+  envoi: "L'envoi n'a pas abouti. Réessayez dans un instant ou écrivez-nous à ",
+};
+
+const sendForm = async (form: HTMLFormElement, status: Element | null): Promise<boolean> => {
+  const buttons = form.querySelectorAll<HTMLButtonElement>('button[type="submit"]');
+  buttons.forEach((button) => (button.disabled = true));
+  if (status) status.textContent = 'Envoi en cours…';
+
+  let error = 'envoi';
+  try {
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { Accept: 'application/json' },
+    });
+    const body: { ok?: boolean; error?: string } = await res.json().catch(() => ({}));
+    error = res.ok && body.ok ? '' : (body.error ?? 'envoi');
+  } catch {
+    // Réseau indisponible : message générique
+  }
+  buttons.forEach((button) => (button.disabled = false));
+
+  if (!error) {
+    if (status) status.textContent = '';
+    return true;
+  }
+  if (status) {
+    const email = form.dataset.email ?? '';
+    const link = Object.assign(document.createElement('a'), { href: `mailto:${email}`, textContent: email });
+    status.replaceChildren(failureMessages[error] ?? failureMessages.envoi, link, '.');
+  }
+  return false;
+};
+
 document.querySelectorAll<HTMLFormElement>('[data-form]').forEach((form) => {
   const fields = [...form.querySelectorAll<HTMLElement>('[data-field]')];
   const status = form.querySelector('[data-form-status]');
   const stepper = form.hasAttribute('data-steps') ? initSteps(form) : null;
   let submitted = false;
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     // Touche Entrée avant la dernière étape : on passe simplement à l'étape suivante
@@ -189,6 +228,8 @@ document.querySelectorAll<HTMLFormElement>('[data-form]').forEach((form) => {
       invalid[0].querySelector<Control>('input, select, textarea')?.focus();
       return;
     }
+
+    if (!(await sendForm(form, status))) return;
 
     if (stepper) {
       stepper.complete();

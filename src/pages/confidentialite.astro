@@ -1,0 +1,69 @@
+---
+// Politique de confidentialité (RGPD) : modèle à faire relire, alimenté par src/data/site.ts
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import { site, legal, host } from '../data/site';
+
+const controller = legal.legalName ?? site.name;
+const updated = new Date('2026-10-07').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<BaseLayout
+  title="Politique de confidentialité"
+  description={`Comment ${site.name} collecte et protège vos données personnelles, et comment exercer vos droits.`}
+>
+  <PageHero eyebrow="Informations" compact>
+    <Fragment slot="title">Politique de <em>confidentialité.</em></Fragment>
+  </PageHero>
+
+  <section class="section surface-light" aria-label="Politique de confidentialité">
+    <div class="container prose">
+      <h2>Responsable du traitement</h2>
+      <p>
+        {controller}, {site.address.join(', ')}. Pour toute question sur vos données :
+        {' '}<a href={`mailto:${site.email}`}>{site.email}</a>.
+      </p>
+
+      <h2>Données collectées et utilisation</h2>
+      <p>Nous ne collectons que les données que vous nous transmettez volontairement.</p>
+      <ul class="legal-points">
+        <li>
+          <strong>Formulaire de contact</strong> : nom, e-mail, entreprise, téléphone, type de projet, budget et
+          message. Ils servent à répondre à votre demande et à établir un devis (mesures précontractuelles prises à
+          votre demande). Conservation : 3 ans après notre dernier échange.
+        </li>
+        <li>
+          <strong>Candidature</strong> : identité, coordonnées, liens (portfolio, LinkedIn), CV, message et
+          disponibilité. Ils servent à étudier votre candidature. Si elle n'est pas retenue, ils sont conservés 2 ans
+          après notre dernier échange pour vous proposer d'autres postes, sauf si vous vous y opposez.
+        </li>
+      </ul>
+
+      <h2>Destinataires</h2>
+      <p>
+        Vos données sont réservées à l'équipe de {site.name} et ne sont jamais vendues ni cédées. Elles transitent par
+        nos prestataires techniques : l'hébergeur du site ({host.name}) et notre service d'envoi d'e-mails. Certains
+        sont situés hors de l'Union européenne ; ces transferts sont encadrés par les garanties prévues par le RGPD.
+      </p>
+
+      <h2>Cookies</h2>
+      <p>
+        Ce site n'utilise ni cookie publicitaire ni mesure d'audience. Un seul cookie est déposé lorsque vous saisissez
+        le mot de passe d'accès : il mémorise cet accès pendant 30 jours et est indispensable au fonctionnement du site.
+        La carte qui indique notre adresse est affichée depuis les serveurs d'OpenStreetMap, qui reçoivent à cette occasion votre
+        adresse IP.
+      </p>
+
+      <h2>Vos droits</h2>
+      <p>
+        Vous pouvez accéder à vos données, les rectifier, les effacer, en limiter l'utilisation, vous y opposer ou en
+        demander la portabilité, en écrivant à <a href={`mailto:${site.email}`}>{site.email}</a>. Nous répondons dans
+        un délai d'un mois. Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation
+        à la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>).
+      </p>
+
+      <p class="form-note">Dernière mise à jour : {updated}.</p>
+      <p><a href="/">← Retour à l'accueil</a></p>
+    </div>
+  </section>
+</BaseLayout>

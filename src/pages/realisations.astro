@@ -26,58 +26,78 @@ const testimonials = projects.filter((p) => p.testimonial);
 
   <section class="section surface-light" aria-labelledby="projects-title">
     <div class="container">
-      <h2 class="sr-only" id="projects-title">Nos projets</h2>
+      {
+        projects.length > 0 ? (
+          <>
+            <h2 class="sr-only" id="projects-title">Nos projets</h2>
 
-      <div class="filters" role="group" aria-label="Filtrer les réalisations">
-        <button class="filter" type="button" data-filter="all" aria-pressed="true">
-          Tous<span class="filter-count">{projects.length}</span>
-        </button>
-        {
-          categories.map((c) => (
-            <button class="filter" type="button" data-filter={c.id} aria-pressed="false">
-              {c.label}
-              <span class="filter-count">{counts[c.id]}</span>
-            </button>
-          ))
-        }
-      </div>
-      <p class="sr-only" role="status" data-filter-status></p>
+            <div class="filters" role="group" aria-label="Filtrer les réalisations">
+              <button class="filter" type="button" data-filter="all" aria-pressed="true">
+                Tous<span class="filter-count">{projects.length}</span>
+              </button>
+              {categories.map((c) => (
+                <button class="filter" type="button" data-filter={c.id} aria-pressed="false">
+                  {c.label}
+                  <span class="filter-count">{counts[c.id]}</span>
+                </button>
+              ))}
+            </div>
+            <p class="sr-only" role="status" data-filter-status />
 
-      <div class="projects-grid">
-        {projects.map((project) => <ProjectCard project={project} />)}
-      </div>
+            <div class="projects-grid">
+              {projects.map((project) => (
+                <ProjectCard project={project} />
+              ))}
+            </div>
+          </>
+        ) : (
+          // Aucun projet publié pour l'instant : on l'annonce simplement
+          <div class="empty-state card" data-reveal>
+            <Icon name="star" />
+            <h2 id="projects-title">Nos premières réalisations arrivent.</h2>
+            <p>
+              Le studio ouvre ses portes : les projets de nos premiers clients seront présentés ici, avec leur accord.
+            </p>
+            <a class="btn btn-primary" href="/contact">
+              Démarrer un projet <Icon name="arrow" class="btn-arrow" />
+            </a>
+          </div>
+        )
+      }
     </div>
   </section>
 
-  <section class="section surface-light-2" aria-labelledby="reviews-title">
-    <div class="container">
-      <SectionHead num="★" label="Témoignages" titleId="reviews-title">
-        Ce que nos clients <em>en disent.</em>
-      </SectionHead>
+  {
+    testimonials.length > 0 && (
+      <section class="section surface-light-2" aria-labelledby="reviews-title">
+        <div class="container">
+          <SectionHead num="★" label="Témoignages" titleId="reviews-title">
+            Ce que nos clients <em>en disent.</em>
+          </SectionHead>
 
-      <div class="testimonials">
-        {
-          testimonials.map((p, i) => (
-            <figure class="testimonial card" data-reveal style={`--d:${i * 0.08}s`}>
-              <Icon name="star" />
-              <blockquote>
-                <p>« {p.testimonial!.quote} »</p>
-              </blockquote>
-              <figcaption>
-                <span class="avatar" aria-hidden="true">
-                  {p.testimonial!.author.charAt(0)}
-                </span>
-                <span>
-                  {p.testimonial!.author}
-                  <small>{p.name}</small>
-                </span>
-              </figcaption>
-            </figure>
-          ))
-        }
-      </div>
-    </div>
-  </section>
+          <div class="testimonials">
+            {testimonials.map((p, i) => (
+              <figure class="testimonial card" data-reveal style={`--d:${i * 0.08}s`}>
+                <Icon name="star" />
+                <blockquote>
+                  <p>« {p.testimonial!.quote} »</p>
+                </blockquote>
+                <figcaption>
+                  <span class="avatar" aria-hidden="true">
+                    {p.testimonial!.author.charAt(0)}
+                  </span>
+                  <span>
+                    {p.testimonial!.author}
+                    <small>{p.name}</small>
+                  </span>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+    )
+  }
 
-  <CtaBand title="Votre projet sera le prochain ?" />
+  <CtaBand title={projects.length > 0 ? 'Votre projet sera le prochain ?' : 'Votre projet sera le premier ?'} />
 </BaseLayout>

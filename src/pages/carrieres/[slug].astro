@@ -31,7 +31,8 @@ const jsonLd = {
     address: {
       '@type': 'PostalAddress',
       streetAddress: site.address[0],
-      addressLocality: 'Lille',
+      postalCode: site.postalCode,
+      addressLocality: site.city,
       addressRegion: 'Hauts-de-France',
       addressCountry: 'FR',
     },
@@ -47,7 +48,7 @@ const jsonLd = {
 };
 ---
 
-<BaseLayout title={o.title} description={`${site.name} recrute : ${o.title} à Lille. ${o.summary}`}>
+<BaseLayout title={o.title} description={`${site.name} recrute : ${o.title} à ${site.city}. ${o.summary}`}>
   <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 
   <!-- ============ EN-TÊTE DE L'OFFRE ============ -->
@@ -86,15 +87,14 @@ const jsonLd = {
         <section class="offer-block" aria-labelledby="o-company">
           <h2 class="offer-h2" id="o-company"><span>01</span>L'entreprise</h2>
           <p>
-            {site.name} a été fondée en 2024 par un développeur freelance lillois, pour structurer une activité qui ne
-            cessait de grandir. Le studio accompagne des TPE, des PME et des jeunes entreprises : sites vitrines,
-            boutiques en ligne, identité visuelle ou applications sur mesure, avec un fonctionnement très flexible et
-            une vraie proximité avec les clients.
+            {site.name} est née de l'activité d'un développeur freelance du Nord, qui la transforme en agence. Le
+            studio accompagne des TPE, des PME et des jeunes entreprises : sites vitrines, boutiques en ligne, identité
+            visuelle ou applications sur mesure, avec un fonctionnement très flexible et une vraie proximité avec les
+            clients.
           </p>
           <p>
-            Le carnet de commandes est stable depuis 2 ans et la demande augmente : c'est pour cela que le studio
-            recrute aujourd'hui son <strong>premier salarié</strong>. Vous participerez directement à la construction
-            de l'agence.
+            Pour grandir, le studio recrute aujourd'hui son <strong>premier salarié</strong>. Vous participerez
+            directement à la construction de l'agence.
           </p>
           <a class="link-arrow" href="/agence">Découvrir l'agence <Icon name="arrow" /></a>
         </section>

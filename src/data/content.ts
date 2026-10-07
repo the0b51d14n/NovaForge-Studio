@@ -1,4 +1,4 @@
-// Contenus du site. Tout est fictif (exercice pédagogique).
+// Contenus du site : services, méthode, réalisations, recrutement et FAQ.
 
 /* ---------- Services ---------- */
 export type IconName = 'window' | 'bag' | 'pen' | 'code' | 'shield';
@@ -134,92 +134,23 @@ export type Project = {
   testimonial?: { quote: string; author: string };
 };
 
-export const projects: Project[] = [
-  {
-    name: 'Maison Delcourt',
-    activity: 'Boulangerie artisanale · Lille',
-    category: 'vitrine',
-    year: 2025,
-    summary: 'Un site vitrine chaleureux avec la carte, les horaires et la commande de gâteaux pour les événements.',
-    services: ['Site vitrine', 'Maintenance'],
-    domain: 'maison-delcourt.fr',
-    mockTitle: 'Le bon pain, depuis 1987',
-    shape: 'arch',
-    palette: { bg: '#f6efe3', fg: '#3b2516', accent: '#c8752a' },
-    testimonial: {
-      quote: 'Un seul interlocuteur du début à la fin et des retours rapides : notre site était en ligne en quelques semaines.',
-      author: 'Claire D., gérante',
-    },
-  },
-  {
-    name: 'Rayon Vert',
-    activity: 'Atelier vélo · Lille',
-    category: 'ecommerce',
-    year: 2025,
-    summary: "Une boutique en ligne de pièces détachées, avec réservation des créneaux d'entretien à l'atelier.",
-    services: ['Boutique en ligne', 'Réservation'],
-    domain: 'rayonvert-atelier.fr',
-    mockTitle: 'Roulez mieux, roulez local',
-    shape: 'circle',
-    palette: { bg: '#0f2b1d', fg: '#e9f5ec', accent: '#7bdc5a' },
-    testimonial: {
-      quote: "Ils ont pris le temps de comprendre notre métier avant de proposer quoi que ce soit. Les ventes en ligne ont vite décollé.",
-      author: 'Thomas L., fondateur',
-    },
-  },
-  {
-    name: 'Kiné Vieux-Lille',
-    activity: 'Cabinet de kinésithérapie',
-    category: 'application',
-    year: 2026,
-    summary: 'Une application de prise de rendez-vous en ligne, connectée au planning des praticiens.',
-    services: ['Application sur mesure', 'Maintenance'],
-    domain: 'kine-vieux-lille.fr',
-    mockTitle: 'Prenez rendez-vous en 2 clics',
-    shape: 'grid',
-    palette: { bg: '#eef6fb', fg: '#0e2f4a', accent: '#2f9bd6' },
-    testimonial: {
-      quote: 'La maintenance mensuelle nous enlève une vraie épine du pied : on sait qui appeler, et ça avance.',
-      author: 'Sarah M., kinésithérapeute',
-    },
-  },
-  {
-    name: 'Brasserie des Trois Beffrois',
-    activity: 'Brasserie artisanale · Roubaix',
-    category: 'identite',
-    year: 2025,
-    summary: "Une nouvelle identité visuelle, des étiquettes de bières jusqu'au site web de la brasserie.",
-    services: ['Identité visuelle', 'Site vitrine'],
-    domain: 'trois-beffrois.fr',
-    mockTitle: 'Brassée dans le Nord',
-    shape: 'stripes',
-    palette: { bg: '#1d1a2b', fg: '#f3e9d2', accent: '#e8b23a' },
-  },
-  {
-    name: 'Lumen Énergie',
-    activity: 'Jeune entreprise · énergie solaire',
-    category: 'application',
-    year: 2026,
-    summary: "Un site et un simulateur d'économies d'énergie pour présenter l'offre et générer des demandes de devis.",
-    services: ['Site vitrine', 'Application sur mesure'],
-    domain: 'lumen-energie.fr',
-    mockTitle: 'Votre toit, votre énergie',
-    shape: 'wave',
-    palette: { bg: '#0b1020', fg: '#f5f7ff', accent: '#ffcf3f' },
-  },
-  {
-    name: 'Atelier Nord Archi',
-    activity: "Cabinet d'architecture · Lille",
-    category: 'vitrine',
-    year: 2024,
-    summary: 'Un site portfolio épuré pour mettre en valeur les projets du cabinet et ses réalisations.',
-    services: ['Site vitrine', 'Identité visuelle'],
-    domain: 'atelier-nord-archi.fr',
-    mockTitle: "Construire l'essentiel",
-    shape: 'blocks',
-    palette: { bg: '#ecebe8', fg: '#141414', accent: '#ff4d2e' },
-  },
-];
+// Projets clients réels uniquement (avec l'accord du client). Tant que la liste est vide, la page
+// « Réalisations » affiche un message d'attente et disparaît du menu et de l'accueil.
+// Exemple d'entrée :
+// {
+//   name: 'Nom du client',
+//   activity: 'Activité · Ville',
+//   category: 'vitrine',
+//   year: 2026,
+//   summary: 'Ce qui a été réalisé, en une phrase.',
+//   services: ['Site vitrine', 'Maintenance'],
+//   domain: 'site-du-client.fr',
+//   mockTitle: 'Accroche du site',
+//   shape: 'arch',
+//   palette: { bg: '#f6efe3', fg: '#3b2516', accent: '#c8752a' },
+//   testimonial: { quote: 'Avis réel, publié avec son accord.', author: 'Prénom N., fonction' },
+// },
+export const projects: Project[] = [];
 
 /* ---------- Recrutement ---------- */
 // Contenus communs du recrutement (les offres elles-mêmes sont dans `openings`)
@@ -256,8 +187,8 @@ export const job = {
     },
   ],
   facts: [
-    { value: '2 ans', label: 'de carnet de commandes stable' },
-    { value: 'Mensuel', label: 'des clients en maintenance qui assurent un revenu régulier' },
+    { value: '1er', label: "salarié du studio : vous construisez l'équipe avec le fondateur" },
+    { value: 'A→Z', label: 'des projets suivis du premier rendez-vous à la mise en ligne' },
     { value: 'Quotidien', label: 'un point avec le fondateur, joignable à tout moment' },
   ],
   pay: [
@@ -275,7 +206,7 @@ export const job = {
     { label: 'Formation', value: 'Budget annuel pour formations en ligne et événements tech' },
     { label: 'Tickets resto', value: 'Oui' },
     { label: 'Transport', value: "50 % de l'abonnement pris en charge" },
-    { label: 'Lieu', value: 'Espace de coworking à Lille' },
+    { label: 'Lieu', value: 'Neuville-en-Ferrain · métropole lilloise' },
   ],
   steps: [
     { title: 'Candidature', text: 'CV + portfolio ou GitHub.', meta: 'Durée · —' },
@@ -287,11 +218,7 @@ export const job = {
   faq: [
     {
       q: 'Je vais être seul la plupart du temps ?',
-      a: 'Non. Un point quotidien est prévu avec le fondateur, qui reste joignable à tout moment. Les partenaires interviennent aussi régulièrement sur les projets.',
-    },
-    {
-      q: "Et si l'agence n'a plus assez de clients ?",
-      a: 'La structure a un carnet de commandes stable depuis 2 ans, avec des clients en maintenance mensuelle qui assurent un revenu régulier. Le recrutement répond justement à une hausse de la demande.',
+      a: 'Non. Un point quotidien est prévu avec le fondateur, qui reste joignable à tout moment.',
     },
     {
       q: "Je n'ai pas toutes les compétences demandées.",
@@ -331,7 +258,7 @@ export const openings: Opening[] = [
     title: 'Développeur web junior (H/F)',
     team: 'Développement & design',
     contracts: ['Alternance', 'CDI'],
-    location: 'Lille · coworking',
+    location: 'Neuville-en-Ferrain (59)',
     remote: "Jusqu'à 3 jours / semaine",
     experience: 'Junior · débutant accepté',
     salary: 'Alternance : grille légale · CDI : ~ 30 000 € brut / an',
@@ -339,7 +266,7 @@ export const openings: Opening[] = [
     published: '2026-10-01',
     summary: "Le premier salarié d'un freelance qui fait grandir sa boîte : design, développement, clients et gestion de projet.",
     intro: [
-      "NovaForge Studio, c'est l'activité d'un développeur freelance devenue trop grande pour une seule personne. La demande augmente : il recrute aujourd'hui son premier développeur web junior pour transformer son activité solo en une vraie agence.",
+      "NovaForge Studio, c'est un développeur freelance qui transforme son activité en agence. Pour grandir, il recrute aujourd'hui son premier développeur web junior.",
       "Nous cherchons quelqu'un de créatif, autonome et curieux, qui a envie d'apprendre vite et de prendre de vraies responsabilités. Vous travaillerez directement avec le fondateur sur des projets variés pour des TPE, des PME et des jeunes entreprises.",
     ],
     skills: {
@@ -366,9 +293,9 @@ export const benefits: { icon: BenefitIcon; title: string; text: string }[] = [
   { icon: 'home', title: 'Télétravail', text: "Jusqu'à 3 jours par semaine, organisés avec l'équipe." },
   { icon: 'laptop', title: 'Matériel fourni', text: 'Un ordinateur portable pour travailler dans de bonnes conditions.' },
   { icon: 'book', title: 'Budget formation', text: 'Un budget annuel pour des formations en ligne et des événements tech.' },
-  { icon: 'food', title: 'Tickets restaurant', text: 'Pour vos pauses déjeuner, au coworking ou ailleurs.' },
+  { icon: 'food', title: 'Tickets restaurant', text: 'Pour vos pauses déjeuner.' },
   { icon: 'train', title: 'Transport', text: '50 % de votre abonnement de transport pris en charge.' },
-  { icon: 'building', title: 'Coworking à Lille', text: 'Un espace de travail partagé, au cœur de la ville.' },
+  { icon: 'building', title: 'Métropole lilloise', text: 'Le studio est à Neuville-en-Ferrain, aux portes de Tourcoing.' },
   { icon: 'gift', title: 'Prime sur projet', text: 'En alternance, une prime éventuelle selon les projets.' },
   { icon: 'growth', title: 'Évolution', text: "Révision prévue après 6 mois et des responsabilités qui grandissent avec l'agence." },
 ];

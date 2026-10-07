@@ -1,21 +1,22 @@
 ---
 import Icon from './Icon.astro';
+import { site } from '../data/site';
 ---
 
 <section class="section hiring surface-dark" aria-labelledby="hiring-title">
   <div class="container hiring-inner">
     <div data-reveal>
       <p class="kicker"><span class="kicker-num">★</span>On recrute</p>
-      <h2 class="section-title" id="hiring-title">L'activité grandit.<br /><em>L'équipe aussi.</em></h2>
+      <h2 class="section-title" id="hiring-title">Le studio se construit.<br /><em>L'équipe aussi.</em></h2>
       <p class="hiring-lead">
-        Jusqu'ici, le fondateur faisait tout lui-même, comme en freelance. La demande augmente : le studio recrute son
+        Jusqu'ici, le fondateur faisait tout lui-même, comme en freelance. Pour aller plus loin, le studio recrute son
         <strong>premier développeur web junior (H/F)</strong>, en alternance ou en CDI, pour passer d'une activité solo
         à une vraie équipe. Un poste où l'on touche au design, au développement, aux échanges clients et à la gestion
         de projet.
       </p>
       <ul class="tag-list">
         <li>Alternance ou CDI</li>
-        <li>Lille · coworking</li>
+        <li>{site.city}</li>
         <li>Jusqu'à 3 j de télétravail</li>
       </ul>
       <div class="hero-actions hero-actions--flush">

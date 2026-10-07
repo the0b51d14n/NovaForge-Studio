@@ -1,6 +1,7 @@
 ---
-// Formulaire de candidature en 3 étapes (validation dans le navigateur, aucun envoi réel)
+// Formulaire de candidature en 3 étapes : validation dans le navigateur, envoi par e-mail (src/pages/api/candidature.ts)
 import Icon from './Icon.astro';
+import { site } from '../data/site';
 
 interface Props {
   position: string;
@@ -13,8 +14,21 @@ const id = (name: string) => `${idPrefix}-${name}`;
 const steps = ['Vous', 'Votre profil', 'Motivation'];
 ---
 
-<form class="apply-form card" data-form data-steps novalidate aria-label={`Candidature : ${position}`}>
+<form
+  class="apply-form card"
+  action="/api/candidature"
+  method="post"
+  enctype="multipart/form-data"
+  data-form
+  data-steps
+  data-email={site.jobsEmail}
+  novalidate
+  aria-label={`Candidature : ${position}`}
+>
   <input type="hidden" name="poste" value={position} />
+  <div class="hp" aria-hidden="true">
+    <label>Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" /></label>
+  </div>
 
   <ol class="apply-progress" aria-hidden="true">
     {
@@ -84,7 +98,7 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
           <span class="field-error" id={id('linkedin-err')}></span>
         </div>
         <div class="field field--full" data-field>
-          <label for={id('cv')}>CV (PDF, DOC) <span class="req" aria-hidden="true">*</span></label>
+          <label for={id('cv')}>CV (PDF, DOC · 4 Mo max.) <span class="req" aria-hidden="true">*</span></label>
           <div class="file">
             <input class="file-input" id={id('cv')} name="cv" type="file" accept=".pdf,.doc,.docx" required aria-describedby={id('cv-err')} data-file-input />
             <span class="file-btn" aria-hidden="true">Choisir un fichier</span>
@@ -126,7 +140,10 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
         <div class="field field--full" data-field>
           <label class="check">
             <input type="checkbox" name="consentement" required aria-describedby={id('consent-err')} />
-            <span>J'accepte que mes informations soient utilisées dans le cadre de ce recrutement.</span>
+            <span>
+              J'accepte que mes informations soient utilisées dans le cadre de ce recrutement
+              (<a href="/confidentialite">politique de confidentialité</a>).
+            </span>
           </label>
           <span class="field-error" id={id('consent-err')}></span>
         </div>
@@ -139,6 +156,7 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
       <button class="btn btn-primary" type="button" data-step-next>Continuer <Icon name="arrow" class="btn-arrow" /></button>
       <button class="btn btn-primary" type="submit" data-step-submit hidden>Envoyer ma candidature <Icon name="arrow" class="btn-arrow" /></button>
     </div>
+    <p class="form-status" role="status" data-form-status></p>
   </div>
 
   <div class="apply-success" data-apply-success hidden tabindex="-1">
@@ -150,6 +168,5 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
       <li><strong>Échange découverte</strong> — un appel visio de 20 minutes avec le fondateur.</li>
       <li><strong>Mini cas pratique</strong> — maquetter ou intégrer une page simple.</li>
     </ol>
-    <p class="form-note">Site fictif : aucune donnée n'a réellement été envoyée.</p>
   </div>
 </form>

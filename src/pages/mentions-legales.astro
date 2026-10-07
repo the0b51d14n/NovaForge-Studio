@@ -1,35 +1,83 @@
 ---
+// Mentions légales : alimentées par src/data/site.ts (seules les informations renseignées s'affichent)
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { site } from '../data/site';
+import { site, legal, host, isRegistered } from '../data/site';
+
+type Row = { label: string; value: string | null; href?: string };
+
+const publisher: Row[] = [
+  { label: 'Dénomination', value: legal.legalName ?? site.name },
+  { label: 'Forme juridique', value: legal.form },
+  { label: 'Capital social', value: legal.capital },
+  { label: 'Siège social', value: site.address.join(', ') },
+  { label: 'SIREN', value: legal.siren ?? "En cours d'immatriculation" },
+  { label: 'SIRET', value: legal.siret },
+  { label: 'Immatriculation', value: legal.rcs },
+  { label: 'TVA intracommunautaire', value: legal.vat },
+  { label: 'Code APE', value: legal.naf },
+  { label: 'E-mail', value: site.email, href: `mailto:${site.email}` },
+  { label: 'Téléphone', value: site.phone, href: site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : undefined },
+];
+const rows = publisher.filter((row) => row.value);
+
+const director = legal.director ?? site.founder.name ?? `Le représentant légal de ${site.name}`;
 ---
 
-<BaseLayout title="Mentions légales" description="Mentions légales du site NovaForge Studio (site fictif, exercice pédagogique).">
+<BaseLayout title="Mentions légales" description={`Mentions légales du site ${site.name} : éditeur, hébergeur, propriété intellectuelle.`}>
   <PageHero eyebrow="Informations" compact>
     <Fragment slot="title">Mentions <em>légales.</em></Fragment>
   </PageHero>
 
   <section class="section surface-light" aria-label="Mentions légales">
     <div class="container prose">
-      <h2>Site fictif</h2>
+      {
+        !isRegistered && (
+          <p class="legal-note">
+            {site.name} est en cours de création : les informations d'immatriculation seront publiées ici dès leur
+            obtention.
+          </p>
+        )
+      }
+
+      <h2>Éditeur du site</h2>
+      <dl class="legal-list">
+        {
+          rows.map((row) => (
+            <div>
+              <dt>{row.label}</dt>
+              <dd>{row.href ? <a href={row.href}>{row.value}</a> : row.value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+
+      <h2>Directeur de la publication</h2>
+      <p>{director}</p>
+
+      <h2>Hébergement</h2>
       <p>
-        {site.name} est une entreprise fictive. Ce site a été réalisé dans le cadre d'un exercice pédagogique (job
-        dating, module « Découverte de l'entreprise »). Les informations, projets, témoignages et coordonnées
-        présentés sont inventés.
+        {host.name} · {host.address} · <a href={host.url} rel="noopener">{host.url.replace('https://', '')}</a>
       </p>
 
-      <h2>Éditeur</h2>
-      <p>{site.name} · {site.address.join(', ')} · {site.email}</p>
+      <h2>Propriété intellectuelle</h2>
+      <p>
+        L'ensemble des contenus de ce site (textes, logo, visuels, photographies, code) est la propriété de
+        {' '}{legal.legalName ?? site.name}, sauf mention contraire. Toute reproduction ou représentation, totale ou
+        partielle, sans autorisation écrite préalable est interdite.
+      </p>
 
       <h2>Données personnelles</h2>
       <p>
-        Les formulaires de ce site sont uniquement démonstratifs : aucune donnée saisie n'est transmise ni enregistrée.
+        Les informations transmises via les formulaires sont utilisées uniquement pour répondre à votre demande ou
+        traiter votre candidature. Pour en savoir plus et exercer vos droits, consultez notre
+        {' '}<a href="/confidentialite">politique de confidentialité</a>.
       </p>
 
       <h2>Crédits</h2>
       <p>
-        Conception et développement : {site.name}. Site construit avec Astro. Polices : Sora, Manrope, Instrument
-        Serif, JetBrains Mono et Montserrat (licence SIL Open Font).
+        Conception et développement : {site.name}. Site construit avec Astro. Carte : © contributeurs OpenStreetMap.
+        Polices : Sora, Manrope, Instrument Serif, JetBrains Mono et Montserrat (licence SIL Open Font).
       </p>
 
       <p><a href="/">← Retour à l'accueil</a></p>

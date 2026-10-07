@@ -22,7 +22,7 @@ interface Props {
 }
 
 const { title, description = site.description, bare = false, noindex = false } = Astro.props;
-const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale à Lille`;
+const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale · ${site.area}`;
 ---
 
 <!doctype html>

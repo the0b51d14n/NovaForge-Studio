@@ -6,7 +6,6 @@ import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import Faq from '../../components/Faq.astro';
 import CtaBand from '../../components/CtaBand.astro';
-import OfficeGallery from '../../components/OfficeGallery.astro';
 import { job, openings, benefits, dayInLife } from '../../data/content';
 import { site } from '../../data/site';
 
@@ -16,7 +15,7 @@ const formatDate = (iso: string) =>
 
 <BaseLayout
   title="Carrières"
-  description="Rejoignez NovaForge Studio, agence digitale lilloise en pleine croissance : offres d'emploi, avantages, vie au studio et processus de recrutement."
+  description="Rejoignez NovaForge Studio, agence digitale de la métropole lilloise qui recrute son premier collaborateur : offres d'emploi, avantages, vie au studio et processus de recrutement."
 >
   <PageHero
     eyebrow="Carrières"
@@ -73,7 +72,7 @@ const formatDate = (iso: string) =>
             <span class="job-main">
               <span class="job-team">Toujours ouvert</span>
               <span class="job-title">Candidature spontanée</span>
-              <span class="job-summary">Aucune offre ne vous correspond ? Présentez-vous : l'agence grandit, d'autres postes suivront.</span>
+              <span class="job-summary">Aucune offre ne vous correspond ? Présentez-vous : le studio se construit, d'autres postes suivront.</span>
             </span>
             <span class="job-arrow" aria-hidden="true"><Icon name="arrow" /></span>
           </a>
@@ -161,7 +160,6 @@ const formatDate = (iso: string) =>
           ))
         }
       </ol>
-      <OfficeGallery />
     </div>
   </section>
 

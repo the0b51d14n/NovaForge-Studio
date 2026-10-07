@@ -3,17 +3,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
 import Icon from '../components/Icon.astro';
 import OfficeMap from '../components/OfficeMap.astro';
-import { Image } from 'astro:assets';
-import { findOfficePhoto } from '../data/office';
-
-const clientRoom = findOfficePhoto('rdv');
 import { site } from '../data/site';
 import { services } from '../data/content';
 ---
 
 <BaseLayout
   title="Contact"
-  description="Un projet de site, de boutique en ligne ou d'identité visuelle ? Contactez NovaForge Studio à Lille : premier rendez-vous et devis gratuits."
+  description="Un projet de site, de boutique en ligne ou d'identité visuelle ? Contactez NovaForge Studio, dans la métropole lilloise : premier rendez-vous et devis gratuits."
 >
   <PageHero
     eyebrow="Contact"
@@ -29,25 +25,10 @@ import { services } from '../data/content';
         <dl class="info-list">
           <div><dt>Adresse</dt><dd>{site.address[0]}<br />{site.address[1]}</dd></div>
           <div><dt>E-mail</dt><dd><a href={`mailto:${site.email}`}>{site.email}</a></dd></div>
+          {site.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a></dd></div>}
           <div><dt>Horaires</dt><dd>{site.hours}</dd></div>
           <div><dt>Réponse</dt><dd>Sous 48 h ouvrées</dd></div>
         </dl>
-
-        {
-          clientRoom && (
-            <figure class="hero-photo contact-photo">
-              <Image
-                src={clientRoom.src}
-                alt={clientRoom.alt}
-                widths={[480, 800, 1200]}
-                sizes="(max-width: 960px) 100vw, 40vw"
-                format="webp"
-                quality={78}
-              />
-              <figcaption>Là où nous vous recevons · {clientRoom.title}</figcaption>
-            </figure>
-          )
-        }
 
         <OfficeMap compact />
 
@@ -60,10 +41,16 @@ import { services } from '../data/content';
 
       <form
         class="form form--card card"
+        action="/api/contact"
+        method="post"
         data-form
+        data-email={site.email}
         novalidate
-        data-success="Merci ! Votre message a bien été pris en compte, nous revenons vers vous rapidement. (Site fictif : aucun message n'est réellement envoyé.)"
+        data-success="Merci ! Votre message a bien été envoyé : nous revenons vers vous sous 48 h ouvrées."
       >
+        <div class="hp" aria-hidden="true">
+          <label>Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" /></label>
+        </div>
         <div class="field" data-field>
           <label for="c-name">Nom <span class="req" aria-hidden="true">*</span></label>
           <input class="input" id="c-name" name="nom" type="text" autocomplete="name" required aria-describedby="c-name-err" />
@@ -114,7 +101,10 @@ import { services } from '../data/content';
         <div class="field field--full" data-field>
           <label class="check">
             <input type="checkbox" name="consentement" required aria-describedby="c-consent-err" />
-            <span>J'accepte que mes informations soient utilisées pour être recontacté au sujet de mon projet.</span>
+            <span>
+              J'accepte que mes informations soient utilisées pour être recontacté au sujet de mon projet
+              (<a href="/confidentialite">politique de confidentialité</a>).
+            </span>
           </label>
           <span class="field-error" id="c-consent-err"></span>
         </div>

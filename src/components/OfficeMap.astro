@@ -9,7 +9,7 @@ interface Props {
 
 const { compact = false } = Astro.props;
 const { lat, lng } = site.geo;
-const query = encodeURIComponent(`${site.address[0]}, Lille, France`);
+const query = encodeURIComponent(`${site.address.join(', ')}, France`);
 const directions = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
 const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
 ---
@@ -28,7 +28,7 @@ const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat
   >
     <p class="map-fallback">
       <Icon name="pin" />
-      {site.address[0]}, Lille
+      {site.address[0]}, {site.city}
     </p>
   </div>
 

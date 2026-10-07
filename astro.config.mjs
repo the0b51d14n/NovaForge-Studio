@@ -26,6 +26,9 @@ export default defineConfig({
     schema: {
       // Mot de passe du site : .env en local, variables d'environnement du projet sur Vercel
       SITE_PASSWORD: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // Envoi des formulaires par e-mail (Resend) : inactif tant que ces deux variables sont vides
+      RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      MAIL_FROM: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
   vite: {

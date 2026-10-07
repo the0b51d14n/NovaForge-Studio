@@ -2,6 +2,7 @@
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
 import { site } from '../data/site';
+import { projects } from '../data/content';
 ---
 
 <footer class="site-footer surface-dark">
@@ -18,7 +19,7 @@ import { site } from '../data/site';
       <ul>
         <li><a href="/agence">Qui sommes-nous</a></li>
         <li><a href="/services">Services</a></li>
-        <li><a href="/realisations">Réalisations</a></li>
+        {projects.length > 0 && <li><a href="/realisations">Réalisations</a></li>}
       </ul>
     </nav>
 
@@ -27,7 +28,6 @@ import { site } from '../data/site';
       <ul>
         <li><a href="/carrieres">Carrières <span class="pill">On recrute</span></a></li>
         <li><a href="/contact">Contact</a></li>
-        <li><a href="/mentions-legales">Mentions légales</a></li>
       </ul>
     </nav>
 
@@ -42,8 +42,11 @@ import { site } from '../data/site';
   </div>
 
   <div class="container footer-bottom">
-    <p>© <span data-year>2026</span> {site.name} · Lille</p>
-    <p>Site fictif réalisé dans le cadre d'un exercice pédagogique.</p>
+    <p>© <span data-year>2026</span> {site.name} · {site.city}</p>
+    <p class="footer-legal">
+      <a href="/mentions-legales">Mentions légales</a>
+      <a href="/confidentialite">Confidentialité</a>
+    </p>
     <form class="footer-lock" method="post" action="/verrouillage">
       <input type="hidden" name="action" value="verrouiller" />
       <button type="submit"><Icon name="lock" /> Verrouiller le site</button>
