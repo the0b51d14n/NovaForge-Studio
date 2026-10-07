@@ -1,0 +1,110 @@
+---
+// Carte interactive (Leaflet + OpenStreetMap) centrée sur l'adresse de l'agence
+import Icon from './Icon.astro';
+import { site } from '../data/site';
+
+interface Props {
+  compact?: boolean;
+}
+
+const { compact = false } = Astro.props;
+const { lat, lng } = site.geo;
+const query = encodeURIComponent(`${site.address[0]}, Lille, France`);
+const directions = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
+---
+
+<div class:list={['map-card', 'card', { 'map-card--compact': compact }]} data-reveal>
+  <div
+    class="map"
+    data-map
+    data-lat={lat}
+    data-lng={lng}
+    data-title={site.name}
+    data-address={site.address.join(', ')}
+    data-directions={directions}
+    role="region"
+    aria-label={`Carte : ${site.name}, ${site.address.join(', ')}`}
+  >
+    <p class="map-fallback">
+      <Icon name="pin" />
+      {site.address[0]}, Lille
+    </p>
+  </div>
+
+  <div class="map-info">
+    <p class="svc-label">Nous trouver</p>
+    <address class="map-address">
+      <strong>{site.name}</strong>
+      {site.address[0]}<br />{site.address[1]}
+    </address>
+    <ul class="map-access">
+      <li><Icon name="clock" />{site.hours}</li>
+      <li><Icon name="home" />Sur rendez-vous, au studio ou chez vous</li>
+    </ul>
+    <div class="map-actions">
+      <a class="btn btn-primary" href={directions} target="_blank" rel="noopener">
+        Itinéraire <Icon name="arrow" class="btn-arrow" />
+      </a>
+      <a class="link-arrow" href={osm} target="_blank" rel="noopener">Agrandir la carte <Icon name="arrow" /></a>
+    </div>
+  </div>
+</div>
+
+<script>
+  import 'leaflet/dist/leaflet.css';
+
+  const containers = document.querySelectorAll<HTMLElement>('[data-map]');
+
+  const init = async (el: HTMLElement) => {
+    const L = await import('leaflet');
+    const lat = Number(el.dataset.lat);
+    const lng = Number(el.dataset.lng);
+
+    el.innerHTML = '';
+    const map = L.map(el, {
+      center: [lat, lng],
+      zoom: 16,
+      scrollWheelZoom: false, // ne pas bloquer le défilement de la page
+    });
+
+    // Tuiles OpenStreetMap officielles (gratuites, sans clé d'API)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">contributeurs OpenStreetMap</a>',
+    }).addTo(map);
+
+    // Marqueur au logo NovaForge
+    const icon = L.divIcon({
+      className: 'map-marker',
+      html: '<span class="map-marker-pin"><img src="/favicon-pack/icon-192.png" alt="" width="34" height="34"></span>',
+      iconSize: [56, 64],
+      iconAnchor: [28, 62],
+      popupAnchor: [0, -58],
+    });
+
+    const popup = `<strong>${el.dataset.title}</strong><br>${el.dataset.address}<br><a href="${el.dataset.directions}" target="_blank" rel="noopener">Itinéraire →</a>`;
+    L.marker([lat, lng], { icon, title: el.dataset.title, keyboard: true }).addTo(map).bindPopup(popup).openPopup();
+
+    // Le zoom à la molette s'active seulement après un clic sur la carte
+    map.on('click', () => map.scrollWheelZoom.enable());
+    map.on('mouseout', () => map.scrollWheelZoom.disable());
+  };
+
+  // La carte ne se charge que lorsqu'elle approche de l'écran
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          io.unobserve(entry.target);
+          init(entry.target as HTMLElement);
+        });
+      },
+      { rootMargin: '300px' },
+    );
+    containers.forEach((el) => io.observe(el));
+  } else {
+    containers.forEach((el) => init(el));
+  }
+</script>

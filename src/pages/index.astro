@@ -1,0 +1,284 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import SectionHead from '../components/SectionHead.astro';
+import Steps from '../components/Steps.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import HiringBanner from '../components/HiringBanner.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { services, method, projects } from '../data/content';
+import { findOfficePhoto } from '../data/office';
+import { Image } from 'astro:assets';
+
+const workspace = findOfficePhoto('bureau');
+
+const featured = projects.slice(0, 3);
+const testimonials = projects.filter((p) => p.testimonial);
+const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', 'Applications sur mesure', 'Maintenance'];
+---
+
+<BaseLayout>
+  <!-- ============ HERO ============ -->
+  <section class="hero surface-dark" aria-labelledby="hero-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Agence digitale · Lille · Depuis 2024</p>
+        <h1 class="hero-title" id="hero-title">
+          <span class="line"><span>Forger votre</span></span>
+          <span class="line"><span>présence</span></span>
+          <span class="line"><span><em>numérique.</em></span></span>
+        </h1>
+        <p class="hero-lead">
+          Le studio web et design fondé par <strong>un développeur freelance lillois</strong>, pour les TPE, PME et
+          jeunes entreprises. Chaque projet est suivi de A à Z, du premier rendez-vous jusqu'à la mise en ligne.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="/contact">Démarrer un projet <Icon name="arrow" class="btn-arrow" /></a>
+          <a class="btn btn-ghost" href="/realisations">Voir nos réalisations</a>
+        </div>
+      </div>
+
+      <div class="hero-art" data-parallax>
+        <div class="hero-art-glow" aria-hidden="true"></div>
+        <div class="hero-orbit" aria-hidden="true"></div>
+        <div class="hero-orbit hero-orbit--inner" aria-hidden="true"></div>
+        <Logo variant="mark" tone="dark" large class="hero-logo" />
+
+        <a class="hiring-badge" href="/carrieres/developpeur-web-junior" aria-label="On recrute : voir l'offre de développeur web junior">
+          <svg viewBox="0 0 160 160" aria-hidden="true" focusable="false">
+            <defs>
+              <path id="badge-circle" d="M80,80 m-62,0 a62,62 0 1,1 124,0 a62,62 0 1,1 -124,0"></path>
+            </defs>
+            <text>
+              <textPath href="#badge-circle" textLength="386" lengthAdjust="spacing">ON RECRUTE ✦ DÉVELOPPEUR WEB JUNIOR ✦</textPath>
+            </text>
+          </svg>
+          <span class="hiring-badge-core" aria-hidden="true"><Icon name="arrow" /></span>
+        </a>
+      </div>
+    </div>
+
+    <div class="container">
+      <ul class="hero-meta">
+        <li><Icon name="star" />Est. 2024</li>
+        <li><Icon name="star" />Lille · Hauts-de-France</li>
+        <li><Icon name="star" />Web · Design · Sur mesure</li>
+        <li><Icon name="star" />Carnet de commandes stable depuis 2 ans</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ BANDEAU ============ -->
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      {
+        [...marquee, ...marquee].map((item) => (
+          <span>
+            {item} <Icon name="star" />
+          </span>
+        ))
+      }
+    </div>
+  </div>
+
+  <!-- ============ L'AGENCE ============ -->
+  <section class="section surface-light" aria-labelledby="intro-title">
+    <div class="container">
+      <SectionHead num="01" label="Notre histoire" titleId="intro-title">
+        Un freelance<br /><em>qui monte sa boîte.</em>
+      </SectionHead>
+
+      <div class="intro-grid">
+        <div data-reveal>
+          <p class="lead-text">
+            NovaForge Studio, c'est d'abord un développeur freelance lillois. Ses clients sont restés, en ont parlé
+            autour d'eux… et l'activité est devenue trop grande pour une seule paire de mains.
+          </p>
+          <div class="prose-muted">
+            <p>
+              En 2024, il structure son activité et crée NovaForge Studio. Il pilote toujours chaque projet lui-même,
+              épaulé par des partenaires indépendants, avec la même proximité qu'en freelance.
+            </p>
+            <p>
+              Aujourd'hui, la demande continue d'augmenter : le studio recrute son premier collaborateur pour passer
+              d'une activité solo à une vraie équipe.
+            </p>
+          </div>
+          <a class="link-arrow" href="/agence">Découvrir l'agence <Icon name="arrow" /></a>
+        </div>
+
+        <ul class="pillars">
+          <li class="pillar" data-reveal>
+            <span class="pillar-mark" aria-hidden="true">A→Z</span>
+            <h3>Suivi de bout en bout</h3>
+            <p>Chaque projet est accompagné du premier rendez-vous jusqu'à la mise en ligne, et au-delà.</p>
+          </li>
+          <li class="pillar" data-reveal style="--d:.08s">
+            <span class="pillar-mark" aria-hidden="true">1:1</span>
+            <h3>Un interlocuteur unique</h3>
+            <p>Une structure légère et flexible, qui s'adapte à votre rythme et à vos priorités.</p>
+          </li>
+          <li class="pillar" data-reveal style="--d:.16s">
+            <span class="pillar-mark" aria-hidden="true">59</span>
+            <h3>Ancrés à Lille</h3>
+            <p>Nous prenons le temps de comprendre votre métier, vos clients et votre territoire.</p>
+          </li>
+        </ul>
+      </div>
+
+      <ol class="journey" aria-label="De freelance à agence">
+        <li class="journey-step" data-reveal>
+          <span class="journey-when">Avant 2024</span>
+          <strong>Un freelance</strong>
+          <span>Un développeur web indépendant et ses premiers clients lillois.</span>
+        </li>
+        <li class="journey-step" data-reveal style="--d:.08s">
+          <span class="journey-when">2024</span>
+          <strong>Un studio</strong>
+          <span>L'activité grandit : création de NovaForge Studio et premiers partenaires.</span>
+        </li>
+        <li class="journey-step journey-step--now" data-reveal style="--d:.16s">
+          <span class="journey-when">Aujourd'hui</span>
+          <strong>Une équipe</strong>
+          <span>Premier recrutement : un développeur web junior pour grandir avec le studio.</span>
+          <a class="journey-link" href="/carrieres/developpeur-web-junior">Et si c'était vous ? <Icon name="arrow" /></a>
+        </li>
+      </ol>
+
+      {
+        workspace && (
+          <a class="photo-band" href="/agence#locaux" data-reveal>
+            <Image
+              src={workspace.src}
+              alt={workspace.alt}
+              widths={[800, 1200, 1448]}
+              sizes="(max-width: 1240px) 100vw, 1160px"
+              format="webp"
+              quality={78}
+            />
+            <span class="photo-band-caption">
+              <span class="photo-band-kicker">Nos locaux · Lille</span>
+              <strong>Passez nous voir au studio.</strong>
+              <span class="photo-band-link">
+                Découvrir nos locaux <Icon name="arrow" />
+              </span>
+            </span>
+          </a>
+        )
+      }
+    </div>
+  </section>
+
+  <!-- ============ SERVICES ============ -->
+  <section class="section surface-light-2" aria-labelledby="services-title">
+    <div class="container">
+      <SectionHead num="02" label="Services" titleId="services-title">
+        Ce que nous <em>forgeons</em> pour vous.
+      </SectionHead>
+
+      <div class="service-grid">
+        {
+          services.map((service, i) => (
+            <a
+              class:list={['service-card', { 'service-card--featured': i === 0 }]}
+              href={`/services#${service.slug}`}
+              data-reveal
+              style={`--d:${i * 0.06}s`}
+            >
+              {i === 0 && <Icon name="star" class="service-deco" />}
+              <span class="service-icon">
+                <Icon name={service.icon} />
+              </span>
+              <h3>{service.title}</h3>
+              <p>{service.short}</p>
+              <ul class="chips">
+                {service.tags.map((tag) => (
+                  <li>{tag}</li>
+                ))}
+              </ul>
+              <span class="service-more">
+                En savoir plus <Icon name="arrow" />
+              </span>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHIFFRES ============ -->
+  <section class="section section--tight surface-dark" aria-label="NovaForge Studio en quelques chiffres">
+    <div class="container">
+      <ul class="stats" data-reveal>
+        <li class="stat"><span class="stat-value">2024</span><span class="stat-label">Création de l'agence à Lille</span></li>
+        <li class="stat"><span class="stat-value">A→Z</span><span class="stat-label">Chaque projet suivi du premier rendez-vous à la mise en ligne</span></li>
+        <li class="stat"><span class="stat-value">1</span><span class="stat-label">Interlocuteur unique pour chaque client</span></li>
+        <li class="stat"><span class="stat-value">2 ans</span><span class="stat-label">De carnet de commandes stable</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ RÉALISATIONS ============ -->
+  <section class="section surface-light" aria-labelledby="work-title">
+    <div class="container">
+      <SectionHead num="03" label="Réalisations" titleId="work-title">
+        Des projets <em>forgés</em> avec nos clients.
+      </SectionHead>
+
+      <div class="projects-grid projects-grid--3">
+        {featured.map((project) => <ProjectCard project={project} />)}
+      </div>
+
+      <div class="section-foot">
+        <a class="link-arrow" href="/realisations">Toutes nos réalisations <Icon name="arrow" /></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MÉTHODE ============ -->
+  <section class="section surface-light-2" aria-labelledby="method-title">
+    <div class="container">
+      <SectionHead num="04" label="Méthode" titleId="method-title">
+        De la première idée<br /><em>à la mise en ligne.</em>
+      </SectionHead>
+      <Steps steps={method} />
+    </div>
+  </section>
+
+  <!-- ============ TÉMOIGNAGES ============ -->
+  <section class="section surface-light" aria-labelledby="reviews-title">
+    <div class="container">
+      <SectionHead num="05" label="Ils nous font confiance" titleId="reviews-title">
+        La proximité, <em>ça se ressent.</em>
+      </SectionHead>
+
+      <div class="testimonials">
+        {
+          testimonials.map((p, i) => (
+            <figure class="testimonial card" data-reveal style={`--d:${i * 0.08}s`}>
+              <Icon name="star" />
+              <blockquote>
+                <p>« {p.testimonial!.quote} »</p>
+              </blockquote>
+              <figcaption>
+                <span class="avatar" aria-hidden="true">
+                  {p.testimonial!.author.charAt(0)}
+                </span>
+                <span>
+                  {p.testimonial!.author}
+                  <small>{p.name}</small>
+                </span>
+              </figcaption>
+            </figure>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <HiringBanner />
+  <CtaBand />
+</BaseLayout>

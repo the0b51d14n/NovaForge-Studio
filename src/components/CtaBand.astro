@@ -1,0 +1,33 @@
+---
+import Icon from './Icon.astro';
+import { site } from '../data/site';
+
+interface Props {
+  title?: string;
+  text?: string;
+  href?: string;
+  label?: string;
+  email?: string;
+}
+
+const {
+  title = 'Un projet en tête ?',
+  text = 'Parlez-nous de votre activité : premier rendez-vous et devis gratuits, sans engagement.',
+  href = '/contact',
+  label = 'Parlons-en',
+  email = site.email,
+} = Astro.props;
+---
+
+<section class="cta-band" aria-labelledby="cta-title">
+  <div class="container cta-inner" data-reveal>
+    <div>
+      <h2 class="cta-title" id="cta-title">{title}</h2>
+      <p>{text}</p>
+    </div>
+    <div class="cta-actions">
+      <a class="btn btn-warm" href={href}>{label} <Icon name="arrow" class="btn-arrow" /></a>
+      <a class="cta-mail" href={`mailto:${email}`}>{email}</a>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,129 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Icon from '../components/Icon.astro';
+import OfficeMap from '../components/OfficeMap.astro';
+import { Image } from 'astro:assets';
+import { findOfficePhoto } from '../data/office';
+
+const clientRoom = findOfficePhoto('rdv');
+import { site } from '../data/site';
+import { services } from '../data/content';
+---
+
+<BaseLayout
+  title="Contact"
+  description="Un projet de site, de boutique en ligne ou d'identité visuelle ? Contactez NovaForge Studio à Lille : premier rendez-vous et devis gratuits."
+>
+  <PageHero
+    eyebrow="Contact"
+    compact
+    lead="Parlez-nous de votre activité et de vos envies : nous revenons vers vous pour fixer un premier rendez-vous. Le devis est gratuit et sans engagement."
+  >
+    <Fragment slot="title">Un projet ? <em>Parlons-en.</em></Fragment>
+  </PageHero>
+
+  <section class="section surface-light" aria-label="Formulaire de contact">
+    <div class="container form-layout">
+      <div data-reveal>
+        <dl class="info-list">
+          <div><dt>Adresse</dt><dd>{site.address[0]}<br />{site.address[1]}</dd></div>
+          <div><dt>E-mail</dt><dd><a href={`mailto:${site.email}`}>{site.email}</a></dd></div>
+          <div><dt>Horaires</dt><dd>{site.hours}</dd></div>
+          <div><dt>Réponse</dt><dd>Sous 48 h ouvrées</dd></div>
+        </dl>
+
+        {
+          clientRoom && (
+            <figure class="hero-photo contact-photo">
+              <Image
+                src={clientRoom.src}
+                alt={clientRoom.alt}
+                widths={[480, 800, 1200]}
+                sizes="(max-width: 960px) 100vw, 40vw"
+                format="webp"
+                quality={78}
+              />
+              <figcaption>Là où nous vous recevons · {clientRoom.title}</figcaption>
+            </figure>
+          )
+        }
+
+        <OfficeMap compact />
+
+        <div class="side-card card">
+          <h3>Vous souhaitez nous rejoindre ?</h3>
+          <p>Nous recrutons notre premier développeur web junior, en alternance ou en CDI.</p>
+          <a class="link-arrow" href="/carrieres">Voir l'offre <Icon name="arrow" /></a>
+        </div>
+      </div>
+
+      <form
+        class="form form--card card"
+        data-form
+        novalidate
+        data-success="Merci ! Votre message a bien été pris en compte, nous revenons vers vous rapidement. (Site fictif : aucun message n'est réellement envoyé.)"
+      >
+        <div class="field" data-field>
+          <label for="c-name">Nom <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="c-name" name="nom" type="text" autocomplete="name" required aria-describedby="c-name-err" />
+          <span class="field-error" id="c-name-err"></span>
+        </div>
+        <div class="field" data-field>
+          <label for="c-email">E-mail <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id="c-email" name="email" type="email" autocomplete="email" required aria-describedby="c-email-err" />
+          <span class="field-error" id="c-email-err"></span>
+        </div>
+        <div class="field" data-field>
+          <label for="c-company">Entreprise</label>
+          <input class="input" id="c-company" name="entreprise" type="text" autocomplete="organization" />
+        </div>
+        <div class="field" data-field>
+          <label for="c-phone">Téléphone</label>
+          <input class="input" id="c-phone" name="telephone" type="tel" autocomplete="tel" />
+        </div>
+        <div class="field" data-field>
+          <label for="c-type">Type de projet</label>
+          <select class="input" id="c-type" name="type">
+            {services.map((s) => <option>{s.title}</option>)}
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="field" data-field>
+          <label for="c-budget">Budget estimé</label>
+          <select class="input" id="c-budget" name="budget">
+            <option>Je ne sais pas encore</option>
+            <option>Moins de 2 000 €</option>
+            <option>2 000 € – 5 000 €</option>
+            <option>5 000 € – 10 000 €</option>
+            <option>Plus de 10 000 €</option>
+          </select>
+        </div>
+        <div class="field field--full" data-field>
+          <label for="c-message">Votre projet <span class="req" aria-hidden="true">*</span></label>
+          <textarea
+            class="input"
+            id="c-message"
+            name="message"
+            rows="5"
+            required
+            aria-describedby="c-message-err"
+            placeholder="Votre activité, vos objectifs, vos délais…"></textarea>
+          <span class="field-error" id="c-message-err"></span>
+        </div>
+        <div class="field field--full" data-field>
+          <label class="check">
+            <input type="checkbox" name="consentement" required aria-describedby="c-consent-err" />
+            <span>J'accepte que mes informations soient utilisées pour être recontacté au sujet de mon projet.</span>
+          </label>
+          <span class="field-error" id="c-consent-err"></span>
+        </div>
+        <div class="form-footer">
+          <p class="form-note"><span aria-hidden="true">*</span> Champs obligatoires</p>
+          <button class="btn btn-primary" type="submit">Envoyer le message <Icon name="arrow" class="btn-arrow" /></button>
+        </div>
+        <p class="form-status" role="status" data-form-status></p>
+      </form>
+    </div>
+  </section>
+</BaseLayout>

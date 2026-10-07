@@ -1,0 +1,40 @@
+---
+import Logo from './Logo.astro';
+import { nav } from '../data/site';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+---
+
+<header class="site-header" data-header>
+  <div class="container header-inner">
+    <a class="brand" href="/" aria-label="NovaForge Studio, retour à l'accueil">
+      <Logo variant="lockup" tone="dark" />
+    </a>
+
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" data-nav-toggle>
+      <span class="sr-only">Ouvrir le menu</span>
+      <span class="nav-toggle-bars" aria-hidden="true"></span>
+    </button>
+
+    <nav class="site-nav" id="site-nav" aria-label="Navigation principale" data-nav>
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
+                {item.label}
+                {item.badge && <span class="pill">{item.badge}</span>}
+              </a>
+            </li>
+          ))
+        }
+        <li>
+          <a class="nav-cta" href="/contact" aria-current={isActive('/contact') ? 'page' : undefined}>
+            Contact
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</header>

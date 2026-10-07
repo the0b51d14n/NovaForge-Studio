@@ -1,0 +1,155 @@
+---
+// Formulaire de candidature en 3 étapes (validation dans le navigateur, aucun envoi réel)
+import Icon from './Icon.astro';
+
+interface Props {
+  position: string;
+  contracts: string[];
+  idPrefix?: string;
+}
+
+const { position, contracts, idPrefix = 'apply' } = Astro.props;
+const id = (name: string) => `${idPrefix}-${name}`;
+const steps = ['Vous', 'Votre profil', 'Motivation'];
+---
+
+<form class="apply-form card" data-form data-steps novalidate aria-label={`Candidature : ${position}`}>
+  <input type="hidden" name="poste" value={position} />
+
+  <ol class="apply-progress" aria-hidden="true">
+    {
+      steps.map((label, i) => (
+        <li class:list={{ 'is-active': i === 0 }} data-progress={i}>
+          <span class="apply-progress-dot">{i + 1}</span>
+          <span class="apply-progress-label">{label}</span>
+        </li>
+      ))
+    }
+  </ol>
+  <p class="sr-only" aria-live="polite" data-step-status>Étape 1 sur 3 : Vous</p>
+
+  <div class="apply-body" data-apply-body>
+    <!-- Étape 1 -->
+    <fieldset class="apply-step" data-step="0">
+      <legend class="apply-step-title" tabindex="-1">Parlons de vous</legend>
+      <div class="form">
+        <div class="field" data-field>
+          <label for={id('firstname')}>Prénom <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id={id('firstname')} name="prenom" type="text" autocomplete="given-name" required aria-describedby={id('firstname-err')} />
+          <span class="field-error" id={id('firstname-err')}></span>
+        </div>
+        <div class="field" data-field>
+          <label for={id('lastname')}>Nom <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id={id('lastname')} name="nom" type="text" autocomplete="family-name" required aria-describedby={id('lastname-err')} />
+          <span class="field-error" id={id('lastname-err')}></span>
+        </div>
+        <div class="field" data-field>
+          <label for={id('email')}>E-mail <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id={id('email')} name="email" type="email" autocomplete="email" required aria-describedby={id('email-err')} />
+          <span class="field-error" id={id('email-err')}></span>
+        </div>
+        <div class="field" data-field>
+          <label for={id('phone')}>Téléphone</label>
+          <input class="input" id={id('phone')} name="telephone" type="tel" autocomplete="tel" />
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Étape 2 -->
+    <fieldset class="apply-step" data-step="1" hidden>
+      <legend class="apply-step-title" tabindex="-1">Votre profil</legend>
+      <div class="form">
+        <fieldset class="field field--full" data-field aria-describedby={id('contract-err')}>
+          <legend>Contrat souhaité <span class="req" aria-hidden="true">*</span></legend>
+          <div class="choices">
+            {
+              contracts.map((c, i) => (
+                <label class="choice">
+                  <input type="radio" name="contrat" value={c} required={i === 0} />
+                  <span>{c}</span>
+                </label>
+              ))
+            }
+          </div>
+          <span class="field-error" id={id('contract-err')}></span>
+        </fieldset>
+        <div class="field" data-field>
+          <label for={id('link')}>Portfolio ou GitHub <span class="req" aria-hidden="true">*</span></label>
+          <input class="input" id={id('link')} name="lien" type="url" placeholder="https://github.com/votre-profil" required aria-describedby={id('link-err')} />
+          <span class="field-error" id={id('link-err')}></span>
+        </div>
+        <div class="field" data-field>
+          <label for={id('linkedin')}>LinkedIn</label>
+          <input class="input" id={id('linkedin')} name="linkedin" type="url" placeholder="https://linkedin.com/in/…" aria-describedby={id('linkedin-err')} />
+          <span class="field-error" id={id('linkedin-err')}></span>
+        </div>
+        <div class="field field--full" data-field>
+          <label for={id('cv')}>CV (PDF, DOC) <span class="req" aria-hidden="true">*</span></label>
+          <div class="file">
+            <input class="file-input" id={id('cv')} name="cv" type="file" accept=".pdf,.doc,.docx" required aria-describedby={id('cv-err')} data-file-input />
+            <span class="file-btn" aria-hidden="true">Choisir un fichier</span>
+            <span class="file-name" data-file-name data-empty="Aucun fichier sélectionné">Aucun fichier sélectionné</span>
+          </div>
+          <span class="field-error" id={id('cv-err')}></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- Étape 3 -->
+    <fieldset class="apply-step" data-step="2" hidden>
+      <legend class="apply-step-title" tabindex="-1">Votre motivation</legend>
+      <div class="form">
+        <div class="field field--full" data-field>
+          <label for={id('message')}>Pourquoi NovaForge Studio ? <span class="req" aria-hidden="true">*</span></label>
+          <textarea class="input" id={id('message')} name="message" rows="5" required aria-describedby={id('message-err')} placeholder="Ce qui vous motive, un projet dont vous êtes fier…"></textarea>
+          <span class="field-error" id={id('message-err')}></span>
+        </div>
+        <div class="field" data-field>
+          <label for={id('start')}>Disponibilité</label>
+          <select class="input" id={id('start')} name="disponibilite">
+            <option>Dès que possible</option>
+            <option>Dans 1 mois</option>
+            <option>Dans 3 mois</option>
+            <option>À la rentrée</option>
+          </select>
+        </div>
+        <div class="field" data-field>
+          <label for={id('source')}>Comment nous avez-vous connus ?</label>
+          <select class="input" id={id('source')} name="source">
+            <option>Job dating</option>
+            <option>Mon école</option>
+            <option>LinkedIn</option>
+            <option>Bouche-à-oreille</option>
+            <option>Autre</option>
+          </select>
+        </div>
+        <div class="field field--full" data-field>
+          <label class="check">
+            <input type="checkbox" name="consentement" required aria-describedby={id('consent-err')} />
+            <span>J'accepte que mes informations soient utilisées dans le cadre de ce recrutement.</span>
+          </label>
+          <span class="field-error" id={id('consent-err')}></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <div class="apply-nav">
+      <button class="btn btn-ghost" type="button" data-step-prev hidden>Retour</button>
+      <p class="form-note"><span aria-hidden="true">*</span> Champs obligatoires</p>
+      <button class="btn btn-primary" type="button" data-step-next>Continuer <Icon name="arrow" class="btn-arrow" /></button>
+      <button class="btn btn-primary" type="submit" data-step-submit hidden>Envoyer ma candidature <Icon name="arrow" class="btn-arrow" /></button>
+    </div>
+  </div>
+
+  <div class="apply-success" data-apply-success hidden tabindex="-1">
+    <span class="apply-success-icon" aria-hidden="true"><Icon name="check" /></span>
+    <h3>Candidature envoyée !</h3>
+    <p>Merci pour votre intérêt. Voici la suite :</p>
+    <ol class="apply-next">
+      <li><strong>Sous 1 semaine</strong> — nous revenons vers vous, quelle que soit la réponse.</li>
+      <li><strong>Échange découverte</strong> — un appel visio de 20 minutes avec le fondateur.</li>
+      <li><strong>Mini cas pratique</strong> — maquetter ou intégrer une page simple.</li>
+    </ol>
+    <p class="form-note">Site fictif : aucune donnée n'a réellement été envoyée.</p>
+  </div>
+</form>

@@ -1,0 +1,259 @@
+---
+import type { GetStaticPaths } from 'astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import SectionHead from '../../components/SectionHead.astro';
+import Icon from '../../components/Icon.astro';
+import Steps from '../../components/Steps.astro';
+import ApplyForm from '../../components/ApplyForm.astro';
+import { job, openings, type Opening } from '../../data/content';
+import { site } from '../../data/site';
+
+export const getStaticPaths = (() =>
+  openings.map((opening) => ({ params: { slug: opening.slug }, props: { opening } }))) satisfies GetStaticPaths;
+
+interface Props {
+  opening: Opening;
+}
+
+const { opening: o } = Astro.props;
+
+const published = new Date(o.published);
+const publishedLabel = published.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+const validThrough = new Date(published);
+validThrough.setMonth(validThrough.getMonth() + 3);
+
+// Données structurées : permettent à l'offre d'apparaître dans Google Jobs
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'JobPosting',
+  title: o.title,
+  description: `<p>${o.intro.join('</p><p>')}</p>`,
+  datePosted: o.published,
+  validThrough: validThrough.toISOString().slice(0, 10),
+  employmentType: ['FULL_TIME', 'INTERN'],
+  hiringOrganization: { '@type': 'Organization', name: site.name, sameAs: Astro.site?.href },
+  jobLocation: {
+    '@type': 'Place',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: site.address[0],
+      addressLocality: 'Lille',
+      addressRegion: 'Hauts-de-France',
+      addressCountry: 'FR',
+    },
+    geo: { '@type': 'GeoCoordinates', latitude: site.geo.lat, longitude: site.geo.lng },
+  },
+  jobLocationType: 'TELECOMMUTE',
+  applicantLocationRequirements: { '@type': 'Country', name: 'France' },
+  baseSalary: {
+    '@type': 'MonetaryAmount',
+    currency: 'EUR',
+    value: { '@type': 'QuantitativeValue', value: 30000, unitText: 'YEAR' },
+  },
+};
+---
+
+<BaseLayout title={o.title} description={`${site.name} recrute : ${o.title} à Lille. ${o.summary}`}>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
+  <!-- ============ EN-TÊTE DE L'OFFRE ============ -->
+  <section class="page-hero page-hero--compact surface-dark" aria-labelledby="page-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+    <div class="container page-hero-copy">
+      <nav class="breadcrumb" aria-label="Fil d'Ariane">
+        <ol>
+          <li><a href="/carrieres">Carrières</a></li>
+          <li><a href="/carrieres#offres">Offres</a></li>
+          <li aria-current="page">{o.title}</li>
+        </ol>
+      </nav>
+      <p class="eyebrow">{o.team}</p>
+      <h1 class="page-title offer-title" id="page-title">{o.title}</h1>
+      <ul class="offer-tags">
+        <li><Icon name="briefcase" />{o.contracts.join(' ou ')}</li>
+        <li><Icon name="pin" />{o.location}</li>
+        <li><Icon name="home" />{o.remote}</li>
+        <li><Icon name="growth" />{o.experience}</li>
+      </ul>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#postuler">Postuler <Icon name="arrow" class="btn-arrow" /></a>
+        <button class="btn btn-ghost" type="button" data-share data-share-title={`${o.title} · ${site.name}`}>
+          <Icon name="share" class="btn-arrow" /><span data-share-label>Partager l'offre</span>
+        </button>
+      </div>
+      <p class="offer-date">Publiée le {publishedLabel}</p>
+    </div>
+  </section>
+
+  <!-- ============ CONTENU ============ -->
+  <section class="section surface-light" aria-label="Détail de l'offre">
+    <div class="container offer-layout">
+      <article class="offer-main">
+        <section class="offer-block" aria-labelledby="o-company">
+          <h2 class="offer-h2" id="o-company"><span>01</span>L'entreprise</h2>
+          <p>
+            {site.name} a été fondée en 2024 par un développeur freelance lillois, pour structurer une activité qui ne
+            cessait de grandir. Le studio accompagne des TPE, des PME et des jeunes entreprises : sites vitrines,
+            boutiques en ligne, identité visuelle ou applications sur mesure, avec un fonctionnement très flexible et
+            une vraie proximité avec les clients.
+          </p>
+          <p>
+            Le carnet de commandes est stable depuis 2 ans et la demande augmente : c'est pour cela que le studio
+            recrute aujourd'hui son <strong>premier salarié</strong>. Vous participerez directement à la construction
+            de l'agence.
+          </p>
+          <a class="link-arrow" href="/agence">Découvrir l'agence <Icon name="arrow" /></a>
+        </section>
+
+        <section class="offer-block" aria-labelledby="o-job">
+          <h2 class="offer-h2" id="o-job"><span>02</span>Le poste</h2>
+          {o.intro.map((p) => <p>{p}</p>)}
+          <p class="statement offer-quote">
+            « Chez nous, vous ne serez pas simplement exécutant : vous participerez réellement aux décisions et pourrez
+            suivre les projets <em>de A à Z.</em> »
+          </p>
+        </section>
+
+        <section class="offer-block" aria-labelledby="o-missions">
+          <h2 class="offer-h2" id="o-missions"><span>03</span>Vos missions</h2>
+          <ul class="tiles tiles--2">
+            {
+              job.missions.map((m, i) => (
+                <li class="tile card">
+                  <span class="tile-num">/0{i + 1}</span>
+                  <h3>{m.title}</h3>
+                  <p>{m.text}</p>
+                </li>
+              ))
+            }
+          </ul>
+        </section>
+
+        <section class="offer-block" aria-labelledby="o-profile">
+          <h2 class="offer-h2" id="o-profile"><span>04</span>Le profil recherché</h2>
+          <ul class="offer-traits">
+            {
+              job.traits.map((t) => (
+                <li>
+                  <strong>{t.title}</strong>
+                  {t.text}
+                </li>
+              ))
+            }
+          </ul>
+          <div class="skills">
+            <div class="skills-col card">
+              <p class="svc-label">Indispensable</p>
+              <ul class="svc-includes">
+                {o.skills.must.map((s) => <li><Icon name="check" />{s}</li>)}
+              </ul>
+            </div>
+            <div class="skills-col card">
+              <p class="svc-label">Un plus</p>
+              <ul class="svc-includes">
+                {o.skills.nice.map((s) => <li><Icon name="star" />{s}</li>)}
+              </ul>
+            </div>
+          </div>
+          <aside class="note-box">
+            <p class="note-box-title">Vous n'avez pas toutes les compétences ?</p>
+            <p>
+              Ce n'est pas un problème. Nous recrutons d'abord une personnalité curieuse et motivée. Les compétences
+              techniques s'acquièrent sur le terrain, avec un accompagnement.
+            </p>
+          </aside>
+        </section>
+
+        <section class="offer-block" aria-labelledby="o-pay">
+          <h2 class="offer-h2" id="o-pay"><span>05</span>Rémunération &amp; avantages</h2>
+          <div class="pay">
+            {
+              job.pay.map((p) => (
+                <article class:list={['pay-card', 'card', { 'pay-card--featured': p.featured }]}>
+                  <p class="pay-label">{p.label}</p>
+                  <p class="pay-value">{p.value}</p>
+                  <p class="pay-detail">{p.detail}</p>
+                </article>
+              ))
+            }
+          </div>
+          <dl class="spec spec--single">
+            {
+              job.perks.map((perk) => (
+                <div class="spec-row">
+                  <dt>{perk.label}</dt>
+                  <dd>{perk.value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+        </section>
+
+        <section class="offer-block" aria-labelledby="o-process">
+          <h2 class="offer-h2" id="o-process"><span>06</span>Le recrutement</h2>
+          <Steps steps={job.steps} vertical />
+          <a class="link-arrow" href="/carrieres#faq-title">Questions fréquentes <Icon name="arrow" /></a>
+        </section>
+      </article>
+
+      <!-- Résumé collant -->
+      <aside class="offer-aside" aria-label="Résumé de l'offre">
+        <div class="offer-summary card">
+          <p class="svc-label">En bref</p>
+          <dl class="info-list">
+            <div><dt>Contrat</dt><dd>{o.contracts.join(' ou ')}</dd></div>
+            <div><dt>Lieu</dt><dd>{o.location}</dd></div>
+            <div><dt>Télétravail</dt><dd>{o.remote}</dd></div>
+            <div><dt>Expérience</dt><dd>{o.experience}</dd></div>
+            <div><dt>Salaire</dt><dd>{o.salary}</dd></div>
+            <div><dt>Début</dt><dd>{o.start}</dd></div>
+          </dl>
+          <a class="btn btn-primary" href="#postuler">Postuler <Icon name="arrow" class="btn-arrow" /></a>
+          <p class="offer-contact">
+            Une question ? <a href={`mailto:${site.jobsEmail}`}>{site.jobsEmail}</a>
+          </p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ============ POSTULER ============ -->
+  <section class="section surface-dark apply" id="postuler" aria-labelledby="apply-title">
+    <div class="container form-layout">
+      <div>
+        <SectionHead num="07" label="Postuler" titleId="apply-title">
+          Prêt à forger<br /><em>la suite ?</em>
+        </SectionHead>
+        <p class="section-intro">
+          Trois étapes, moins de cinq minutes. Nous répondons à tous les candidats, sous une semaine.
+        </p>
+        <ul class="apply-checklist">
+          <li><Icon name="check" />Votre CV</li>
+          <li><Icon name="check" />Un portfolio ou votre GitHub</li>
+          <li><Icon name="check" />Quelques mots sur votre motivation</li>
+        </ul>
+      </div>
+      <ApplyForm position={o.title} contracts={o.contracts} idPrefix={o.slug} />
+    </div>
+  </section>
+
+  <!-- ============ AUTRES PISTES ============ -->
+  <section class="section section--tight surface-light" aria-label="Autres pistes">
+    <div class="container next-links">
+      <a class="job-card job-card--open" href="/carrieres/candidature-spontanee">
+        <span class="job-main">
+          <span class="job-team">Pas tout à fait vous ?</span>
+          <span class="job-title">Candidature spontanée</span>
+        </span>
+        <span class="job-arrow" aria-hidden="true"><Icon name="arrow" /></span>
+      </a>
+      <a class="job-card job-card--open" href="/carrieres">
+        <span class="job-main">
+          <span class="job-team">Envie d'en savoir plus ?</span>
+          <span class="job-title">La vie au studio</span>
+        </span>
+        <span class="job-arrow" aria-hidden="true"><Icon name="arrow" /></span>
+      </a>
+    </div>
+  </section>
+</BaseLayout>

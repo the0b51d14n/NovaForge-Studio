@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+---
+
+<BaseLayout title="Page introuvable">
+  <section class="hero notfound surface-dark" aria-labelledby="nf-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+    <div class="container">
+      <Logo variant="mark" tone="dark" />
+      <p class="notfound-code" aria-hidden="true">404</p>
+      <h1 id="nf-title">Cette page s'est perdue dans les étoiles.</h1>
+      <p>La page que vous cherchez n'existe pas ou a été déplacée.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/">Retour à l'accueil <Icon name="arrow" class="btn-arrow" /></a>
+        <a class="btn btn-ghost" href="/contact">Nous contacter</a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

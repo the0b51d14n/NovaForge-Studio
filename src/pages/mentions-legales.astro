@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import { site } from '../data/site';
+---
+
+<BaseLayout title="Mentions légales" description="Mentions légales du site NovaForge Studio (site fictif, exercice pédagogique).">
+  <PageHero eyebrow="Informations" compact>
+    <Fragment slot="title">Mentions <em>légales.</em></Fragment>
+  </PageHero>
+
+  <section class="section surface-light" aria-label="Mentions légales">
+    <div class="container prose">
+      <h2>Site fictif</h2>
+      <p>
+        {site.name} est une entreprise fictive. Ce site a été réalisé dans le cadre d'un exercice pédagogique (job
+        dating, module « Découverte de l'entreprise »). Les informations, projets, témoignages et coordonnées
+        présentés sont inventés.
+      </p>
+
+      <h2>Éditeur</h2>
+      <p>{site.name} · {site.address.join(', ')} · {site.email}</p>
+
+      <h2>Données personnelles</h2>
+      <p>
+        Les formulaires de ce site sont uniquement démonstratifs : aucune donnée saisie n'est transmise ni enregistrée.
+      </p>
+
+      <h2>Crédits</h2>
+      <p>
+        Conception et développement : {site.name}. Site construit avec Astro. Polices : Sora, Manrope, Instrument
+        Serif, JetBrains Mono et Montserrat (licence SIL Open Font).
+      </p>
+
+      <p><a href="/">← Retour à l'accueil</a></p>
+    </div>
+  </section>
+</BaseLayout>

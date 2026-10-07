@@ -1,0 +1,17 @@
+PHOTOS DES BUREAUX
+==================
+
+Dépose ici les photos des bureaux (JPG, PNG ou WebP).
+Elles s'affichent automatiquement dans la galerie « Nos bureaux »
+sur les pages L'agence et Carrières (section « La vie au studio »).
+
+- Le nom du fichier sert de légende :
+    espace-de-travail.jpg  ->  « Espace de travail »
+- Un numéro au début fixe l'ordre (il n'apparaît pas dans la légende) :
+    01-accueil.jpg, 02-salle-de-reunion.jpg, 03-terrasse.jpg
+- Les noms d'appareil photo (IMG_1234.jpg, PXL_...) n'affichent pas de légende.
+- Pas besoin de redimensionner : le site compresse les photos automatiquement.
+- La première photo est affichée en grand.
+
+Après un ajout, recharge la page. Si les photos n'apparaissent pas,
+arrête puis relance « npm run dev ».

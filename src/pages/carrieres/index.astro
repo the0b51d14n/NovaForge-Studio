@@ -1,0 +1,195 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import SectionHead from '../../components/SectionHead.astro';
+import Icon from '../../components/Icon.astro';
+import Steps from '../../components/Steps.astro';
+import Faq from '../../components/Faq.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import OfficeGallery from '../../components/OfficeGallery.astro';
+import { job, openings, benefits, dayInLife } from '../../data/content';
+import { site } from '../../data/site';
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<BaseLayout
+  title="Carrières"
+  description="Rejoignez NovaForge Studio, agence digitale lilloise en pleine croissance : offres d'emploi, avantages, vie au studio et processus de recrutement."
+>
+  <PageHero
+    eyebrow="Carrières"
+    lead="NovaForge Studio, c'est un développeur freelance qui monte sa boîte. Rejoignez-le dès le début, comme premier collaborateur : votre travail se verra directement, et votre place grandira avec l'agence."
+  >
+    <Fragment slot="title">Grandissez <em>avec nous.</em></Fragment>
+    <Fragment slot="actions">
+      <a class="btn btn-primary" href="#offres">Voir les offres <Icon name="arrow" class="btn-arrow" /></a>
+      <a class="btn btn-ghost" href="/carrieres/candidature-spontanee">Candidature spontanée</a>
+    </Fragment>
+    <Fragment slot="aside">
+      <dl class="info-list">
+        <div><dt>Postes ouverts</dt><dd>{openings.length}</dd></div>
+        <div><dt>Contrats</dt><dd>Alternance · CDI</dd></div>
+        <div><dt>Télétravail</dt><dd>Jusqu'à 3 j / semaine</dd></div>
+        <div><dt>Réponse</dt><dd>Sous 1 semaine</dd></div>
+      </dl>
+    </Fragment>
+  </PageHero>
+
+  <!-- ============ OFFRES ============ -->
+  <section class="section surface-light" id="offres" aria-labelledby="offers-title">
+    <div class="container">
+      <SectionHead num="01" label="Offres" titleId="offers-title">
+        Nos postes <em>ouverts.</em>
+        <Fragment slot="intro">
+          {openings.length} offre{openings.length > 1 ? 's' : ''} en ce moment · mise à jour le {formatDate(openings[0].published)}
+        </Fragment>
+      </SectionHead>
+
+      <ul class="jobs">
+        {
+          openings.map((o) => (
+            <li data-reveal>
+              <a class="job-card" href={`/carrieres/${o.slug}`}>
+                <span class="job-badge">Nouveau</span>
+                <span class="job-main">
+                  <span class="job-team">{o.team}</span>
+                  <span class="job-title">{o.title}</span>
+                  <span class="job-summary">{o.summary}</span>
+                </span>
+                <span class="job-tags">
+                  <span><Icon name="briefcase" />{o.contracts.join(' ou ')}</span>
+                  <span><Icon name="pin" />{o.location}</span>
+                  <span><Icon name="home" />Télétravail partiel</span>
+                </span>
+                <span class="job-arrow" aria-hidden="true"><Icon name="arrow" /></span>
+              </a>
+            </li>
+          ))
+        }
+        <li data-reveal>
+          <a class="job-card job-card--open" href="/carrieres/candidature-spontanee">
+            <span class="job-main">
+              <span class="job-team">Toujours ouvert</span>
+              <span class="job-title">Candidature spontanée</span>
+              <span class="job-summary">Aucune offre ne vous correspond ? Présentez-vous : l'agence grandit, d'autres postes suivront.</span>
+            </span>
+            <span class="job-arrow" aria-hidden="true"><Icon name="arrow" /></span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ POURQUOI NOUS REJOINDRE ============ -->
+  <section class="section surface-dark hiring" aria-labelledby="why-title">
+    <div class="container">
+      <SectionHead num="02" label="Pourquoi nous rejoindre" titleId="why-title">
+        Pas un simple exécutant.<br /><em>Un vrai rôle.</em>
+      </SectionHead>
+
+      <ul class="tiles tiles--2">
+        {
+          job.reasons.map((r, i) => (
+            <li class="tile reason card" data-reveal style={`--d:${(i % 2) * 0.08}s`}>
+              <span class="tile-num">/0{i + 1}</span>
+              <h3>{r.title}</h3>
+              <blockquote>
+                <p>« {r.quote} »</p>
+              </blockquote>
+            </li>
+          ))
+        }
+      </ul>
+
+      <ul class="facts">
+        {
+          job.facts.map((f, i) => (
+            <li class="fact" data-reveal style={`--d:${i * 0.08}s`}>
+              <span class="fact-value">{f.value}</span>
+              <span class="fact-label">{f.label}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ AVANTAGES ============ -->
+  <section class="section surface-light" aria-labelledby="perks-title">
+    <div class="container">
+      <SectionHead num="03" label="Avantages" titleId="perks-title">
+        Bien travailler,<br /><em>bien grandir.</em>
+      </SectionHead>
+
+      <ul class="benefits">
+        {
+          benefits.map((b, i) => (
+            <li class="benefit card" data-reveal style={`--d:${(i % 4) * 0.06}s`}>
+              <span class="service-icon">
+                <Icon name={b.icon} />
+              </span>
+              <h3>{b.title}</h3>
+              <p>{b.text}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ VIE AU STUDIO ============ -->
+  <section class="section surface-light-2" aria-labelledby="day-title">
+    <div class="container">
+      <SectionHead num="04" label="La vie au studio" titleId="day-title">
+        Une journée <em>type.</em>
+        <Fragment slot="intro">Chaque journée est différente, mais voici à quoi elle ressemble souvent.</Fragment>
+      </SectionHead>
+
+      <ol class="day">
+        {
+          dayInLife.map((moment, i) => (
+            <li class="day-item card" data-reveal style={`--d:${i * 0.06}s`}>
+              <span class="day-time">
+                <Icon name="clock" />
+                {moment.time}
+              </span>
+              <h3>{moment.title}</h3>
+              <p>{moment.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+      <OfficeGallery />
+    </div>
+  </section>
+
+  <!-- ============ PROCESSUS ============ -->
+  <section class="section surface-light" id="processus" aria-labelledby="process-title">
+    <div class="container">
+      <SectionHead num="05" label="Processus de recrutement" titleId="process-title">
+        Cinq étapes,<br /><em>zéro surprise.</em>
+      </SectionHead>
+      <Steps steps={job.steps} />
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section surface-light-2" aria-labelledby="faq-title">
+    <div class="container faq-layout">
+      <SectionHead num="06" label="Questions fréquentes" titleId="faq-title">
+        Vos questions,<br /><em>nos réponses.</em>
+      </SectionHead>
+      <Faq items={job.faq} />
+    </div>
+  </section>
+
+  <CtaBand
+    title="Envie de nous rejoindre ?"
+    text="Postulez à notre offre ou envoyez une candidature spontanée : nous répondons à tous les candidats."
+    href={`/carrieres/${openings[0].slug}#postuler`}
+    label="Postuler"
+    email={site.jobsEmail}
+  />
+</BaseLayout>

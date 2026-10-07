@@ -1,0 +1,30 @@
+---
+// Logo NovaForge : symbole officiel (public/favicon-pack) + logotype en texte.
+// variant : 'mark' (symbole seul), 'lockup' (horizontal), 'stacked' (vertical)
+// tone : couleur du fond sur lequel le logo est posé
+// large : charge la version 512 px (grand affichage, ex. hero)
+interface Props {
+  variant?: 'mark' | 'lockup' | 'stacked';
+  tone?: 'dark' | 'light';
+  large?: boolean;
+  class?: string;
+}
+
+const { variant = 'mark', tone = 'dark', large = false, class: className } = Astro.props;
+const src = large ? '/favicon-pack/icon-512.png' : '/favicon-pack/icon-192.png';
+const size = large ? 512 : 192;
+---
+
+<span class:list={['logo', `logo--${variant}`, `logo--on-${tone}`, className]}>
+  <img class="logo-mark" src={src} width={size} height={size} alt="" decoding="async" />
+  {
+    variant !== 'mark' && (
+      <span class="logo-text">
+        <span class="logo-word">
+          <span class="logo-nova">Nova</span><span class="logo-forge">Forge</span>
+        </span>
+        <span class="logo-studio">Studio</span>
+      </span>
+    )
+  }
+</span>

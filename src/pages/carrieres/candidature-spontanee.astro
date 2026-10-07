@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import ApplyForm from '../../components/ApplyForm.astro';
+import Icon from '../../components/Icon.astro';
+import { openings } from '../../data/content';
+---
+
+<BaseLayout
+  title="Candidature spontanée"
+  description="Envoyez une candidature spontanée à NovaForge Studio, agence digitale à Lille."
+>
+  <PageHero
+    eyebrow="Carrières · Candidature spontanée"
+    compact
+    lead="Aucune offre ne correspond exactement à votre profil ? Présentez-vous quand même : l'agence grandit et d'autres postes suivront."
+  >
+    <Fragment slot="title">Présentez-<em>vous.</em></Fragment>
+  </PageHero>
+
+  <section class="section surface-light" aria-label="Formulaire de candidature spontanée">
+    <div class="container form-layout">
+      <div>
+        <p class="lead-text">Nous lisons chaque candidature avec attention et répondons à tous, sous une semaine.</p>
+        <ul class="apply-checklist">
+          <li><Icon name="check" />Votre CV</li>
+          <li><Icon name="check" />Un portfolio ou votre GitHub</li>
+          <li><Icon name="check" />Ce que vous aimeriez faire chez nous</li>
+        </ul>
+        <div class="side-card card">
+          <h3>Une offre est ouverte</h3>
+          <p>{openings[0].title} · {openings[0].contracts.join(' ou ')}</p>
+          <a class="link-arrow" href={`/carrieres/${openings[0].slug}`}>Voir l'offre <Icon name="arrow" /></a>
+        </div>
+      </div>
+      <ApplyForm position="Candidature spontanée" contracts={['Alternance', 'CDI', 'Stage']} idPrefix="spontanee" />
+    </div>
+  </section>
+</BaseLayout>

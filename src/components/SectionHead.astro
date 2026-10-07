@@ -1,0 +1,19 @@
+---
+interface Props {
+  label: string;
+  num?: string;
+  titleId?: string;
+  center?: boolean;
+}
+
+const { label, num, titleId, center = false } = Astro.props;
+---
+
+<header class:list={['section-head', { 'section-head--center': center }]} data-reveal>
+  <p class="kicker">
+    {num && <span class="kicker-num">{num}</span>}
+    {label}
+  </p>
+  <h2 class="section-title" id={titleId}><slot /></h2>
+  {Astro.slots.has('intro') && <p class="section-intro"><slot name="intro" /></p>}
+</header>

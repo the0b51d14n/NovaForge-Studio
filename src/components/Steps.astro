@@ -1,0 +1,25 @@
+---
+import type { Step } from '../data/content';
+
+interface Props {
+  steps: Step[];
+  vertical?: boolean;
+}
+
+const { steps, vertical = false } = Astro.props;
+---
+
+<ol class:list={['steps', { 'steps--vertical': vertical }]}>
+  {
+    steps.map((step, i) => (
+      <li class="step" data-reveal style={`--d:${i * 0.08}s`}>
+        <span class="step-num" aria-hidden="true">
+          {String(i + 1).padStart(2, '0')}
+        </span>
+        <h3>{step.title}</h3>
+        <p>{step.text}</p>
+        {step.meta && <p class="step-meta">{step.meta}</p>}
+      </li>
+    ))
+  }
+</ol>

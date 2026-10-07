@@ -1,0 +1,49 @@
+---
+import Logo from './Logo.astro';
+import { site } from '../data/site';
+---
+
+<footer class="site-footer surface-dark">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a href="/" aria-label="NovaForge Studio, retour à l'accueil">
+        <Logo variant="stacked" tone="dark" />
+      </a>
+      <p class="footer-tagline">Forger votre présence <em>numérique</em>.</p>
+    </div>
+
+    <nav class="footer-col" aria-label="L'agence">
+      <p class="footer-title">L'agence</p>
+      <ul>
+        <li><a href="/agence">Qui sommes-nous</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/realisations">Réalisations</a></li>
+      </ul>
+    </nav>
+
+    <nav class="footer-col" aria-label="Nous rejoindre">
+      <p class="footer-title">Nous rejoindre</p>
+      <ul>
+        <li><a href="/carrieres">Carrières <span class="pill">On recrute</span></a></li>
+        <li><a href="/contact">Contact</a></li>
+        <li><a href="/mentions-legales">Mentions légales</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer-col">
+      <p class="footer-title">Nous trouver</p>
+      <address>
+        {site.address[0]}<br />{site.address[1]}<br />
+        <a href={`mailto:${site.email}`}>{site.email}</a><br />
+        {site.hours}
+      </address>
+    </div>
+  </div>
+
+  <div class="container footer-bottom">
+    <p>© <span data-year>2026</span> {site.name} · Lille</p>
+    <p>Site fictif réalisé dans le cadre d'un exercice pédagogique.</p>
+  </div>
+
+  <p class="footer-giant" aria-hidden="true">NovaForge</p>
+</footer>

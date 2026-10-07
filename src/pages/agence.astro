@@ -1,0 +1,205 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import SectionHead from '../components/SectionHead.astro';
+import Icon from '../components/Icon.astro';
+import HiringBanner from '../components/HiringBanner.astro';
+import CtaBand from '../components/CtaBand.astro';
+import OfficeGallery from '../components/OfficeGallery.astro';
+import OfficeMap from '../components/OfficeMap.astro';
+import { Image } from 'astro:assets';
+import { findOfficePhoto } from '../data/office';
+
+const heroPhoto = findOfficePhoto('rdv');
+
+// Du freelance à l'agence : la croissance explique pourquoi le studio recrute maintenant
+const timeline = [
+  {
+    year: 'Avant 2024',
+    title: 'Les débuts en freelance',
+    text: 'Développeur web indépendant, le fondateur réalise ses premiers sites pour des commerçants et des PME lillois.',
+  },
+  {
+    year: '2024',
+    title: 'Création de NovaForge Studio',
+    text: "Les clients restent et en recommandent d'autres : il structure son activité et crée le studio.",
+  },
+  {
+    year: '2024 – 2025',
+    title: 'Des clients fidèles',
+    text: 'Des TPE et PME locales confient leur site au studio, puis leur maintenance mensuelle.',
+  },
+  {
+    year: '2025',
+    title: 'Un réseau de partenaires',
+    text: 'Des partenaires indépendants rejoignent régulièrement les projets selon les besoins.',
+  },
+  {
+    year: '2026',
+    title: 'Premier recrutement',
+    text: 'La demande augmente : le studio recrute son premier développeur web junior.',
+  },
+  {
+    year: 'Demain',
+    title: 'Une vraie équipe',
+    text: "Le premier recrutement n'est qu'un début : l'agence grandira avec ses collaborateurs.",
+  },
+];
+
+const values = [
+  { title: 'Proximité', text: 'Un lien direct avec chaque client, sans intermédiaire ni jargon.' },
+  { title: 'Flexibilité', text: "Une structure légère qui s'adapte à vos délais, à votre budget et à vos priorités." },
+  { title: 'De A à Z', text: "Du premier rendez-vous à la mise en ligne, puis dans la durée avec la maintenance." },
+  { title: 'Transparence', text: 'Des devis clairs, des points réguliers, et toujours la même personne au bout du fil.' },
+];
+---
+
+<BaseLayout
+  title="L'agence"
+  description="NovaForge Studio, agence digitale lilloise fondée en 2024 par un développeur freelance : notre histoire, nos valeurs et notre équipe."
+>
+  <PageHero
+    eyebrow="L'agence"
+    lead="NovaForge Studio a été fondée en 2024 par un développeur freelance lillois. L'activité grandit : il transforme aujourd'hui son activité solo en une vraie agence, et recrute son premier collaborateur."
+  >
+    <Fragment slot="title">D'un freelance <em>à une agence.</em></Fragment>
+    {
+      heroPhoto && (
+        <Fragment slot="aside">
+          <figure class="hero-photo">
+            <Image
+              src={heroPhoto.src}
+              alt={heroPhoto.alt}
+              widths={[480, 800, 1200]}
+              sizes="(max-width: 960px) 100vw, 45vw"
+              format="webp"
+              quality={80}
+              loading="eager"
+            />
+            <figcaption>{heroPhoto.title} · {heroPhoto.text}</figcaption>
+          </figure>
+        </Fragment>
+      )
+    }
+  </PageHero>
+
+  <!-- ============ HISTOIRE ============ -->
+  <section class="section surface-light" aria-labelledby="story-title">
+    <div class="container">
+      <SectionHead num="01" label="Le mot du fondateur" titleId="story-title">
+        Un freelance<br /><em>qui monte sa boîte.</em>
+      </SectionHead>
+
+      <div class="story-grid">
+        <figure class="founder-quote" data-reveal>
+          <blockquote>
+            <p class="statement">
+              « J'ai commencé seul, en freelance, avec quelques clients lillois. Ils sont restés, ils en ont parlé
+              autour d'eux… <em>et je n'avais plus assez de temps pour bien faire.</em> »
+            </p>
+            <p>
+              En 2024, j'ai créé NovaForge Studio pour structurer tout ça, sans perdre ce qui faisait la différence en
+              freelance : un seul interlocuteur, de la proximité, des projets suivis de A à Z.
+            </p>
+            <p>
+              Aujourd'hui, la demande continue d'augmenter. Je cherche la première personne avec qui faire grandir le
+              studio : quelqu'un qui ne sera pas un simple exécutant, mais qui participera vraiment aux décisions.
+            </p>
+          </blockquote>
+          <figcaption>
+            <span class="avatar" aria-hidden="true">F</span>
+            <span>Le fondateur<small>Développeur freelance devenu chef d'agence</small></span>
+          </figcaption>
+        </figure>
+
+        <ol class="timeline">
+          {
+            timeline.map((item, i) => (
+              <li class="tl-item" data-reveal style={`--d:${i * 0.08}s`}>
+                <p class="tl-year">{item.year}</p>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VALEURS ============ -->
+  <section class="section surface-light-2" aria-labelledby="values-title">
+    <div class="container">
+      <SectionHead num="02" label="Nos valeurs" titleId="values-title">
+        Ce qui nous <em>guide.</em>
+      </SectionHead>
+
+      <ul class="values">
+        {
+          values.map((value, i) => (
+            <li class="value card" data-reveal style={`--d:${i * 0.06}s`}>
+              <Icon name="star" />
+              <h3>{value.title}</h3>
+              <p>{value.text}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ ÉQUIPE ============ -->
+  <section class="section surface-light" aria-labelledby="team-title">
+    <div class="container">
+      <SectionHead num="03" label="L'équipe" titleId="team-title">
+        Petite équipe,<br /><em>grande implication.</em>
+      </SectionHead>
+
+      <ul class="team">
+        <li class="member card" data-reveal>
+          <span class="avatar" aria-hidden="true">F</span>
+          <p class="member-role">Fondateur</p>
+          <h3>Ancien freelance, développeur &amp; designer</h3>
+          <p>
+            Il a lancé l'activité seul et pilote toujours chaque projet, du premier rendez-vous à la mise en ligne. Il
+            reste l'interlocuteur direct de nos clients.
+          </p>
+        </li>
+        <li class="member card" data-reveal style="--d:.08s">
+          <span class="avatar" aria-hidden="true">P</span>
+          <p class="member-role">Partenaires</p>
+          <h3>Un réseau d'indépendants</h3>
+          <p>Designers, rédacteurs, spécialistes : ils interviennent régulièrement sur les projets selon les besoins.</p>
+        </li>
+        <li class="member member--open card" data-reveal style="--d:.16s">
+          <span class="avatar" aria-hidden="true">?</span>
+          <p class="member-role">Poste ouvert · 1er recrutement</p>
+          <h3>Vous ?</h3>
+          <p>Le premier salarié du studio : un développeur web junior, en alternance ou en CDI.</p>
+          <a class="link-arrow" href="/carrieres/developpeur-web-junior">Voir l'offre <Icon name="arrow" /></a>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ LIEU ============ -->
+  <section class="section surface-light-2" id="locaux" aria-labelledby="place-title">
+    <div class="container">
+      <SectionHead num="04" label="Nos locaux" titleId="place-title">
+        Bienvenue<br /><em>chez nous.</em>
+        <Fragment slot="intro">
+          Un espace de travail lumineux à Lille, pensé pour créer, recevoir nos clients et partager un café.
+        </Fragment>
+      </SectionHead>
+
+      <OfficeGallery detailed />
+
+      <div class="place-grid">
+        <OfficeMap />
+      </div>
+    </div>
+  </section>
+
+  <HiringBanner />
+  <CtaBand />
+</BaseLayout>

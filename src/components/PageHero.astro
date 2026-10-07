@@ -1,0 +1,41 @@
+---
+// En-tête sombre des pages intérieures, avec la poussière d'étoiles animée
+interface Props {
+  eyebrow: string;
+  lead?: string;
+  compact?: boolean;
+}
+
+const { eyebrow, lead, compact = false } = Astro.props;
+const hasAside = Astro.slots.has('aside');
+---
+
+<section
+  class:list={['page-hero', 'surface-dark', { 'page-hero--compact': compact }]}
+  aria-labelledby="page-title"
+  data-stardust-host
+>
+  <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+  <div class:list={['container', 'page-hero-inner', { 'has-aside': hasAside }]}>
+    <div class="page-hero-copy">
+      <p class="eyebrow">{eyebrow}</p>
+      <h1 class="page-title" id="page-title"><slot name="title" /></h1>
+      {lead && <p class="page-lead">{lead}</p>}
+      {
+        Astro.slots.has('actions') && (
+          <div class="hero-actions">
+            <slot name="actions" />
+          </div>
+        )
+      }
+    </div>
+    {
+      hasAside && (
+        <div class="page-hero-aside">
+          <slot name="aside" />
+        </div>
+      )
+    }
+  </div>
+  <slot />
+</section>

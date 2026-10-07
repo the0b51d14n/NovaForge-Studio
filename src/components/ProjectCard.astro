@@ -1,0 +1,51 @@
+---
+// Carte de réalisation : la maquette du site client est dessinée en CSS
+import type { Project } from '../data/content';
+import { categories } from '../data/content';
+
+interface Props {
+  project: Project;
+}
+
+const { project: p } = Astro.props;
+const categoryLabel = categories.find((c) => c.id === p.category)?.label ?? '';
+const palette = `--m-bg:${p.palette.bg};--m-fg:${p.palette.fg};--m-accent:${p.palette.accent}`;
+---
+
+<article class="project" data-category={p.category} data-reveal>
+  <div class="mock" style={palette} data-shape={p.shape} aria-hidden="true">
+    <div class="mock-bar">
+      <span></span><span></span><span></span>
+      <em>{p.domain}</em>
+    </div>
+    <div class="mock-page">
+      <div class="mock-nav">
+        <b>{p.name}</b>
+        <i></i><i></i><i></i>
+      </div>
+      <div class="mock-hero">
+        <div class="mock-copy">
+          <p class="mock-title">{p.mockTitle}</p>
+          <p class="mock-line"></p>
+          <p class="mock-line mock-line--short"></p>
+          <span class="mock-btn"></span>
+        </div>
+        <div class="mock-visual"></div>
+      </div>
+      <div class="mock-cards"><i></i><i></i><i></i></div>
+    </div>
+  </div>
+
+  <div class="project-info">
+    <p class="project-meta">
+      <span>{categoryLabel}</span>
+      <span>{p.year}</span>
+    </p>
+    <h3>{p.name}</h3>
+    <p class="project-activity">{p.activity}</p>
+    <p class="project-summary">{p.summary}</p>
+    <ul class="chips">
+      {p.services.map((s) => <li>{s}</li>)}
+    </ul>
+  </div>
+</article>

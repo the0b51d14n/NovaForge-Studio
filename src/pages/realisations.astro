@@ -1,0 +1,83 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import SectionHead from '../components/SectionHead.astro';
+import Icon from '../components/Icon.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { projects, categories } from '../data/content';
+
+const counts = Object.fromEntries(
+  categories.map((c) => [c.id, projects.filter((p) => p.category === c.id).length]),
+);
+const testimonials = projects.filter((p) => p.testimonial);
+---
+
+<BaseLayout
+  title="Réalisations"
+  description="Sites vitrines, boutiques en ligne, identités visuelles et applications : découvrez les projets réalisés par NovaForge Studio."
+>
+  <PageHero
+    eyebrow="Réalisations"
+    lead="Commerçants, artisans, cabinets, jeunes entreprises : chaque projet est pensé pour le métier de nos clients."
+  >
+    <Fragment slot="title">Des projets <em>forgés</em> avec nos clients.</Fragment>
+  </PageHero>
+
+  <section class="section surface-light" aria-labelledby="projects-title">
+    <div class="container">
+      <h2 class="sr-only" id="projects-title">Nos projets</h2>
+
+      <div class="filters" role="group" aria-label="Filtrer les réalisations">
+        <button class="filter" type="button" data-filter="all" aria-pressed="true">
+          Tous<span class="filter-count">{projects.length}</span>
+        </button>
+        {
+          categories.map((c) => (
+            <button class="filter" type="button" data-filter={c.id} aria-pressed="false">
+              {c.label}
+              <span class="filter-count">{counts[c.id]}</span>
+            </button>
+          ))
+        }
+      </div>
+      <p class="sr-only" role="status" data-filter-status></p>
+
+      <div class="projects-grid">
+        {projects.map((project) => <ProjectCard project={project} />)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section surface-light-2" aria-labelledby="reviews-title">
+    <div class="container">
+      <SectionHead num="★" label="Témoignages" titleId="reviews-title">
+        Ce que nos clients <em>en disent.</em>
+      </SectionHead>
+
+      <div class="testimonials">
+        {
+          testimonials.map((p, i) => (
+            <figure class="testimonial card" data-reveal style={`--d:${i * 0.08}s`}>
+              <Icon name="star" />
+              <blockquote>
+                <p>« {p.testimonial!.quote} »</p>
+              </blockquote>
+              <figcaption>
+                <span class="avatar" aria-hidden="true">
+                  {p.testimonial!.author.charAt(0)}
+                </span>
+                <span>
+                  {p.testimonial!.author}
+                  <small>{p.name}</small>
+                </span>
+              </figcaption>
+            </figure>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <CtaBand title="Votre projet sera le prochain ?" />
+</BaseLayout>

@@ -1,0 +1,90 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import SectionHead from '../components/SectionHead.astro';
+import Icon from '../components/Icon.astro';
+import Steps from '../components/Steps.astro';
+import Faq from '../components/Faq.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { services, method, clientFaq } from '../data/content';
+---
+
+<BaseLayout
+  title="Services"
+  description="Sites vitrines, boutiques en ligne, identité visuelle, applications sur mesure et maintenance : les services de NovaForge Studio à Lille."
+>
+  <PageHero
+    eyebrow="Nos services"
+    lead="Cinq expertises complémentaires pour développer votre présence en ligne, avec un seul interlocuteur du début à la fin."
+  >
+    <Fragment slot="title">Du site vitrine à <em>l'application</em> sur mesure.</Fragment>
+    <Fragment slot="actions">
+      <a class="btn btn-primary" href="/contact">Demander un devis <Icon name="arrow" class="btn-arrow" /></a>
+      <a class="btn btn-ghost" href="#methode">Notre méthode</a>
+    </Fragment>
+  </PageHero>
+
+  <!-- ============ DÉTAIL DES SERVICES ============ -->
+  <section class="section surface-light-2" aria-label="Détail des services">
+    <div class="container svc-list">
+      {
+        services.map((service, i) => (
+          <article class="svc" id={service.slug} data-reveal>
+            <div class="svc-head">
+              <div class="svc-top">
+                <span class="service-icon">
+                  <Icon name={service.icon} />
+                </span>
+                <span class="svc-num">{String(i + 1).padStart(2, '0')} / 05</span>
+              </div>
+              <h2>{service.title}</h2>
+              <p class="svc-desc">{service.description}</p>
+              <ul class="chips">
+                {service.tags.map((tag) => (
+                  <li>{tag}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p class="svc-label">Ce qui est inclus</p>
+              <ul class="svc-includes">
+                {service.includes.map((item) => (
+                  <li>
+                    <Icon name="star" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <p class="svc-ideal">
+                <strong>Idéal pour</strong>
+                {service.idealFor}
+              </p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- ============ MÉTHODE ============ -->
+  <section class="section surface-light" id="methode" aria-labelledby="method-title">
+    <div class="container">
+      <SectionHead num="★" label="Méthode" titleId="method-title">
+        Cinq étapes,<br /><em>un seul interlocuteur.</em>
+      </SectionHead>
+      <Steps steps={method} />
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="section surface-light-2" aria-labelledby="faq-title">
+    <div class="container faq-layout">
+      <SectionHead num="?" label="Questions fréquentes" titleId="faq-title">
+        Vos questions,<br /><em>nos réponses.</em>
+      </SectionHead>
+      <Faq items={clientFaq} />
+    </div>
+  </section>
+
+  <CtaBand title="Parlons de votre projet." />
+</BaseLayout>
