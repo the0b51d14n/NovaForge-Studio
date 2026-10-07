@@ -1,5 +1,6 @@
 ---
 import Logo from './Logo.astro';
+import Icon from './Icon.astro';
 import { site } from '../data/site';
 ---
 
@@ -43,6 +44,10 @@ import { site } from '../data/site';
   <div class="container footer-bottom">
     <p>© <span data-year>2026</span> {site.name} · Lille</p>
     <p>Site fictif réalisé dans le cadre d'un exercice pédagogique.</p>
+    <form class="footer-lock" method="post" action="/verrouillage">
+      <input type="hidden" name="action" value="verrouiller" />
+      <button type="submit"><Icon name="lock" /> Verrouiller le site</button>
+    </form>
   </div>
 
   <p class="footer-giant" aria-hidden="true">NovaForge</p>

@@ -1,21 +1,15 @@
 ---
-import type { GetStaticPaths } from 'astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import SectionHead from '../../components/SectionHead.astro';
 import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
-import { job, openings, type Opening } from '../../data/content';
+import { job, openings } from '../../data/content';
 import { site } from '../../data/site';
 
-export const getStaticPaths = (() =>
-  openings.map((opening) => ({ params: { slug: opening.slug }, props: { opening } }))) satisfies GetStaticPaths;
-
-interface Props {
-  opening: Opening;
-}
-
-const { opening: o } = Astro.props;
+// Rendu à la demande : l'offre est retrouvée à partir de l'adresse /carrieres/<slug>
+const o = openings.find((opening) => opening.slug === Astro.params.slug);
+if (!o) return new Response(null, { status: 404 });
 
 const published = new Date(o.published);
 const publishedLabel = published.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });

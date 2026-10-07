@@ -16,9 +16,12 @@ import { site } from '../data/site';
 interface Props {
   title?: string;
   description?: string;
+  /** Page sans en-tête ni pied de page (ex. verrouillage) */
+  bare?: boolean;
+  noindex?: boolean;
 }
 
-const { title, description = site.description } = Astro.props;
+const { title, description = site.description, bare = false, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale à Lille`;
 ---
 
@@ -29,6 +32,7 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <meta name="theme-color" content="#10141c" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={fullTitle} />
@@ -46,11 +50,11 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
   </head>
   <body>
     <a class="skip-link" href="#main">Aller au contenu</a>
-    <Header />
+    {!bare && <Header />}
     <main id="main">
       <slot />
     </main>
-    <Footer />
+    {!bare && <Footer />}
     <script>
       import '../scripts/main.ts';
     </script>

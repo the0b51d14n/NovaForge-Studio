@@ -2,7 +2,7 @@
 import type { IconName, BenefitIcon } from '../data/content';
 
 interface Props {
-  name: IconName | BenefitIcon | 'star' | 'arrow' | 'check' | 'share' | 'pin' | 'clock' | 'briefcase';
+  name: IconName | BenefitIcon | 'star' | 'arrow' | 'check' | 'share' | 'pin' | 'clock' | 'briefcase' | 'lock';
   class?: string;
 }
 
@@ -108,6 +108,12 @@ const { name, class: className } = Astro.props;
         <>
           <rect x="3" y="7" width="18" height="13" rx="2" />
           <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M3 12.5h18" />
+        </>
+      )}
+      {name === 'lock' && (
+        <>
+          <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+          <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3M12 14.5v2" />
         </>
       )}
       {name === 'arrow' && <path d="M5 12h14M13 6l6 6-6 6" />}

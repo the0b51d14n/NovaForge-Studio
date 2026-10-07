@@ -1,0 +1,106 @@
+---
+// Page de verrouillage : tout visiteur sans accès y est redirigé par src/middleware.ts
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import {
+  LOCK_PATH,
+  checkPassword,
+  grantAccess,
+  hasAccess,
+  isConfigured,
+  revokeAccess,
+  safeNext,
+} from '../lib/access';
+
+const next = safeNext(Astro.url.searchParams.get('suite'));
+const locked = Astro.url.searchParams.has('verrouille');
+let error = '';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+
+  // Bouton « Verrouiller le site » du pied de page
+  if (data.get('action') === 'verrouiller') {
+    revokeAccess(Astro.cookies);
+    return Astro.redirect(`${LOCK_PATH}?verrouille`, 303);
+  }
+
+  if (await checkPassword(String(data.get('password') ?? ''))) {
+    await grantAccess(Astro.cookies);
+    return Astro.redirect(next, 303);
+  }
+
+  // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  error = 'Mot de passe incorrect. Vérifiez-le et réessayez.';
+  Astro.response.status = 401;
+} else if (await hasAccess(Astro.cookies)) {
+  return Astro.redirect(next);
+}
+---
+
+<BaseLayout
+  title="Accès privé"
+  description="Site de NovaForge Studio en accès privé : saisissez le mot de passe pour le découvrir."
+  bare
+  noindex
+>
+  <section class="hero lock surface-dark" aria-labelledby="lock-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+
+    <div class="lock-panel">
+      <Logo variant="stacked" tone="dark" />
+
+      <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Accès privé</p>
+      <h1 id="lock-title">Le studio vous ouvre ses portes sur invitation.</h1>
+
+      {
+        isConfigured() ? (
+          <>
+            <p class="lock-lead">
+              Saisissez le mot de passe qui vous a été communiqué pour découvrir le site de NovaForge Studio.
+            </p>
+
+            {locked && !error && (
+              <p class="lock-status" role="status">
+                Le site est verrouillé. À bientôt !
+              </p>
+            )}
+
+            <form class="lock-form" method="post">
+              <div class="field">
+                <label for="password">Mot de passe</label>
+                <input
+                  class="input"
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  autofocus
+                  aria-invalid={error ? 'true' : undefined}
+                  aria-describedby={error ? 'password-error' : undefined}
+                />
+                {error && (
+                  <p class="field-error" id="password-error" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+              <button class="btn btn-primary" type="submit">
+                Entrer <Icon name="arrow" class="btn-arrow" />
+              </button>
+            </form>
+          </>
+        ) : (
+          <p class="lock-lead" role="status">
+            Le site est momentanément fermé. Revenez un peu plus tard.
+          </p>
+        )
+      }
+
+      <p class="lock-note">Agence fictive · site réalisé dans le cadre d'un exercice pédagogique.</p>
+    </div>
+  </section>
+</BaseLayout>
