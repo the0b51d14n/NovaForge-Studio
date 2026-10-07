@@ -25,7 +25,7 @@ Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en co
 |:--|:--|
 | Adresse | ✅ 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain (carte mise à jour) |
 | E-mails | ⚠️ `contact@` et `recrutement@novaforge-studio.fr` : le nom de domaine est-il acheté ? |
-| Téléphone | À fournir (affiché sur Contact et dans les mentions légales) |
+| Téléphone | ✅ 06 95 96 17 49 (Contact, pied de page, mentions légales) |
 | Horaires | ⚠️ « Lun. – Ven. · 9 h – 18 h » à confirmer |
 | Nom du fondateur | À fournir (page L'agence) |
 

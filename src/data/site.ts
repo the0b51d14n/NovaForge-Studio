@@ -20,7 +20,7 @@ export const site = {
   // À CONFIRMER : e-mails (nom de domaine), téléphone et horaires
   email: 'contact@novaforge-studio.fr',
   jobsEmail: 'recrutement@novaforge-studio.fr',
-  phone: null as string | null,
+  phone: '06 95 96 17 49' as string | null,
   hours: 'Lun. – Ven. · 9 h – 18 h',
   founder: {
     /** Prénom et nom du fondateur, affichés sur « L'agence » */

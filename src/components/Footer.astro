@@ -36,6 +36,7 @@ import { projects } from '../data/content';
       <address>
         {site.address[0]}<br />{site.address[1]}<br />
         <a href={`mailto:${site.email}`}>{site.email}</a><br />
+        {site.phone && <><a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a><br /></>}
         {site.hours}
       </address>
     </div>
