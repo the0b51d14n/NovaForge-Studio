@@ -7,17 +7,16 @@ import { loadData } from './store';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
+  // Vérification fréquente des pages ouvertes : toujours accessible, sans charger toutes les données
+  if (pathname === '/api/version') return next();
+
   const [admin, data] = await Promise.all([isAdmin(context.cookies), loadData()]);
   context.locals.isAdmin = admin;
   context.locals.settings = data.settings;
   context.locals.openings = data.openings;
+  context.locals.version = data.version;
 
-  // /api/version : les pages ouvertes doivent voir le verrouillage (ou la réouverture) pour se recharger
-  const alwaysOpen =
-    pathname === LOCK_PATH ||
-    pathname === ADMIN_PATH ||
-    pathname.startsWith(`${ADMIN_PATH}/`) ||
-    pathname === '/api/version';
+  const alwaysOpen = pathname === LOCK_PATH || pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
   if (admin || !data.settings.locked || alwaysOpen) return next();
 
   // Formulaires (fetch) : une réponse claire plutôt qu'une redirection vers la page HTML

@@ -1,7 +1,18 @@
-// Empreinte des données de l'administration : interrogée régulièrement par les pages ouvertes
-// (src/scripts/live.ts), qui se rechargent quand elle change. Toujours accessible, même site verrouillé.
+// Tampon de la dernière modification enregistrée dans l'administration : interrogé toutes les quelques
+// secondes par les pages ouvertes (src/scripts/live.ts), qui se rechargent quand il change.
+// Mis en cache 2 s sur le CDN de Vercel : quel que soit le nombre de visiteurs, la base n'est lue
+// qu'une fois toutes les 2 s au plus, ce qui protège le quota gratuit d'Upstash.
 import type { APIRoute } from 'astro';
-import { dataVersion } from '../../lib/store';
+import { readVersion } from '../../lib/store';
 
-export const GET: APIRoute = ({ locals }) =>
-  Response.json({ version: dataVersion(locals) }, { headers: { 'Cache-Control': 'no-store' } });
+export const GET: APIRoute = async () => {
+  try {
+    return Response.json(
+      { version: await readVersion() },
+      { headers: { 'Cache-Control': 'public, max-age=0, s-maxage=2' } },
+    );
+  } catch (error) {
+    console.error(error);
+    return Response.json({ error: 'indisponible' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+};

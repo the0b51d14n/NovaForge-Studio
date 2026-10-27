@@ -5,5 +5,7 @@ declare namespace App {
     isAdmin: boolean;
     settings: import('./lib/store').Settings;
     openings: import('./data/content').Opening[];
+    /** Tampon de la dernière modification enregistrée dans l'administration */
+    version: string;
   }
 }

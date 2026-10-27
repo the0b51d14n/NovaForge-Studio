@@ -25,7 +25,9 @@ export type Settings = {
   closures: Closure[];
 };
 
-const KEYS = { settings: 'nf:settings', openings: 'nf:openings' } as const;
+// nf:version : tampon changé à chaque enregistrement, surveillé par les pages ouvertes (src/scripts/live.ts)
+const KEYS = { settings: 'nf:settings', openings: 'nf:openings', version: 'nf:version' } as const;
+const stamp = () => Date.now().toString(36);
 
 const defaults = (): { settings: Settings; openings: Opening[] } => ({
   settings: {
@@ -68,39 +70,44 @@ async function redis(commands: string[][]): Promise<(string | null)[]> {
   });
 }
 
-export async function loadData(): Promise<{ settings: Settings; openings: Opening[] }> {
+export async function loadData(): Promise<{ settings: Settings; openings: Opening[]; version: string }> {
   const base = defaults();
   try {
-    const [settings, openings] = await redis([
+    const [settings, openings, version] = await redis([
       ['GET', KEYS.settings],
       ['GET', KEYS.openings],
+      ['GET', KEYS.version],
     ]);
     return {
       settings: settings ? { ...base.settings, ...JSON.parse(settings) } : base.settings,
       openings: openings ? JSON.parse(openings) : base.openings,
+      version: version ?? '0',
     };
   } catch (error) {
     // Base injoignable : le site reste fermé au public plutôt que d'afficher une erreur
     console.error(error);
-    return { ...base, settings: { ...base.settings, locked: true } };
+    return { ...base, settings: { ...base.settings, locked: true }, version: '0' };
   }
 }
 
+/** Tampon de la dernière modification : une seule lecture, pour les vérifications fréquentes */
+export async function readVersion(): Promise<string> {
+  const [version] = await redis([['GET', KEYS.version]]);
+  return version ?? '0';
+}
+
 export async function saveSettings(settings: Settings): Promise<void> {
-  await redis([['SET', KEYS.settings, JSON.stringify(settings)]]);
+  await redis([
+    ['SET', KEYS.settings, JSON.stringify(settings)],
+    ['SET', KEYS.version, stamp()],
+  ]);
 }
 
 export async function saveOpenings(openings: Opening[]): Promise<void> {
-  await redis([['SET', KEYS.openings, JSON.stringify(openings)]]);
-}
-
-/** Empreinte des données de l'administration : change à chaque enregistrement (rafraîchissement automatique) */
-export function dataVersion(locals: App.Locals): string {
-  const json = JSON.stringify([locals.settings, locals.openings]);
-  // Hachage FNV-1a 32 bits : court et suffisant pour détecter un changement
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < json.length; i++) hash = Math.imul(hash ^ json.charCodeAt(i), 0x01000193);
-  return (hash >>> 0).toString(36);
+  await redis([
+    ['SET', KEYS.openings, JSON.stringify(openings)],
+    ['SET', KEYS.version, stamp()],
+  ]);
 }
 
 /** Informations de l'entreprise, avec l'adresse du siège enregistrée depuis l'administration */

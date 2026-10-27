@@ -14,7 +14,6 @@ import Footer from '../components/Footer.astro';
 import DirectionsPicker from '../components/DirectionsPicker.astro';
 import Icon from '../components/Icon.astro';
 import { site } from '../data/site';
-import { dataVersion } from '../lib/store';
 import { ADMIN_PATH } from '../lib/access';
 
 interface Props {
@@ -51,7 +50,7 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     <link rel="manifest" href="/favicon-pack/site.webmanifest" />
     <meta property="og:image" content="/favicon-pack/icon-512.png" />
     <meta name="generator" content={Astro.generator} />
-    <meta name="nf-version" content={dataVersion(Astro.locals)} />
+    <meta name="nf-version" content={Astro.locals.version} />
     <script is:inline>document.documentElement.classList.add('js');</script>
     <slot name="head" />
   </head>
