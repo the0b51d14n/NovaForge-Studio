@@ -31,13 +31,13 @@ import { projects } from '../data/content';
       </ul>
     </nav>
 
-    <div class="footer-col">
+    <div class="footer-col footer-col--contact">
       <p class="footer-title">Nous trouver</p>
       <address>
-        {site.address[0]}<br />{site.address[1]}<br />
-        <a href={`mailto:${site.email}`}>{site.email}</a><br />
-        {site.phone && <><a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a><br /></>}
-        {site.hours}
+        <span>{site.address[0]}<br />{site.address[1]}</span>
+        <a href={`mailto:${site.email}`}>{site.email}</a>
+        {site.phone && <a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a>}
+        <span class="footer-hours">{site.hours}</span>
       </address>
     </div>
   </div>
@@ -48,11 +48,30 @@ import { projects } from '../data/content';
       <a href="/mentions-legales">Mentions légales</a>
       <a href="/confidentialite">Confidentialité</a>
     </p>
-    <form class="footer-lock" method="post" action="/verrouillage">
-      <input type="hidden" name="action" value="verrouiller" />
-      <button type="submit"><Icon name="lock" /> Verrouiller le site</button>
-    </form>
+    <div class="footer-aside">
+      {
+        site.socials.length > 0 && (
+          <ul class="footer-socials" aria-label="NovaForge Studio sur les réseaux">
+            {site.socials.map((social) => (
+              <li>
+                <a href={social.href} target="_blank" rel="noopener noreferrer">
+                  {social.label}
+                  <span class="sr-only"> (nouvel onglet)</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        )
+      }
+      {/* Aperçu privé : seuls les visiteurs ayant saisi le mot de passe voient ce pied de page */}
+      <form class="footer-lock" method="post" action="/verrouillage">
+        <input type="hidden" name="action" value="verrouiller" />
+        <button type="submit"><Icon name="lock" /> Verrouiller le site</button>
+      </form>
+    </div>
   </div>
 
-  <p class="footer-giant" aria-hidden="true">NovaForge</p>
+  <div class="container footer-signature" aria-hidden="true">
+    <p class="footer-giant">NovaForge</p>
+  </div>
 </footer>

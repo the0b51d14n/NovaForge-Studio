@@ -22,6 +22,8 @@ export const site = {
   jobsEmail: 'recrutement@novaforge-studio.fr',
   phone: '06 95 96 17 49' as string | null,
   hours: 'Lun. – Ven. · 9 h – 18 h',
+  /** Réseaux professionnels (pied de page) : uniquement des comptes réels, ex. { label: 'LinkedIn', href: 'https://…' } */
+  socials: [] as { label: string; href: string }[],
   founder: {
     /** Prénom et nom du fondateur, affichés sur « L'agence » */
     name: null as string | null,

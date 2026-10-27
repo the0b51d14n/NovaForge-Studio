@@ -1754,41 +1754,50 @@ select.input option { background: #fff; color: #06142a; }
 .lock-note { margin-top: 22px; font-size: .84rem; color: var(--muted); }
 
 /* ---------- 25. Pied de page ---------- */
-.site-footer { padding-top: clamp(64px, 8vw, 104px); overflow: hidden; }
+.site-footer { padding-top: clamp(72px, 9vw, 120px); overflow: hidden; }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr 1.1fr;
-  gap: 40px;
-  padding-bottom: 56px;
+  grid-template-columns: 1.4fr 1fr 1fr auto;
+  gap: 56px clamp(32px, 4vw, 64px);
+  padding-bottom: clamp(56px, 7vw, 88px);
 }
-.footer-brand { display: grid; justify-items: start; gap: 22px; }
+.footer-brand { display: grid; justify-items: start; align-content: start; gap: 24px; }
 .footer-brand > a { text-decoration: none; }
 .footer-tagline { font-family: var(--font-serif); font-size: 1.7rem; line-height: 1.15; }
 .footer-title {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   font-family: var(--font-mono);
   font-size: .72rem;
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--muted);
 }
-.footer-col ul { display: grid; gap: 10px; }
+/* Liens et coordonnées sur le même rythme vertical */
+.footer-col ul,
+.footer-col address { display: grid; justify-items: start; gap: 12px; line-height: 1.5; }
 .footer-col a { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; transition: color .2s; }
 .footer-col a:hover { color: var(--amber); }
-.footer-col address { line-height: 1.9; }
+.footer-col address a { overflow-wrap: anywhere; }
+.footer-hours { color: var(--muted); }
+/* Mentions légales centrées sur la page, quelle que soit la longueur des deux côtés */
 .footer-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   gap: 12px 32px;
-  padding-block: 22px;
+  padding-block: 24px;
   border-top: 1px solid var(--line);
-  font-size: .88rem;
+  font-size: .86rem;
   color: var(--muted);
 }
-.footer-legal { display: flex; flex-wrap: wrap; gap: 8px 24px; }
-.footer-legal a { text-decoration: none; transition: color .2s; }
-.footer-legal a:hover { color: var(--amber); }
+.footer-legal,
+.footer-aside,
+.footer-socials { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; }
+.footer-aside { justify-content: flex-end; }
+.footer-legal a,
+.footer-socials a { text-decoration: none; transition: color .2s; }
+.footer-legal a:hover,
+.footer-socials a:hover { color: var(--amber); }
 .footer-lock button {
   display: inline-flex;
   align-items: center;
@@ -1797,25 +1806,35 @@ select.input option { background: #fff; color: #06142a; }
   border: 0;
   background: none;
   font-size: inherit;
+  line-height: inherit;
   cursor: pointer;
   transition: color .2s;
 }
 .footer-lock button:hover { color: var(--amber); }
 .footer-lock .icon { width: 1.1em; height: 1.1em; }
+/* Signature : le mot occupe exactement la largeur du contenu (unités de conteneur), sans jamais déborder */
+.footer-signature {
+  container-type: inline-size;
+  padding-top: clamp(24px, 3.5vw, 40px);
+  padding-bottom: clamp(20px, 3vw, 32px);
+}
 .footer-giant {
-  margin-bottom: -.2em;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 19vw;
+  font-size: 19.2cqi;
   letter-spacing: -.06em;
-  line-height: .85;
+  line-height: .9;
   text-align: center;
   white-space: nowrap;
-  background: var(--grad-brand);
+  /* Recentre le dessin des lettres (l'espacement négatif décale le mot vers la droite) */
+  translate: -.052em 0;
+  background: var(--em);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  opacity: .14;
+  /* Fondu vers le bas : présent sans dominer le contenu du pied de page */
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, rgba(0, 0, 0, .3));
+  mask-image: linear-gradient(to bottom, #000 25%, rgba(0, 0, 0, .3));
   user-select: none;
 }
 
@@ -2165,8 +2184,10 @@ select.input option { background: #fff; color: #06142a; }
   .facts,
   .spec { grid-template-columns: 1fr; }
   .quote-card { rotate: 0deg; }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: 1fr 1fr auto; }
   .footer-brand { grid-column: 1 / -1; }
+  .footer-bottom { grid-template-columns: 1fr auto; }
+  .footer-bottom > p:first-child { grid-column: 1 / -1; }
 }
 
 @media (max-width: 860px) {
@@ -2249,6 +2270,14 @@ select.input option { background: #fff; color: #06142a; }
   .stat { padding: 22px 18px; }
   .spec-row,
   .info-list div { grid-template-columns: 1fr; gap: 4px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; row-gap: 44px; }
+  .footer-col--contact { grid-column: 1 / -1; }
+  .footer-bottom { grid-template-columns: 1fr; justify-items: start; }
+  .footer-aside { justify-content: flex-start; }
+  .footer-col .pill { white-space: nowrap; }
+}
+
+@media (max-width: 400px) {
   .footer-grid { grid-template-columns: 1fr; }
   .hero-actions .btn { flex: 1 1 auto; }
   .hero-meta { padding-bottom: 56px; }
