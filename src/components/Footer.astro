@@ -1,12 +1,10 @@
 ---
 import Logo from './Logo.astro';
-import Icon from './Icon.astro';
 import { projects } from '../data/content';
-import { ADMIN_PATH } from '../lib/access';
 import { getSite } from '../lib/store';
 
 const site = getSite(Astro.locals);
-const { isAdmin, openings } = Astro.locals;
+const { openings } = Astro.locals;
 ---
 
 <footer class="site-footer surface-dark">
@@ -38,7 +36,7 @@ const { isAdmin, openings } = Astro.locals;
     <div class="footer-col footer-col--contact">
       <p class="footer-title">Nous trouver</p>
       <address>
-        <span>{site.address[0]}<br />{site.address[1]}</span>
+        <a class="footer-address" href={site.directions} target="_blank" rel="noopener" data-directions-link>{site.address[0]}<br />{site.address[1]}</a>
         <a href={`mailto:${site.email}`}>{site.email}</a>
         {site.phone && <a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a>}
         <span class="footer-hours">{site.hours}</span>
@@ -67,8 +65,6 @@ const { isAdmin, openings } = Astro.locals;
           </ul>
         )
       }
-      {/* Raccourci visible uniquement une fois connecté à l'administration */}
-      {isAdmin && <a class="footer-admin" href={ADMIN_PATH}><Icon name="lock" /> Administration</a>}
     </div>
   </div>
 

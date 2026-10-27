@@ -21,7 +21,18 @@ export const site = {
   email: 'contact@novaforge-studio.fr',
   jobsEmail: 'recrutement@novaforge-studio.fr',
   phone: '06 95 96 17 49' as string | null,
+  /** Résumé des horaires (pied de page, carte) : à garder cohérent avec `schedule` */
   hours: 'Lun. – Ven. · 9 h – 18 h',
+  /** Horaires détaillés, du lundi au dimanche (page Contact) : `null` = fermé */
+  schedule: [
+    { day: 'Lundi', hours: ['09:00', '18:00'] },
+    { day: 'Mardi', hours: ['09:00', '18:00'] },
+    { day: 'Mercredi', hours: ['09:00', '18:00'] },
+    { day: 'Jeudi', hours: ['09:00', '18:00'] },
+    { day: 'Vendredi', hours: ['09:00', '18:00'] },
+    { day: 'Samedi', hours: null },
+    { day: 'Dimanche', hours: null },
+  ] as { day: string; hours: [string, string] | null }[],
   /** Réseaux professionnels (pied de page) : uniquement des comptes réels, ex. { label: 'LinkedIn', href: 'https://…' } */
   socials: [] as { label: string; href: string }[],
   founder: {

@@ -28,6 +28,10 @@ if (navToggle && nav) {
   nav.addEventListener('click', (e) => {
     if ((e.target as HTMLElement).closest('a')) setNav(false);
   });
+  // Toucher le fond assombri (pseudo-élément de <body>) ferme le menu
+  document.body.addEventListener('click', (e) => {
+    if (e.target === document.body && isOpen()) setNav(false);
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isOpen()) {
       setNav(false);

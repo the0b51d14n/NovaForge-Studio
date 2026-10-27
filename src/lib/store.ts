@@ -90,7 +90,10 @@ export async function saveOpenings(openings: Opening[]): Promise<void> {
 /** Informations de l'entreprise, avec l'adresse du siège enregistrée depuis l'administration */
 export function getSite(locals: App.Locals) {
   const { street, postalCode, city, geo } = locals.settings;
-  return { ...site, address: [street, `${postalCode} ${city}`], postalCode, city, geo };
+  const address = [street, `${postalCode} ${city}`];
+  // Itinéraire Google Maps : lien de secours quand le choix de l'application (DirectionsPicker) n'est pas disponible
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${address.join(', ')}, France`)}`;
+  return { ...site, address, postalCode, city, geo, directions };
 }
 
 /** Coordonnées d'une adresse (OpenStreetMap / Nominatim) pour la carte, ou null si introuvable */

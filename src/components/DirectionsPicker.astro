@@ -1,0 +1,67 @@
+---
+// Choix de l'application d'itinéraire : s'ouvre au clic sur tout lien [data-directions-link]
+// (adresse, bouton « Itinéraire »). Un site ne peut pas lister les applis installées : on propose
+// les plus courantes (elles s'ouvrent dans l'appli si elle est installée, sinon sur leur site),
+// Plans sur les appareils Apple, et sur Android un lien geo: qui affiche le sélecteur d'applis du téléphone.
+// Sans JavaScript, les liens restent des liens Google Maps classiques.
+import Icon from './Icon.astro';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
+const { lat, lng } = site.geo;
+const address = site.address.join(', ');
+const query = encodeURIComponent(`${address}, France`);
+
+const apps: { label: string; href: string; os?: 'apple' | 'android' }[] = [
+  { label: 'Google Maps', href: site.directions },
+  { label: 'Plans', href: `https://maps.apple.com/?daddr=${query}`, os: 'apple' },
+  { label: 'Waze', href: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes` },
+  { label: 'Autre application…', href: `geo:0,0?q=${lat},${lng}(${encodeURIComponent(site.name)})`, os: 'android' },
+];
+---
+
+<dialog class="directions surface-light" data-directions-dialog aria-labelledby="directions-title">
+  <form class="directions-inner" method="dialog">
+    <!-- Le focus d'ouverture va sur le titre : aucune application ne paraît présélectionnée -->
+    <p class="directions-title" id="directions-title" tabindex="-1" autofocus>Itinéraire vers le studio</p>
+    <p class="directions-address">{address}</p>
+    <ul class="directions-apps">
+      {
+        apps.map((app) => (
+          <li data-os={app.os} hidden={Boolean(app.os)}>
+            <a class="directions-app" href={app.href} target={app.os === 'android' ? undefined : '_blank'} rel="noopener">
+              {app.label} <Icon name="arrow" />
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+    <button class="btn btn-ghost" value="cancel">Annuler</button>
+  </form>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('[data-directions-dialog]');
+
+  if (dialog && typeof dialog.showModal === 'function') {
+    const ua = navigator.userAgent;
+    const os = /Android/i.test(ua) ? 'android' : /iPhone|iPad|iPod|Macintosh/i.test(ua) ? 'apple' : '';
+    dialog.querySelectorAll<HTMLElement>('[data-os]').forEach((item) => {
+      item.hidden = item.dataset.os !== os;
+    });
+
+    // Délégation : couvre aussi le lien créé plus tard dans la bulle de la carte
+    document.addEventListener('click', (event) => {
+      const link = (event.target as HTMLElement).closest('[data-directions-link]');
+      if (!link) return;
+      event.preventDefault();
+      dialog.showModal();
+    });
+
+    dialog.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      // Clic sur le fond (le dialog lui-même, hors du contenu) ou sur une application : on referme
+      if (target === dialog || target.closest('a')) dialog.close();
+    });
+  }
+</script>

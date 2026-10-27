@@ -10,8 +10,7 @@ interface Props {
 const { compact = false } = Astro.props;
 const site = getSite(Astro.locals);
 const { lat, lng } = site.geo;
-const query = encodeURIComponent(`${site.address.join(', ')}, France`);
-const directions = `https://www.google.com/maps/dir/?api=1&destination=${query}`;
+const { directions } = site;
 const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
 ---
 
@@ -37,14 +36,14 @@ const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat
     <p class="svc-label">Nous trouver</p>
     <address class="map-address">
       <strong>{site.name}</strong>
-      {site.address[0]}<br />{site.address[1]}
+      <a href={directions} target="_blank" rel="noopener" data-directions-link>{site.address[0]}<br />{site.address[1]}</a>
     </address>
     <ul class="map-access">
       <li><Icon name="clock" />{site.hours}</li>
       <li><Icon name="home" />Sur rendez-vous, au studio ou chez vous</li>
     </ul>
     <div class="map-actions">
-      <a class="btn btn-primary" href={directions} target="_blank" rel="noopener">
+      <a class="btn btn-primary" href={directions} target="_blank" rel="noopener" data-directions-link>
         Itinéraire <Icon name="arrow" class="btn-arrow" />
       </a>
       <a class="link-arrow" href={osm} target="_blank" rel="noopener">Agrandir la carte <Icon name="arrow" /></a>
@@ -84,7 +83,7 @@ const osm = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat
       popupAnchor: [0, -58],
     });
 
-    const popup = `<strong>${el.dataset.title}</strong><br>${el.dataset.address}<br><a href="${el.dataset.directions}" target="_blank" rel="noopener">Itinéraire →</a>`;
+    const popup = `<strong>${el.dataset.title}</strong><br>${el.dataset.address}<br><a href="${el.dataset.directions}" target="_blank" rel="noopener" data-directions-link>Itinéraire →</a>`;
     L.marker([lat, lng], { icon, title: el.dataset.title, keyboard: true }).addTo(map).bindPopup(popup).openPopup();
 
     // Le zoom à la molette s'active seulement après un clic sur la carte
