@@ -28,6 +28,7 @@ Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en co
 | Téléphone | ✅ 06 95 96 17 49 (Contact, pied de page, mentions légales) |
 | Horaires | ⚠️ « Lun. – Ven. · 9 h – 18 h » à confirmer |
 | Nom du fondateur | À fournir (page L'agence) |
+| Réseaux professionnels | À fournir si existants (LinkedIn, GitHub…) : `socials`, affichés dans le pied de page |
 
 > ⚠️ L'adresse du siège est obligatoirement publique dans les mentions légales. Si c'est un
 > domicile personnel, une société de domiciliation permet d'afficher une autre adresse.
@@ -54,6 +55,7 @@ Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en co
 | Variable | Rôle |
 |:--|:--|
 | `SITE_PASSWORD` | Mot de passe de la page de verrouillage (sans lui, le site reste fermé) |
+| `UNLOCK_KEY` | Clé secrète : le formulaire de mot de passe n'apparaît qu'à `/verrouillage?cle=…` |
 | `RESEND_API_KEY` | Clé du service d'envoi d'e-mails [Resend](https://resend.com) (offre gratuite suffisante) |
 | `MAIL_FROM` | Expéditeur des e-mails, sur le domaine vérifié : `NovaForge Studio <site@novaforge-studio.fr>` |
 

@@ -27,6 +27,10 @@ Le bouton « Verrouiller le site », en bas de chaque page, referme l'accès.
 
 - **Le mot de passe** est la variable d'environnement `SITE_PASSWORD` : fichier `.env` en local
   (jamais versionné), réglages du projet sur Vercel en ligne. Il n'est écrit nulle part dans le code.
+- **Le formulaire est caché au public** grâce à `UNLOCK_KEY` : `/verrouillage` affiche seulement
+  « Le site est momentanément fermé », et le formulaire n'apparaît qu'à l'adresse
+  `/verrouillage?cle=<UNLOCK_KEY>` (à garder en favori). Sans cette clé, le serveur n'examine
+  aucun mot de passe. Si `UNLOCK_KEY` est vide, le formulaire est visible de tous.
 - **Sans mot de passe configuré**, le site reste fermé à tout le monde.
 - **Changer le mot de passe** déconnecte tous ceux qui avaient déjà accès.
 - La vérification se fait côté serveur (`src/lib/middleware.ts` et `src/lib/access.ts`) : sans
@@ -112,5 +116,5 @@ hors ligne, l'adresse reste affichée.
 
 Le site est déployé sur Vercel à chaque push sur `main` (adaptateur `@astrojs/vercel`, rendu serveur).
 Avant le premier déploiement avec le verrou : **Vercel → projet → Settings → Environment Variables**,
-ajouter `SITE_PASSWORD` (environnements Production et Preview), puis redéployer. Pour activer les
+ajouter `SITE_PASSWORD` et `UNLOCK_KEY` (environnements Production et Preview), puis redéployer. Pour activer les
 formulaires : `RESEND_API_KEY` et `MAIL_FROM` (voir `.env.example`).

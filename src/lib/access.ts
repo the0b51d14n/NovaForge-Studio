@@ -2,7 +2,7 @@
 // Une fois le mot de passe saisi, le cookie contient une signature HMAC — jamais le mot de passe lui-même.
 // Changer SITE_PASSWORD invalide donc tous les accès déjà donnés.
 import type { AstroCookies } from 'astro';
-import { SITE_PASSWORD } from 'astro:env/server';
+import { SITE_PASSWORD, UNLOCK_KEY } from 'astro:env/server';
 
 export const LOCK_PATH = '/verrouillage';
 const ACCESS_COOKIE = 'nf_access';
@@ -32,6 +32,13 @@ function safeEqual(a: string, b: string): boolean {
 
 /** false : aucun mot de passe configuré, le site reste fermé à tous */
 export const isConfigured = (): boolean => Boolean(SITE_PASSWORD);
+
+// Le formulaire de mot de passe n'apparaît qu'avec la clé secrète dans l'adresse (/verrouillage?cle=…) :
+// le public ne voit que « site fermé ». Sans UNLOCK_KEY configurée, le formulaire reste visible de tous.
+export function hasUnlockKey(url: URL): boolean {
+  if (!UNLOCK_KEY) return true;
+  return safeEqual(url.searchParams.get('cle') ?? '', UNLOCK_KEY);
+}
 
 export async function hasAccess(cookies: AstroCookies): Promise<boolean> {
   const token = cookies.get(ACCESS_COOKIE)?.value;
