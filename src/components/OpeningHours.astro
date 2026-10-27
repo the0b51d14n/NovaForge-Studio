@@ -1,43 +1,82 @@
 ---
-// Horaires de la semaine : un créneau par jour sur un axe commun, aujourd'hui mis en avant
-// avec l'état du studio (ouvert / fermé). Calculé à l'heure de Paris au moment de la requête.
+// Horaires de la semaine en cours, jour par jour avec leur date : un créneau par jour sur un axe commun,
+// aujourd'hui mis en avant avec l'état du studio (ouvert / fermé), jours fériés et fermetures exceptionnelles
+// signalés, puis les prochaines fermetures. Calculé à l'heure de Paris au moment de la requête.
 import { site } from '../data/site';
-import { formatTime, getStatus, toMinutes, type Slot } from '../lib/hours';
+import { addDays, buildCalendar, closureOn, formatDay, formatTime, getStatus, upcomingClosures, weekday } from '../lib/hours';
 
-const slots: Slot[] = site.schedule.map((d) => (d.hours ? [toMinutes(d.hours[0]), toMinutes(d.hours[1])] : null));
-const status = getStatus(slots, site.schedule.map((d) => d.day));
+const cal = buildCalendar(site.schedule, Astro.locals.settings);
+const status = getStatus(cal);
 
 // Axe commun à toutes les journées, avec une heure de marge de part et d'autre
-const openSlots = slots.filter((s) => s !== null);
+const openSlots = cal.slots.filter((s) => s !== null);
 const start = openSlots.length ? Math.floor(Math.min(...openSlots.map((s) => s[0])) / 60) * 60 - 60 : 480;
 const end = openSlots.length ? Math.ceil(Math.max(...openSlots.map((s) => s[1])) / 60) * 60 + 60 : 1140;
 const pct = (minutes: number) => `${(((minutes - start) / (end - start)) * 100).toFixed(2)}%`;
 const nowOnAxis = status.minutes > start && status.minutes < end;
 
-const days = site.schedule.map((d, i) => ({
-  name: d.day,
-  slot: slots[i],
-  today: i === status.day,
-}));
+const monday = addDays(status.date, -weekday(status.date));
+const days = site.schedule.map((d, i) => {
+  const iso = addDays(monday, i);
+  const usual = cal.slots[i];
+  // Fermeture exceptionnelle signalée seulement si le studio aurait dû ouvrir ce jour-là
+  const closure = usual ? closureOn(iso, cal) : null;
+  return {
+    name: d.day,
+    date: formatDay(iso, { day: 'numeric', month: 'short' }),
+    slot: closure ? null : usual,
+    closure,
+    today: iso === status.date,
+  };
+});
+
+// Prochaines fermetures après cette semaine (celles de la semaine apparaissent déjà dans la liste)
+const upcoming = upcomingClosures(cal, addDays(monday, 7)).slice(0, 4);
+const short = { weekday: 'short', day: 'numeric', month: 'short' } as const;
+const range = (c: { start: string; end: string }) =>
+  c.start === c.end ? formatDay(c.start, short) : `du ${formatDay(c.start, short)} au ${formatDay(c.end, short)}`;
 ---
 
 <div class="hours">
   <p class:list={['hours-status', { 'is-open': status.open }]}>{status.label}</p>
   <ul class="hours-list">
     {
-      days.map(({ name, slot, today }) => (
-        <li class:list={['hours-day', { 'is-closed': !slot, 'is-today': today }]} aria-current={today ? 'date' : undefined}>
-          <span class="hours-name">{name}</span>
-          <span
-            class:list={['hours-track', { 'has-now': today && nowOnAxis }]}
-            style={today && nowOnAxis ? `--now: ${pct(status.minutes)}` : undefined}
-            aria-hidden="true"
-          >
-            {slot && <span class="hours-bar" style={`--from: ${pct(slot[0])}; --to: ${pct(slot[1])}`} />}
+      days.map(({ name, date, slot, closure, today }) => (
+        <li
+          class:list={['hours-day', { 'is-closed': !slot, 'is-exception': closure, 'is-today': today }]}
+          aria-current={today ? 'date' : undefined}
+        >
+          <span class="hours-name">
+            {name} <span class="hours-date">{date}</span>
           </span>
+          {closure ? (
+            <span class="hours-note">{closure}</span>
+          ) : (
+            <span
+              class:list={['hours-track', { 'has-now': today && nowOnAxis }]}
+              style={today && nowOnAxis ? `--now: ${pct(status.minutes)}` : undefined}
+              aria-hidden="true"
+            >
+              {slot && <span class="hours-bar" style={`--from: ${pct(slot[0])}; --to: ${pct(slot[1])}`} />}
+            </span>
+          )}
           <span class="hours-time">{slot ? `${formatTime(slot[0])} – ${formatTime(slot[1])}` : 'Fermé'}</span>
         </li>
       ))
     }
   </ul>
+  {
+    upcoming.length > 0 && (
+      <div class="hours-upcoming">
+        <p class="hours-upcoming-title">Prochaines fermetures</p>
+        <ul>
+          {upcoming.map((c) => (
+            <li>
+              <span class="hours-upcoming-date">{range(c)}</span> · {c.reason}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
 </div>

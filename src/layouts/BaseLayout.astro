@@ -12,7 +12,10 @@ import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import DirectionsPicker from '../components/DirectionsPicker.astro';
+import Icon from '../components/Icon.astro';
 import { site } from '../data/site';
+import { dataVersion } from '../lib/store';
+import { ADMIN_PATH } from '../lib/access';
 
 interface Props {
   title?: string;
@@ -23,6 +26,8 @@ interface Props {
 }
 
 const { title, description = site.description, bare = false, noindex = false } = Astro.props;
+// Site verrouillé mais visible pour l'administrateur connecté : un rappel évite de croire le site ouvert
+const adminPreview = !bare && Astro.locals.isAdmin && Astro.locals.settings.locked;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale · ${site.area}`;
 ---
 
@@ -46,6 +51,7 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     <link rel="manifest" href="/favicon-pack/site.webmanifest" />
     <meta property="og:image" content="/favicon-pack/icon-512.png" />
     <meta name="generator" content={Astro.generator} />
+    <meta name="nf-version" content={dataVersion(Astro.locals)} />
     <script is:inline>document.documentElement.classList.add('js');</script>
     <slot name="head" />
   </head>
@@ -57,8 +63,19 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     </main>
     {!bare && <Footer />}
     {!bare && <DirectionsPicker />}
+    {
+      adminPreview && (
+        <a class="admin-preview surface-dark" href={ADMIN_PATH}>
+          <Icon name="lock" />
+          <span>
+            <strong>Site verrouillé</strong> · visible uniquement par vous
+          </span>
+        </a>
+      )
+    }
     <script>
       import '../scripts/main.ts';
+      import '../scripts/live.ts';
     </script>
   </body>
 </html>

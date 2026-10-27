@@ -12,7 +12,12 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.settings = data.settings;
   context.locals.openings = data.openings;
 
-  const alwaysOpen = pathname === LOCK_PATH || pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
+  // /api/version : les pages ouvertes doivent voir le verrouillage (ou la réouverture) pour se recharger
+  const alwaysOpen =
+    pathname === LOCK_PATH ||
+    pathname === ADMIN_PATH ||
+    pathname.startsWith(`${ADMIN_PATH}/`) ||
+    pathname === '/api/version';
   if (admin || !data.settings.locked || alwaysOpen) return next();
 
   // Formulaires (fetch) : une réponse claire plutôt qu'une redirection vers la page HTML

@@ -1,5 +1,5 @@
 ---
-// Administration : connexion (SITE_PASSWORD), puis verrou du site, adresse du siège et offres d'emploi.
+// Administration : connexion (SITE_PASSWORD), puis verrou du site, adresse du siège, fermetures et offres d'emploi.
 // Chaque action est un formulaire POST traité ici, suivi d'une redirection (pas de double envoi en rechargeant).
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Logo from '../../components/Logo.astro';
@@ -7,12 +7,17 @@ import Icon from '../../components/Icon.astro';
 import AdminBar from '../../components/AdminBar.astro';
 import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut } from '../../lib/access';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
+import { site } from '../../data/site';
+import { ISO_DATE, addDays, buildCalendar, closureOn, formatDay, parisNow, upcomingClosures, weekday, type Closure } from '../../lib/hours';
 
 const { isAdmin, settings, openings } = Astro.locals;
 let error = '';
 
 const text = (data: FormData, name: string, max = 120) => String(data.get(name) ?? '').trim().slice(0, max);
 const done = (ok: string) => Astro.redirect(`${ADMIN_PATH}?ok=${ok}`, 303);
+const today = parisNow().date;
+// Les fermetures passées disparaissent d'elles-mêmes au prochain enregistrement
+const closures = settings.closures.filter((c) => c.end >= today);
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
@@ -51,6 +56,32 @@ if (Astro.request.method === 'POST') {
           return done(geo ? 'adresse' : 'adresse-sans-carte');
         }
       }
+      if (action === 'holidays-on' || action === 'holidays-off') {
+        await saveSettings({ ...settings, closures, holidays: action === 'holidays-on' });
+        return done(action);
+      }
+      if (action === 'closure-add') {
+        const start = text(data, 'start', 10);
+        const end = text(data, 'end', 10) || start;
+        const reason = text(data, 'reason', 60);
+        if (!ISO_DATE.test(start) || !ISO_DATE.test(end) || end < start) {
+          error = 'Dates invalides : la date de fin ne peut pas précéder la date de début.';
+        } else if (end < today) {
+          error = 'Cette période est déjà passée.';
+        } else if (end > addDays(start, 366)) {
+          error = 'Une fermeture ne peut pas dépasser un an.';
+        } else {
+          const next: Closure[] = [...closures, { start, end, reason }].sort((a, b) => a.start.localeCompare(b.start));
+          await saveSettings({ ...settings, closures: next });
+          return done('fermeture');
+        }
+      }
+      if (action === 'closure-delete') {
+        const start = text(data, 'start', 10);
+        const end = text(data, 'end', 10);
+        await saveSettings({ ...settings, closures: closures.filter((c) => c.start !== start || c.end !== end) });
+        return done('fermeture-supprimee');
+      }
       if (action === 'delete') {
         const slug = text(data, 'slug');
         await saveOpenings(openings.filter((o) => o.slug !== slug));
@@ -71,9 +102,26 @@ const flashes: Record<string, string> = {
   'adresse-sans-carte': "Adresse enregistrée, mais introuvable sur la carte : l'ancien emplacement de la carte est conservé.",
   supprimee: 'Offre supprimée.',
   creee: 'Offre publiée.',
+  fermeture: 'Fermeture ajoutée : elle apparaît sur la page Contact.',
+  'fermeture-supprimee': 'Fermeture supprimée.',
+  'holidays-on': 'Les jours fériés sont maintenant indiqués comme fermés.',
+  'holidays-off': 'Les jours fériés ne sont plus indiqués comme fermés.',
   modifiee: 'Offre mise à jour.',
 };
 const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
+
+// Jours fériés des 12 prochains mois tombant un jour normalement ouvert, avec le pont éventuel :
+// férié un mardi → lundi, férié un jeudi → vendredi (s'il est ouvert et pas déjà fermé)
+const cal = buildCalendar(site.schedule, { ...settings, closures });
+const short = { weekday: 'short', day: 'numeric', month: 'short' } as const;
+const range = (c: Closure) =>
+  c.start === c.end ? formatDay(c.start, short) : `Du ${formatDay(c.start, short)} au ${formatDay(c.end, short)}`;
+const bridgeOffset: Record<number, number> = { 1: -1, 3: 1 };
+const holidays = upcomingClosures({ ...cal, closures: [], holidays: true }, today, 365).map((h) => {
+  const offset = bridgeOffset[weekday(h.start)];
+  const bridge = offset ? addDays(h.start, offset) : null;
+  return { ...h, bridge: bridge && cal.slots[weekday(bridge)] && !closureOn(bridge, cal) ? bridge : null };
+});
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -197,6 +245,95 @@ const formatDate = (iso: string) =>
                   <button class="btn btn-primary" type="submit">Enregistrer l'adresse</button>
                 </div>
               </form>
+            </section>
+
+            <section class="admin-card card" aria-labelledby="a-closures">
+              <h2 class="admin-h2" id="a-closures">Fermetures exceptionnelles</h2>
+              <p class="admin-text">
+                Ponts, vacances, inventaire… Ces jours-là, la page Contact affiche « Fermé » avec le motif, annonce les
+                prochaines fermetures et indique quand le studio rouvre.
+              </p>
+              {closures.length > 0 && (
+                <ul class="admin-jobs">
+                  {closures.map((c) => (
+                    <li class="admin-job">
+                      <div class="admin-job-main">
+                        <p class="admin-job-title">{c.reason || 'Fermeture exceptionnelle'}</p>
+                        <p class="admin-job-meta">{range(c)}</p>
+                      </div>
+                      <div class="admin-job-actions">
+                        <form method="post" data-confirm={`Supprimer la fermeture « ${c.reason || range(c)} » ?`}>
+                          <input type="hidden" name="action" value="closure-delete" />
+                          <input type="hidden" name="start" value={c.start} />
+                          <input type="hidden" name="end" value={c.end} />
+                          <button class="admin-link admin-link--danger" type="submit">
+                            Supprimer
+                          </button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form class="form admin-form" method="post">
+                <input type="hidden" name="action" value="closure-add" />
+                <div class="field">
+                  <label for="closure-start">Du</label>
+                  <input class="input" id="closure-start" name="start" type="date" min={today} required />
+                </div>
+                <div class="field">
+                  <label for="closure-end">Au (inclus)</label>
+                  <input class="input" id="closure-end" name="end" type="date" min={today} />
+                </div>
+                <div class="field field--full">
+                  <label for="closure-reason">Motif</label>
+                  <input class="input" id="closure-reason" name="reason" maxlength="60" placeholder="Vacances d'été, pont de l'Ascension…" />
+                </div>
+                <div class="form-footer">
+                  <p class="form-note">Laissez « Au » vide pour une seule journée.</p>
+                  <button class="btn btn-primary" type="submit">Ajouter la fermeture</button>
+                </div>
+              </form>
+
+              <div class="admin-sub">
+                <div class="admin-card-head">
+                  <h3 class="admin-h3">Jours fériés</h3>
+                  <p class:list={['admin-state', settings.holidays ? 'admin-state--open' : 'admin-state--locked']}>
+                    {settings.holidays ? 'Fermé automatiquement' : 'Traités comme des jours normaux'}
+                  </p>
+                </div>
+                <p class="admin-text">
+                  Les 11 jours fériés nationaux sont calculés automatiquement chaque année (lundi de Pâques, Ascension et
+                  lundi de Pentecôte compris).
+                </p>
+                <form method="post">
+                  <input type="hidden" name="action" value={settings.holidays ? 'holidays-off' : 'holidays-on'} />
+                  <button class="btn btn-ghost btn-sm" type="submit">
+                    {settings.holidays ? 'Ouvrir les jours fériés' : 'Fermer les jours fériés'}
+                  </button>
+                </form>
+                {settings.holidays && holidays.length > 0 && (
+                  <ul class="admin-holidays">
+                    {holidays.map((h) => (
+                      <li>
+                        <span>
+                          <strong>{formatDay(h.start, short)}</strong> · {h.reason}
+                        </span>
+                        {h.bridge && (
+                          <form method="post">
+                            <input type="hidden" name="action" value="closure-add" />
+                            <input type="hidden" name="start" value={h.bridge} />
+                            <input type="hidden" name="reason" value={`Pont (${h.reason})`} />
+                            <button class="admin-link" type="submit">
+                              Faire le pont le {formatDay(h.bridge, { weekday: 'long', day: 'numeric', month: 'short' })}
+                            </button>
+                          </form>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </section>
 
             <section class="admin-card card" aria-labelledby="a-jobs">

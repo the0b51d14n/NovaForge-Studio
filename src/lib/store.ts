@@ -1,4 +1,4 @@
-// Données modifiables depuis /administration : verrou du site, adresse du siège, offres d'emploi.
+// Données modifiables depuis /administration : verrou du site, adresse du siège, fermetures, offres d'emploi.
 // Stockées dans Upstash Redis (Vercel → Storage → Upstash) via son API REST.
 // Sans Redis configuré (développement local), elles vivent en mémoire et sont perdues au redémarrage.
 // Tant que rien n'a été enregistré, les valeurs de src/data/site.ts et src/data/content.ts servent de départ.
@@ -10,6 +10,7 @@ import {
 } from 'astro:env/server';
 import { site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
+import type { Closure } from './hours';
 
 export type Settings = {
   /** true : seul l'administrateur voit le site, le public voit /verrouillage */
@@ -18,6 +19,10 @@ export type Settings = {
   postalCode: string;
   city: string;
   geo: { lat: number; lng: number };
+  /** true : la page Contact affiche « Fermé » les jours fériés */
+  holidays: boolean;
+  /** Fermetures exceptionnelles (ponts, vacances…), triées par date */
+  closures: Closure[];
 };
 
 const KEYS = { settings: 'nf:settings', openings: 'nf:openings' } as const;
@@ -29,6 +34,8 @@ const defaults = (): { settings: Settings; openings: Opening[] } => ({
     postalCode: site.postalCode,
     city: site.city,
     geo: { ...site.geo },
+    holidays: true,
+    closures: [],
   },
   openings: structuredClone(initialOpenings),
 });
@@ -85,6 +92,15 @@ export async function saveSettings(settings: Settings): Promise<void> {
 
 export async function saveOpenings(openings: Opening[]): Promise<void> {
   await redis([['SET', KEYS.openings, JSON.stringify(openings)]]);
+}
+
+/** Empreinte des données de l'administration : change à chaque enregistrement (rafraîchissement automatique) */
+export function dataVersion(locals: App.Locals): string {
+  const json = JSON.stringify([locals.settings, locals.openings]);
+  // Hachage FNV-1a 32 bits : court et suffisant pour détecter un changement
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < json.length; i++) hash = Math.imul(hash ^ json.charCodeAt(i), 0x01000193);
+  return (hash >>> 0).toString(36);
 }
 
 /** Informations de l'entreprise, avec l'adresse du siège enregistrée depuis l'administration */
