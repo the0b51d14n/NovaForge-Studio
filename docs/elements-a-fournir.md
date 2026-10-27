@@ -54,8 +54,8 @@ Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en co
 
 | Variable | Rôle |
 |:--|:--|
-| `SITE_PASSWORD` | Mot de passe de la page de verrouillage (sans lui, le site reste fermé) |
-| `UNLOCK_KEY` | Clé secrète : le formulaire de mot de passe n'apparaît qu'à `/verrouillage?cle=…` |
+| `SITE_PASSWORD` | Mot de passe de `/administration` (verrou, adresse du siège, offres d'emploi) |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Base Upstash Redis : ajoutées par Vercel → Storage → Upstash for Redis |
 | `RESEND_API_KEY` | Clé du service d'envoi d'e-mails [Resend](https://resend.com) (offre gratuite suffisante) |
 | `MAIL_FROM` | Expéditeur des e-mails, sur le domaine vérifié : `NovaForge Studio <site@novaforge-studio.fr>` |
 
@@ -63,7 +63,8 @@ Sans les deux variables Resend, les formulaires de contact et de candidature aff
 e-mail à utiliser à la place. Pour les activer : créer un compte Resend, y vérifier le nom de domaine,
 puis ajouter les variables sur Vercel et redéployer.
 
-Le jour de l'ouverture au public, le verrou sera retiré et le nom de domaine branché sur Vercel.
+Le jour de l'ouverture au public : bouton « Ouvrir le site au public » dans `/administration`, et nom de
+domaine branché sur Vercel.
 
 ## 5. Textes juridiques
 

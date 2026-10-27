@@ -3,7 +3,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
 import Icon from '../../components/Icon.astro';
-import { openings } from '../../data/content';
+
+const { openings } = Astro.locals;
 ---
 
 <BaseLayout
@@ -27,11 +28,23 @@ import { openings } from '../../data/content';
           <li><Icon name="check" />Un portfolio ou votre GitHub</li>
           <li><Icon name="check" />Ce que vous aimeriez faire chez nous</li>
         </ul>
-        <div class="side-card card">
-          <h3>Une offre est ouverte</h3>
-          <p>{openings[0].title} · {openings[0].contracts.join(' ou ')}</p>
-          <a class="link-arrow" href={`/carrieres/${openings[0].slug}`}>Voir l'offre <Icon name="arrow" /></a>
-        </div>
+        {
+          openings.length === 1 && (
+            <div class="side-card card">
+              <h3>Une offre est ouverte</h3>
+              <p>{openings[0].title} · {openings[0].contracts.join(' ou ')}</p>
+              <a class="link-arrow" href={`/carrieres/${openings[0].slug}`}>Voir l'offre <Icon name="arrow" /></a>
+            </div>
+          )
+        }
+        {
+          openings.length > 1 && (
+            <div class="side-card card">
+              <h3>{openings.length} offres sont ouvertes</h3>
+              <a class="link-arrow" href="/carrieres#offres">Voir les offres <Icon name="arrow" /></a>
+            </div>
+          )
+        }
       </div>
       <ApplyForm position="Candidature spontanée" contracts={['Alternance', 'CDI', 'Stage']} idPrefix="spontanee" />
     </div>

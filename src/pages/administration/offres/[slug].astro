@@ -1,0 +1,213 @@
+---
+// Création (/administration/offres/nouvelle) et modification d'une offre d'emploi.
+// L'adresse de l'offre (/carrieres/<slug>) est fixée à la création et ne change plus ensuite.
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import AdminBar from '../../../components/AdminBar.astro';
+import type { Opening } from '../../../data/content';
+import { ADMIN_PATH } from '../../../lib/access';
+import { saveOpenings } from '../../../lib/store';
+
+const { isAdmin, settings, openings } = Astro.locals;
+if (!isAdmin) return Astro.redirect(ADMIN_PATH);
+
+const NEW = 'nouvelle';
+const isNew = Astro.params.slug === NEW;
+const existing = openings.find((o) => o.slug === Astro.params.slug);
+if (!isNew && !existing) return Astro.redirect(ADMIN_PATH);
+
+const CONTRACTS = ['CDI', 'CDD', 'Alternance', 'Stage', 'Freelance'];
+const today = new Date().toISOString().slice(0, 10);
+
+let offer: Opening = existing ?? {
+  slug: '',
+  title: '',
+  team: 'Développement & design',
+  contracts: ['CDI'],
+  location: `${settings.city} (${settings.postalCode.slice(0, 2)})`,
+  remote: '',
+  experience: '',
+  salary: '',
+  start: 'Dès que possible',
+  published: today,
+  summary: '',
+  intro: [],
+  skills: { must: [], nice: [] },
+};
+const errors: Record<string, string> = {};
+let saveError = '';
+
+const text = (data: FormData, name: string, max = 120) => String(data.get(name) ?? '').trim().slice(0, max);
+const lines = (data: FormData, name: string) =>
+  text(data, name, 3000)
+    .split('\n')
+    .map((line) => line.replace(/^[-•*]\s*/, '').trim())
+    .filter(Boolean)
+    .slice(0, 20);
+const paragraphs = (data: FormData, name: string) =>
+  text(data, name, 6000)
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\s*\n\s*/g, ' ').trim())
+    .filter(Boolean);
+
+// « Développeur web junior (H/F) » → « developpeur-web-junior », rendu unique si besoin
+function slugify(title: string): string {
+  const base =
+    title
+      .replace(/\(\s*h\s*\/\s*f\s*\)|\(\s*f\s*\/\s*h\s*\)/gi, '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'offre';
+  let slug = base === NEW ? `${base}-2` : base;
+  for (let n = 2; openings.some((o) => o.slug === slug); n++) slug = `${base}-${n}`;
+  return slug;
+}
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const salaryValue = Number(text(data, 'salaryValue', 9).replace(/\s/g, ''));
+  const published = text(data, 'published', 10);
+
+  offer = {
+    slug: offer.slug,
+    title: text(data, 'title'),
+    team: text(data, 'team', 80),
+    contracts: data.getAll('contracts').map(String).filter((c) => CONTRACTS.includes(c)),
+    location: text(data, 'location'),
+    remote: text(data, 'remote'),
+    experience: text(data, 'experience'),
+    salary: text(data, 'salary', 200),
+    salaryValue: Number.isInteger(salaryValue) && salaryValue > 0 && salaryValue < 1_000_000 ? salaryValue : undefined,
+    start: text(data, 'start', 80),
+    published: /^\d{4}-\d{2}-\d{2}$/.test(published) ? published : today,
+    summary: text(data, 'summary', 300),
+    intro: paragraphs(data, 'intro'),
+    skills: { must: lines(data, 'must'), nice: lines(data, 'nice') },
+  };
+
+  if (!offer.title) errors.title = 'Le titre du poste est obligatoire.';
+  if (offer.contracts.length === 0) errors.contracts = 'Choisissez au moins un type de contrat.';
+  if (!offer.summary) errors.summary = "Le résumé est obligatoire : il s'affiche dans la liste des offres.";
+  if (offer.intro.length === 0) errors.intro = 'Décrivez le poste en quelques phrases.';
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      if (isNew) {
+        offer.slug = slugify(offer.title);
+        await saveOpenings([offer, ...openings]);
+      } else {
+        await saveOpenings(openings.map((o) => (o.slug === offer.slug ? offer : o)));
+      }
+      return Astro.redirect(`${ADMIN_PATH}?ok=${isNew ? 'creee' : 'modifiee'}`, 303);
+    } catch (e) {
+      console.error(e);
+      saveError = "L'enregistrement a échoué (base de données injoignable). Réessayez dans un instant.";
+      Astro.response.status = 500;
+    }
+  } else {
+    Astro.response.status = 422;
+  }
+}
+
+const invalid = (name: string) => (errors[name] ? 'true' : undefined);
+const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined);
+---
+
+<BaseLayout title={isNew ? 'Nouvelle offre' : `Modifier · ${offer.title}`} description="Administration des offres d'emploi." bare noindex>
+  <AdminBar />
+  <div class="admin surface-light-2">
+    <div class="container admin-inner">
+      <a class="admin-back" href={ADMIN_PATH}><Icon name="arrow" /> Tableau de bord</a>
+      <h1 class="admin-title">{isNew ? 'Nouvelle offre' : "Modifier l'offre"}</h1>
+      {!isNew && <p class="admin-text">Adresse de l'offre : <a href={`/carrieres/${offer.slug}`} target="_blank" rel="noopener">/carrieres/{offer.slug}</a></p>}
+
+      {saveError && <p class="admin-alert" role="alert">{saveError}</p>}
+      {Object.keys(errors).length > 0 && <p class="admin-alert" role="alert">Certains champs sont à compléter.</p>}
+
+      <form class="form form--card card admin-form" method="post" novalidate>
+        <div class="field field--full">
+          <label for="title">Titre du poste <span class="req">*</span></label>
+          <input class="input" id="title" name="title" value={offer.title} required maxlength="120" placeholder="Développeur web junior (H/F)" aria-invalid={invalid('title')} aria-describedby={describedBy('title')} />
+          {errors.title && <p class="field-error" id="title-err">{errors.title}</p>}
+        </div>
+
+        <fieldset class="field field--full" aria-describedby={describedBy('contracts')}>
+          <legend>Contrat <span class="req">*</span></legend>
+          <div class="choices">
+            {CONTRACTS.map((c) => (
+              <label class="choice">
+                <input type="checkbox" name="contracts" value={c} checked={offer.contracts.includes(c)} aria-invalid={invalid('contracts')} />
+                <span>{c}</span>
+              </label>
+            ))}
+          </div>
+          {errors.contracts && <p class="field-error" id="contracts-err">{errors.contracts}</p>}
+        </fieldset>
+
+        <div class="field">
+          <label for="team">Équipe</label>
+          <input class="input" id="team" name="team" value={offer.team} maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="location">Lieu</label>
+          <input class="input" id="location" name="location" value={offer.location} maxlength="120" />
+        </div>
+        <div class="field">
+          <label for="remote">Télétravail</label>
+          <input class="input" id="remote" name="remote" value={offer.remote} maxlength="120" placeholder="Jusqu'à 3 jours / semaine" />
+        </div>
+        <div class="field">
+          <label for="experience">Expérience</label>
+          <input class="input" id="experience" name="experience" value={offer.experience} maxlength="120" placeholder="Junior · débutant accepté" />
+        </div>
+        <div class="field">
+          <label for="salary">Rémunération (texte affiché)</label>
+          <input class="input" id="salary" name="salary" value={offer.salary} maxlength="200" placeholder="~ 30 000 € brut / an" />
+        </div>
+        <div class="field">
+          <label for="salaryValue">Salaire annuel brut (€, pour Google)</label>
+          <input class="input" id="salaryValue" name="salaryValue" value={offer.salaryValue ?? ''} inputmode="numeric" placeholder="30000" />
+        </div>
+        <div class="field">
+          <label for="start">Prise de poste</label>
+          <input class="input" id="start" name="start" value={offer.start} maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="published">Date de publication</label>
+          <input class="input" id="published" name="published" type="date" value={offer.published} />
+        </div>
+
+        <div class="field field--full">
+          <label for="summary">Résumé (une phrase) <span class="req">*</span></label>
+          <textarea class="input admin-textarea--short" id="summary" name="summary" maxlength="300" required aria-invalid={invalid('summary')} aria-describedby={describedBy('summary')}>{offer.summary}</textarea>
+          {errors.summary && <p class="field-error" id="summary-err">{errors.summary}</p>}
+        </div>
+        <div class="field field--full">
+          <label for="intro">Le poste <span class="req">*</span></label>
+          <textarea class="input" id="intro" name="intro" rows="6" aria-invalid={invalid('intro')} aria-describedby={describedBy('intro') ?? 'intro-hint'}>{offer.intro.join('\n\n')}</textarea>
+          <p class="form-note" id="intro-hint">Laissez une ligne vide entre deux paragraphes.</p>
+          {errors.intro && <p class="field-error" id="intro-err">{errors.intro}</p>}
+        </div>
+        <div class="field">
+          <label for="must">Compétences indispensables</label>
+          <textarea class="input" id="must" name="must" rows="5" aria-describedby="skills-hint">{offer.skills.must.join('\n')}</textarea>
+        </div>
+        <div class="field">
+          <label for="nice">Compétences « un plus »</label>
+          <textarea class="input" id="nice" name="nice" rows="5" aria-describedby="skills-hint">{offer.skills.nice.join('\n')}</textarea>
+        </div>
+        <p class="form-note field--full" id="skills-hint">Une compétence par ligne.</p>
+
+        <div class="form-footer">
+          <a class="admin-link" href={ADMIN_PATH}>Annuler</a>
+          <button class="btn btn-primary" type="submit">
+            {isNew ? "Publier l'offre" : 'Enregistrer'} <Icon name="arrow" class="btn-arrow" />
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</BaseLayout>

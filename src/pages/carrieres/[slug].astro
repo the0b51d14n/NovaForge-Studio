@@ -4,12 +4,24 @@ import SectionHead from '../../components/SectionHead.astro';
 import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
-import { job, openings } from '../../data/content';
-import { site } from '../../data/site';
+import { job } from '../../data/content';
+import { getSite } from '../../lib/store';
+
+const site = getSite(Astro.locals);
 
 // Rendu à la demande : l'offre est retrouvée à partir de l'adresse /carrieres/<slug>
-const o = openings.find((opening) => opening.slug === Astro.params.slug);
+const o = Astro.locals.openings.find((opening) => opening.slug === Astro.params.slug);
 if (!o) return new Response(null, { status: 404 });
+
+// Types de contrat au format attendu par Google Jobs
+const employmentTypes: Record<string, string> = {
+  CDI: 'FULL_TIME',
+  CDD: 'TEMPORARY',
+  Alternance: 'INTERN',
+  Stage: 'INTERN',
+  Freelance: 'CONTRACTOR',
+};
+const hasRemote = Boolean(o.remote) && !/^(non|aucun|pas de)/i.test(o.remote);
 
 const published = new Date(o.published);
 const publishedLabel = published.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -24,7 +36,7 @@ const jsonLd = {
   description: `<p>${o.intro.join('</p><p>')}</p>`,
   datePosted: o.published,
   validThrough: validThrough.toISOString().slice(0, 10),
-  employmentType: ['FULL_TIME', 'INTERN'],
+  employmentType: [...new Set(o.contracts.map((c) => employmentTypes[c] ?? 'OTHER'))],
   hiringOrganization: { '@type': 'Organization', name: site.name, sameAs: Astro.site?.href },
   jobLocation: {
     '@type': 'Place',
@@ -38,13 +50,17 @@ const jsonLd = {
     },
     geo: { '@type': 'GeoCoordinates', latitude: site.geo.lat, longitude: site.geo.lng },
   },
-  jobLocationType: 'TELECOMMUTE',
-  applicantLocationRequirements: { '@type': 'Country', name: 'France' },
-  baseSalary: {
-    '@type': 'MonetaryAmount',
-    currency: 'EUR',
-    value: { '@type': 'QuantitativeValue', value: 30000, unitText: 'YEAR' },
-  },
+  ...(hasRemote && {
+    jobLocationType: 'TELECOMMUTE',
+    applicantLocationRequirements: { '@type': 'Country', name: 'France' },
+  }),
+  ...(o.salaryValue && {
+    baseSalary: {
+      '@type': 'MonetaryAmount',
+      currency: 'EUR',
+      value: { '@type': 'QuantitativeValue', value: o.salaryValue, unitText: 'YEAR' },
+    },
+  }),
 };
 ---
 
@@ -62,13 +78,13 @@ const jsonLd = {
           <li aria-current="page">{o.title}</li>
         </ol>
       </nav>
-      <p class="eyebrow">{o.team}</p>
+      {o.team && <p class="eyebrow">{o.team}</p>}
       <h1 class="page-title offer-title" id="page-title">{o.title}</h1>
       <ul class="offer-tags">
         <li><Icon name="briefcase" />{o.contracts.join(' ou ')}</li>
-        <li><Icon name="pin" />{o.location}</li>
-        <li><Icon name="home" />{o.remote}</li>
-        <li><Icon name="growth" />{o.experience}</li>
+        {o.location && <li><Icon name="pin" />{o.location}</li>}
+        {o.remote && <li><Icon name="home" />{o.remote}</li>}
+        {o.experience && <li><Icon name="growth" />{o.experience}</li>}
       </ul>
       <div class="hero-actions">
         <a class="btn btn-primary" href="#postuler">Postuler <Icon name="arrow" class="btn-arrow" /></a>
@@ -135,20 +151,28 @@ const jsonLd = {
               ))
             }
           </ul>
-          <div class="skills">
-            <div class="skills-col card">
-              <p class="svc-label">Indispensable</p>
-              <ul class="svc-includes">
-                {o.skills.must.map((s) => <li><Icon name="check" />{s}</li>)}
-              </ul>
-            </div>
-            <div class="skills-col card">
-              <p class="svc-label">Un plus</p>
-              <ul class="svc-includes">
-                {o.skills.nice.map((s) => <li><Icon name="star" />{s}</li>)}
-              </ul>
-            </div>
-          </div>
+          {
+            (o.skills.must.length > 0 || o.skills.nice.length > 0) && (
+              <div class="skills">
+                {o.skills.must.length > 0 && (
+                  <div class="skills-col card">
+                    <p class="svc-label">Indispensable</p>
+                    <ul class="svc-includes">
+                      {o.skills.must.map((s) => <li><Icon name="check" />{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {o.skills.nice.length > 0 && (
+                  <div class="skills-col card">
+                    <p class="svc-label">Un plus</p>
+                    <ul class="svc-includes">
+                      {o.skills.nice.map((s) => <li><Icon name="star" />{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )
+          }
           <aside class="note-box">
             <p class="note-box-title">Vous n'avez pas toutes les compétences ?</p>
             <p>
@@ -196,11 +220,11 @@ const jsonLd = {
           <p class="svc-label">En bref</p>
           <dl class="info-list">
             <div><dt>Contrat</dt><dd>{o.contracts.join(' ou ')}</dd></div>
-            <div><dt>Lieu</dt><dd>{o.location}</dd></div>
-            <div><dt>Télétravail</dt><dd>{o.remote}</dd></div>
-            <div><dt>Expérience</dt><dd>{o.experience}</dd></div>
-            <div><dt>Salaire</dt><dd>{o.salary}</dd></div>
-            <div><dt>Début</dt><dd>{o.start}</dd></div>
+            {o.location && <div><dt>Lieu</dt><dd>{o.location}</dd></div>}
+            {o.remote && <div><dt>Télétravail</dt><dd>{o.remote}</dd></div>}
+            {o.experience && <div><dt>Expérience</dt><dd>{o.experience}</dd></div>}
+            {o.salary && <div><dt>Salaire</dt><dd>{o.salary}</dd></div>}
+            {o.start && <div><dt>Début</dt><dd>{o.start}</dd></div>}
           </dl>
           <a class="btn btn-primary" href="#postuler">Postuler <Icon name="arrow" class="btn-arrow" /></a>
           <p class="offer-contact">

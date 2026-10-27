@@ -2,7 +2,10 @@
 // Politique de confidentialité (RGPD) : modèle à faire relire, alimenté par src/data/site.ts
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { site, legal, host } from '../data/site';
+import { legal, host } from '../data/site';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
 
 const controller = legal.legalName ?? site.name;
 const updated = new Date('2026-10-07').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -48,8 +51,8 @@ const updated = new Date('2026-10-07').toLocaleDateString('fr-FR', { day: 'numer
 
       <h2>Cookies</h2>
       <p>
-        Ce site n'utilise ni cookie publicitaire ni mesure d'audience. Un seul cookie est déposé lorsque vous saisissez
-        le mot de passe d'accès : il mémorise cet accès pendant 30 jours et est indispensable au fonctionnement du site.
+        Ce site n'utilise ni cookie publicitaire ni mesure d'audience, et ne dépose aucun cookie chez ses visiteurs. Seul
+        l'espace d'administration, réservé à l'équipe, utilise un cookie de session (30 jours).
         La carte qui indique notre adresse est affichée depuis les serveurs d'OpenStreetMap, qui reçoivent à cette occasion votre
         adresse IP.
       </p>

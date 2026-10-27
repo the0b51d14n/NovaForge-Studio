@@ -2,7 +2,10 @@
 // Mentions légales : alimentées par src/data/site.ts (seules les informations renseignées s'affichent)
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { site, legal, host, isRegistered } from '../data/site';
+import { legal, host, isRegistered } from '../data/site';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
 
 type Row = { label: string; value: string | null; href?: string };
 

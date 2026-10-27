@@ -8,7 +8,15 @@ import ProjectCard from '../components/ProjectCard.astro';
 import HiringBanner from '../components/HiringBanner.astro';
 import CtaBand from '../components/CtaBand.astro';
 import { services, method, projects } from '../data/content';
-import { site } from '../data/site';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
+const { openings } = Astro.locals;
+
+// Pastille « On recrute » du hero : le titre du poste s'il n'y a qu'une offre (et qu'il tient dans le cercle)
+const hiringTitle = openings[0]?.title.replace(/\s*\((h\/f|f\/h)\)\s*/i, '').toUpperCase() ?? '';
+const badgeText = openings.length === 1 && hiringTitle.length <= 24 ? hiringTitle : 'REJOIGNEZ LE STUDIO';
+const badgeHref = openings.length === 1 ? `/carrieres/${openings[0].slug}` : '/carrieres#offres';
 
 // Réalisations et témoignages : sections affichées dès qu'il y a de vrais projets clients
 const featured = projects.slice(0, 3);
@@ -53,17 +61,21 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
         <div class="hero-orbit hero-orbit--inner" aria-hidden="true"></div>
         <Logo variant="mark" tone="dark" large class="hero-logo" />
 
-        <a class="hiring-badge" href="/carrieres/developpeur-web-junior" aria-label="On recrute : voir l'offre de développeur web junior">
-          <svg viewBox="0 0 160 160" aria-hidden="true" focusable="false">
-            <defs>
-              <path id="badge-circle" d="M80,80 m-62,0 a62,62 0 1,1 124,0 a62,62 0 1,1 -124,0"></path>
-            </defs>
-            <text>
-              <textPath href="#badge-circle" textLength="386" lengthAdjust="spacing">ON RECRUTE ✦ DÉVELOPPEUR WEB JUNIOR ✦</textPath>
-            </text>
-          </svg>
-          <span class="hiring-badge-core" aria-hidden="true"><Icon name="arrow" /></span>
-        </a>
+        {
+          openings.length > 0 && (
+            <a class="hiring-badge" href={badgeHref} aria-label={openings.length === 1 ? `On recrute : voir l'offre ${openings[0].title}` : 'On recrute : voir les offres'}>
+              <svg viewBox="0 0 160 160" aria-hidden="true" focusable="false">
+                <defs>
+                  <path id="badge-circle" d="M80,80 m-62,0 a62,62 0 1,1 124,0 a62,62 0 1,1 -124,0" />
+                </defs>
+                <text>
+                  <textPath href="#badge-circle" textLength="386" lengthAdjust="spacing">{`ON RECRUTE ✦ ${badgeText} ✦`}</textPath>
+                </text>
+              </svg>
+              <span class="hiring-badge-core" aria-hidden="true"><Icon name="arrow" /></span>
+            </a>
+          )
+        }
       </div>
     </div>
 

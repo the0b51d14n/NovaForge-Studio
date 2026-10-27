@@ -245,14 +245,18 @@ export type Opening = {
   remote: string;
   experience: string;
   salary: string;
+  /** Salaire annuel brut en euros, pour Google Jobs (facultatif) */
+  salaryValue?: number;
   start: string;
+  /** Date de publication, AAAA-MM-JJ */
   published: string;
   summary: string;
   intro: string[];
   skills: { must: string[]; nice: string[] };
 };
 
-export const openings: Opening[] = [
+// Offres de départ : une fois enregistrées depuis /administration, ce sont celles de la base qui s'affichent
+export const initialOpenings: Opening[] = [
   {
     slug: 'developpeur-web-junior',
     title: 'Développeur web junior (H/F)',
@@ -262,6 +266,7 @@ export const openings: Opening[] = [
     remote: "Jusqu'à 3 jours / semaine",
     experience: 'Junior · débutant accepté',
     salary: 'Alternance : grille légale · CDI : ~ 30 000 € brut / an',
+    salaryValue: 30000,
     start: 'Dès que possible',
     published: '2026-10-01',
     summary: "Le premier salarié d'un freelance qui fait grandir sa boîte : design, développement, clients et gestion de projet.",

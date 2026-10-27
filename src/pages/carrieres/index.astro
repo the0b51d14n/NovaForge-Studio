@@ -6,8 +6,13 @@ import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import Faq from '../../components/Faq.astro';
 import CtaBand from '../../components/CtaBand.astro';
-import { job, openings, benefits, dayInLife } from '../../data/content';
-import { site } from '../../data/site';
+import { job, benefits, dayInLife } from '../../data/content';
+import { getSite } from '../../lib/store';
+
+const site = getSite(Astro.locals);
+const { openings } = Astro.locals;
+const contracts = [...new Set(openings.flatMap((o) => o.contracts))];
+const lastUpdate = openings.map((o) => o.published).sort().at(-1);
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -29,7 +34,7 @@ const formatDate = (iso: string) =>
     <Fragment slot="aside">
       <dl class="info-list">
         <div><dt>Postes ouverts</dt><dd>{openings.length}</dd></div>
-        <div><dt>Contrats</dt><dd>Alternance · CDI</dd></div>
+        {contracts.length > 0 && <div><dt>Contrats</dt><dd>{contracts.join(' · ')}</dd></div>}
         <div><dt>Télétravail</dt><dd>Jusqu'à 3 j / semaine</dd></div>
         <div><dt>Réponse</dt><dd>Sous 1 semaine</dd></div>
       </dl>
@@ -42,7 +47,9 @@ const formatDate = (iso: string) =>
       <SectionHead num="01" label="Offres" titleId="offers-title">
         Nos postes <em>ouverts.</em>
         <Fragment slot="intro">
-          {openings.length} offre{openings.length > 1 ? 's' : ''} en ce moment · mise à jour le {formatDate(openings[0].published)}
+          {lastUpdate
+            ? `${openings.length} offre${openings.length > 1 ? 's' : ''} en ce moment · mise à jour le ${formatDate(lastUpdate)}`
+            : 'Aucune offre en ce moment : la candidature spontanée reste ouverte.'}
         </Fragment>
       </SectionHead>
 
@@ -186,7 +193,7 @@ const formatDate = (iso: string) =>
   <CtaBand
     title="Envie de nous rejoindre ?"
     text="Postulez à notre offre ou envoyez une candidature spontanée : nous répondons à tous les candidats."
-    href={`/carrieres/${openings[0].slug}#postuler`}
+    href={openings[0] ? `/carrieres/${openings[0].slug}#postuler` : '/carrieres/candidature-spontanee'}
     label="Postuler"
     email={site.jobsEmail}
   />

@@ -6,8 +6,9 @@ import Icon from '../components/Icon.astro';
 import HiringBanner from '../components/HiringBanner.astro';
 import CtaBand from '../components/CtaBand.astro';
 import OfficeMap from '../components/OfficeMap.astro';
-import { site } from '../data/site';
+import { getSite } from '../lib/store';
 
+const site = getSite(Astro.locals);
 const founderName = site.founder.name ?? 'Le fondateur';
 const founderInitial = (site.founder.name ?? 'Fondateur').charAt(0);
 

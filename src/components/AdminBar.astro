@@ -1,0 +1,22 @@
+---
+// En-tête des pages /administration : retour au tableau de bord, accès au site, déconnexion
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+import { ADMIN_PATH } from '../lib/access';
+---
+
+<header class="admin-bar surface-dark">
+  <div class="container admin-bar-inner">
+    <a class="admin-brand" href={ADMIN_PATH} aria-label="Tableau de bord de l'administration">
+      <Logo variant="lockup" tone="dark" />
+      <span class="admin-brand-label">Administration</span>
+    </a>
+    <div class="admin-bar-actions">
+      <a class="admin-bar-link" href="/" target="_blank" rel="noopener">Voir le site <Icon name="arrow" /></a>
+      <form method="post" action={ADMIN_PATH}>
+        <input type="hidden" name="action" value="logout" />
+        <button class="btn btn-ghost btn-sm" type="submit"><Icon name="lock" /> Déconnexion</button>
+      </form>
+    </div>
+  </div>
+</header>

@@ -1,12 +1,15 @@
-// Verrouillage du site : un mot de passe partagé (SITE_PASSWORD), vérifié côté serveur.
+// Accès administrateur : un mot de passe (SITE_PASSWORD), vérifié côté serveur sur /administration.
 // Une fois le mot de passe saisi, le cookie contient une signature HMAC — jamais le mot de passe lui-même.
-// Changer SITE_PASSWORD invalide donc tous les accès déjà donnés.
+// Changer SITE_PASSWORD déconnecte donc toutes les sessions ouvertes.
 import type { AstroCookies } from 'astro';
-import { SITE_PASSWORD, UNLOCK_KEY } from 'astro:env/server';
+import { SITE_PASSWORD } from 'astro:env/server';
 
+/** Page « site fermé » affichée au public quand le site est verrouillé */
 export const LOCK_PATH = '/verrouillage';
-const ACCESS_COOKIE = 'nf_access';
-const ACCESS_DAYS = 30;
+/** Espace d'administration : connexion, verrou, adresse du siège, offres d'emploi */
+export const ADMIN_PATH = '/administration';
+const ADMIN_COOKIE = 'nf_admin';
+const ADMIN_DAYS = 30;
 
 const encoder = new TextEncoder();
 
@@ -18,7 +21,7 @@ async function sign(password: string): Promise<string> {
     false,
     ['sign'],
   );
-  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode('novaforge-studio:acces')));
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode('novaforge-studio:admin')));
   return btoa(String.fromCharCode(...mac)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -30,18 +33,11 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/** false : aucun mot de passe configuré, le site reste fermé à tous */
+/** false : aucun mot de passe configuré, personne ne peut se connecter à l'administration */
 export const isConfigured = (): boolean => Boolean(SITE_PASSWORD);
 
-// Le formulaire de mot de passe n'apparaît qu'avec la clé secrète dans l'adresse (/verrouillage?cle=…) :
-// le public ne voit que « site fermé ». Sans UNLOCK_KEY configurée, le formulaire reste visible de tous.
-export function hasUnlockKey(url: URL): boolean {
-  if (!UNLOCK_KEY) return true;
-  return safeEqual(url.searchParams.get('cle') ?? '', UNLOCK_KEY);
-}
-
-export async function hasAccess(cookies: AstroCookies): Promise<boolean> {
-  const token = cookies.get(ACCESS_COOKIE)?.value;
+export async function isAdmin(cookies: AstroCookies): Promise<boolean> {
+  const token = cookies.get(ADMIN_COOKIE)?.value;
   if (!SITE_PASSWORD || !token) return false;
   return safeEqual(token, await sign(SITE_PASSWORD));
 }
@@ -51,24 +47,17 @@ export async function checkPassword(input: string): Promise<boolean> {
   return safeEqual(await sign(input), await sign(SITE_PASSWORD));
 }
 
-export async function grantAccess(cookies: AstroCookies): Promise<void> {
+export async function logIn(cookies: AstroCookies): Promise<void> {
   if (!SITE_PASSWORD) return;
-  cookies.set(ACCESS_COOKIE, await sign(SITE_PASSWORD), {
+  cookies.set(ADMIN_COOKIE, await sign(SITE_PASSWORD), {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
     secure: import.meta.env.PROD,
-    maxAge: 60 * 60 * 24 * ACCESS_DAYS,
+    maxAge: 60 * 60 * 24 * ADMIN_DAYS,
   });
 }
 
-export function revokeAccess(cookies: AstroCookies): void {
-  cookies.delete(ACCESS_COOKIE, { path: '/' });
-}
-
-// Page à rouvrir après le déverrouillage : uniquement un chemin du site (pas de redirection vers l'extérieur)
-export function safeNext(value: string | null): string {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/';
-  if (value.startsWith(LOCK_PATH)) return '/';
-  return value;
+export function logOut(cookies: AstroCookies): void {
+  cookies.delete(ADMIN_COOKIE, { path: '/' });
 }

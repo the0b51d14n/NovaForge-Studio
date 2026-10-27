@@ -1,52 +1,16 @@
 ---
-// Page de verrouillage : tout visiteur sans accès y est redirigé par src/middleware.ts
+// Page « site fermé » : quand le site est verrouillé (depuis /administration), tout visiteur y est
+// redirigé par src/lib/middleware.ts. Aucun formulaire ici : la connexion se fait sur /administration.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import {
-  LOCK_PATH,
-  checkPassword,
-  grantAccess,
-  hasAccess,
-  hasUnlockKey,
-  isConfigured,
-  revokeAccess,
-  safeNext,
-} from '../lib/access';
 
-const next = safeNext(Astro.url.searchParams.get('suite'));
-const locked = Astro.url.searchParams.has('verrouille');
-// Formulaire réservé à qui connaît la clé secrète (UNLOCK_KEY) : le public ne voit que « site fermé »
-const canUnlock = isConfigured() && hasUnlockKey(Astro.url);
-let error = '';
-
-if (Astro.request.method === 'POST') {
-  const data = await Astro.request.formData();
-
-  // Bouton « Verrouiller le site » du pied de page
-  if (data.get('action') === 'verrouiller') {
-    revokeAccess(Astro.cookies);
-    return Astro.redirect(`${LOCK_PATH}?verrouille`, 303);
-  }
-
-  // Sans la clé, aucun mot de passe n'est même examiné
-  if (canUnlock && (await checkPassword(String(data.get('password') ?? '')))) {
-    await grantAccess(Astro.cookies);
-    return Astro.redirect(next, 303);
-  }
-
-  // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  error = 'Mot de passe incorrect. Vérifiez-le et réessayez.';
-  Astro.response.status = 401;
-} else if (await hasAccess(Astro.cookies)) {
-  return Astro.redirect(next);
-}
+if (!Astro.locals.settings.locked || Astro.locals.isAdmin) return Astro.redirect('/');
 ---
 
 <BaseLayout
-  title="Accès privé"
-  description="Site de NovaForge Studio en accès privé : saisissez le mot de passe pour le découvrir."
+  title="Bientôt en ligne"
+  description="Le site de NovaForge Studio est momentanément fermé. Revenez un peu plus tard."
   bare
   noindex
 >
@@ -58,51 +22,7 @@ if (Astro.request.method === 'POST') {
 
       <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Accès privé</p>
       <h1 id="lock-title">Le studio vous ouvre ses portes sur invitation.</h1>
-
-      {
-        canUnlock ? (
-          <>
-            <p class="lock-lead">
-              Saisissez le mot de passe qui vous a été communiqué pour découvrir le site de NovaForge Studio.
-            </p>
-
-            {locked && !error && (
-              <p class="lock-status" role="status">
-                Le site est verrouillé. À bientôt !
-              </p>
-            )}
-
-            <form class="lock-form" method="post">
-              <div class="field">
-                <label for="password">Mot de passe</label>
-                <input
-                  class="input"
-                  id="password"
-                  name="password"
-                  type="password"
-                  autocomplete="current-password"
-                  required
-                  autofocus
-                  aria-invalid={error ? 'true' : undefined}
-                  aria-describedby={error ? 'password-error' : undefined}
-                />
-                {error && (
-                  <p class="field-error" id="password-error" role="alert">
-                    {error}
-                  </p>
-                )}
-              </div>
-              <button class="btn btn-primary" type="submit">
-                Entrer <Icon name="arrow" class="btn-arrow" />
-              </button>
-            </form>
-          </>
-        ) : (
-          <p class="lock-lead" role="status">
-            Le site est momentanément fermé. Revenez un peu plus tard.
-          </p>
-        )
-      }
+      <p class="lock-lead" role="status">Le site est momentanément fermé. Revenez un peu plus tard.</p>
 
       <p class="lock-note">Agence digitale · Métropole lilloise · ouverture prochaine</p>
     </div>

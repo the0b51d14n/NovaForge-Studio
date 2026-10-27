@@ -1753,6 +1753,118 @@ select.input option { background: #fff; color: #06142a; }
 .lock-form .btn { width: 100%; }
 .lock-note { margin-top: 22px; font-size: .84rem; color: var(--muted); }
 
+/* ---------- 24b. Administration ---------- */
+.btn-sm { padding: .75em 1.2em; font-size: .9rem; }
+.btn-sm .icon { width: 1.1em; height: 1.1em; }
+.admin-bar { border-bottom: 1px solid var(--line); }
+.admin-bar-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  min-height: var(--header-h);
+  padding-block: 12px;
+}
+.admin-brand { display: flex; align-items: center; gap: 16px; text-decoration: none; }
+.admin-brand-label {
+  padding-left: 16px;
+  border-left: 1px solid var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.admin-bar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.admin-bar-link { display: inline-flex; align-items: center; gap: 8px; font-size: .92rem; text-decoration: none; transition: color .2s; }
+.admin-bar-link:hover { color: var(--amber); }
+.admin-bar-link .icon { width: 1em; height: 1em; }
+
+.admin { min-height: calc(100vh - var(--header-h)); padding-block: clamp(40px, 6vw, 72px) clamp(64px, 8vw, 104px); }
+.admin-inner { display: grid; gap: 24px; max-width: 900px; }
+.admin-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  letter-spacing: -.03em;
+  line-height: 1.1;
+}
+.admin-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color .2s;
+}
+.admin-back:hover { color: var(--fg); }
+.admin-back .icon { width: 1em; height: 1em; rotate: 180deg; }
+.admin-flash,
+.admin-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-left: 3px solid var(--blue-2);
+  border-radius: 0 12px 12px 0;
+  background: rgba(11, 127, 192, .1);
+  font-weight: 600;
+}
+.admin-flash .icon { flex: none; width: 1.1em; height: 1.1em; color: var(--blue-2); }
+.admin-alert { border-color: var(--error); background: rgba(179, 38, 30, .08); }
+.admin-card { display: grid; gap: 18px; padding: clamp(24px, 4vw, 40px); }
+.admin-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.admin-h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
+.admin-text { max-width: 44rem; color: var(--muted); }
+.admin-text a { color: var(--accent); font-weight: 600; }
+.admin-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.admin-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.admin-state--locked { background: rgba(224, 161, 90, .18); color: #8a5a1f; }
+.admin-state--open { background: rgba(11, 127, 192, .12); color: var(--blue); }
+.admin-form { margin-top: 6px; }
+textarea.admin-textarea--short { min-height: 80px; }
+.admin-jobs { display: grid; border-top: 1px solid var(--line); }
+.admin-job {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding-block: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-job-main { display: grid; gap: 4px; min-width: 0; }
+.admin-job-title { font-weight: 700; font-size: 1.05rem; }
+.admin-job-meta { font-size: .9rem; color: var(--muted); }
+.admin-job-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.admin-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+.admin-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.admin-link--danger { color: var(--error); }
+
 /* ---------- 25. Pied de page ---------- */
 .site-footer { padding-top: clamp(72px, 9vw, 120px); overflow: hidden; }
 .footer-grid {
@@ -1798,20 +1910,9 @@ select.input option { background: #fff; color: #06142a; }
 .footer-socials a { text-decoration: none; transition: color .2s; }
 .footer-legal a:hover,
 .footer-socials a:hover { color: var(--amber); }
-.footer-lock button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-size: inherit;
-  line-height: inherit;
-  cursor: pointer;
-  transition: color .2s;
-}
-.footer-lock button:hover { color: var(--amber); }
-.footer-lock .icon { width: 1.1em; height: 1.1em; }
+.footer-admin { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; transition: color .2s; }
+.footer-admin:hover { color: var(--amber); }
+.footer-admin .icon { width: 1.1em; height: 1.1em; }
 /* Signature : le mot occupe exactement la largeur du contenu (unités de conteneur), sans jamais déborder */
 .footer-signature {
   container-type: inline-size;

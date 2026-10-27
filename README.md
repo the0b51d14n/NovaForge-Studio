@@ -19,25 +19,30 @@ npm run build      # génère le site pour Vercel dans .vercel/output/
 Les polices sont intégrées au projet : le site fonctionne même sans connexion internet.
 `astro preview` n'est pas disponible avec l'adaptateur Vercel : tester avec `npm run dev`.
 
-## Accès privé (page de verrouillage)
+## Administration et verrouillage
 
-Toute visite sans accès est redirigée vers `/verrouillage`. Après le bon mot de passe, le
-visiteur revient sur la page qu'il demandait ; l'accès reste ouvert 30 jours sur ce navigateur.
-Le bouton « Verrouiller le site », en bas de chaque page, referme l'accès.
+`/administration` (mot de passe `SITE_PASSWORD`) permet de :
+
+- **verrouiller ou ouvrir le site** : verrouillé, tout visiteur est redirigé vers `/verrouillage`
+  (« Le site est momentanément fermé », sans formulaire) ; l'administrateur connecté voit toujours le site ;
+- **changer l'adresse du siège** : pied de page, contact, carte (coordonnées recalculées via
+  OpenStreetMap), offres d'emploi, mentions légales et confidentialité ;
+- **créer, modifier et supprimer les offres d'emploi** de l'onglet Carrières. Sans offre, les mentions
+  « On recrute » disparaissent et seule la candidature spontanée reste proposée.
 
 - **Le mot de passe** est la variable d'environnement `SITE_PASSWORD` : fichier `.env` en local
   (jamais versionné), réglages du projet sur Vercel en ligne. Il n'est écrit nulle part dans le code.
-- **Le formulaire est caché au public** grâce à `UNLOCK_KEY` : `/verrouillage` affiche seulement
-  « Le site est momentanément fermé », et le formulaire n'apparaît qu'à l'adresse
-  `/verrouillage?cle=<UNLOCK_KEY>` (à garder en favori). Sans cette clé, le serveur n'examine
-  aucun mot de passe. Si `UNLOCK_KEY` est vide, le formulaire est visible de tous.
-- **Sans mot de passe configuré**, le site reste fermé à tout le monde.
-- **Changer le mot de passe** déconnecte tous ceux qui avaient déjà accès.
-- La vérification se fait côté serveur (`src/lib/middleware.ts` et `src/lib/access.ts`) : sans
-  le cookie d'accès, le serveur n'envoie aucune page. Le cookie contient une signature du mot de
-  passe, pas le mot de passe lui-même.
+  Le changer déconnecte toutes les sessions d'administration.
+- **Les données** (verrou, adresse, offres) sont dans **Upstash Redis** (`src/lib/store.ts`) :
+  Vercel → projet → Storage → Upstash for Redis, relié au projet, qui ajoute `KV_REST_API_URL` et
+  `KV_REST_API_TOKEN`. Sans base configurée (en local), elles sont gardées en mémoire et perdues au
+  redémarrage ; l'administration l'indique. Tant que rien n'a été enregistré, les valeurs de
+  `src/data/site.ts` et `src/data/content.ts` servent de départ (site verrouillé par défaut).
+- **Base injoignable** : le site reste fermé au public plutôt que d'afficher une erreur.
+- La vérification se fait côté serveur (`src/lib/middleware.ts` et `src/lib/access.ts`). Le cookie
+  d'administration contient une signature du mot de passe, pas le mot de passe lui-même.
 - Restent publics : les fichiers statiques (CSS, JS, polices, logo).
-- Les formulaires (`/api/*`) sont eux aussi protégés : sans accès, ils répondent `401`.
+- Les formulaires (`/api/*`) suivent le verrou : site verrouillé, ils répondent `401`.
 - Le dossier du projet contient une apostrophe (« de l'entreprise ») qu'Astro ne gère pas pour
   `src/middleware.ts` : le middleware est donc branché dans `astro.config.mjs` via un alias.
 
@@ -109,12 +114,12 @@ Contact et candidatures sont envoyés par e-mail via [Resend](https://resend.com
 
 Carte interactive (Leaflet + OpenStreetMap, sans clé d'API) sur les pages L'agence et Contact,
 centrée sur le 6 rue Blaise Pascal, Neuville-en-Ferrain.
-L'adresse et les coordonnées sont dans `src/data/site.ts`. Elle nécessite une connexion internet ;
+L'adresse se change dans `/administration` (coordonnées de la carte recalculées automatiquement). Elle nécessite une connexion internet ;
 hors ligne, l'adresse reste affichée.
 
 ## Mise en ligne
 
 Le site est déployé sur Vercel à chaque push sur `main` (adaptateur `@astrojs/vercel`, rendu serveur).
-Avant le premier déploiement avec le verrou : **Vercel → projet → Settings → Environment Variables**,
-ajouter `SITE_PASSWORD` et `UNLOCK_KEY` (environnements Production et Preview), puis redéployer. Pour activer les
-formulaires : `RESEND_API_KEY` et `MAIL_FROM` (voir `.env.example`).
+Avant le premier déploiement : **Vercel → projet → Settings → Environment Variables**, ajouter
+`SITE_PASSWORD` (environnements Production et Preview), puis **Storage → Upstash for Redis** relié au
+projet, et redéployer. Pour activer les formulaires : `RESEND_API_KEY` et `MAIL_FROM` (voir `.env.example`).

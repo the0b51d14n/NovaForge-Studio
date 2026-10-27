@@ -3,6 +3,8 @@ import Logo from './Logo.astro';
 import { nav } from '../data/site';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+// « On recrute » seulement s'il y a au moins une offre publiée
+const hiring = Astro.locals.openings.length > 0;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 ---
 
@@ -24,7 +26,7 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
             <li>
               <a href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
                 {item.label}
-                {item.badge && <span class="pill">{item.badge}</span>}
+                {item.badge && hiring && <span class="pill">{item.badge}</span>}
               </a>
             </li>
           ))

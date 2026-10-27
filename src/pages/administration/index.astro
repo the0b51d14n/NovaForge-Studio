@@ -1,0 +1,258 @@
+---
+// Administration : connexion (SITE_PASSWORD), puis verrou du site, adresse du siège et offres d'emploi.
+// Chaque action est un formulaire POST traité ici, suivi d'une redirection (pas de double envoi en rechargeant).
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Logo from '../../components/Logo.astro';
+import Icon from '../../components/Icon.astro';
+import AdminBar from '../../components/AdminBar.astro';
+import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut } from '../../lib/access';
+import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
+
+const { isAdmin, settings, openings } = Astro.locals;
+let error = '';
+
+const text = (data: FormData, name: string, max = 120) => String(data.get(name) ?? '').trim().slice(0, max);
+const done = (ok: string) => Astro.redirect(`${ADMIN_PATH}?ok=${ok}`, 303);
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action');
+
+  if (!isAdmin) {
+    if (action === 'login') {
+      if (await checkPassword(String(data.get('password') ?? ''))) {
+        await logIn(Astro.cookies);
+        return Astro.redirect(ADMIN_PATH, 303);
+      }
+      // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      error = 'Mot de passe incorrect. Vérifiez-le et réessayez.';
+      Astro.response.status = 401;
+    }
+  } else {
+    try {
+      if (action === 'logout') {
+        logOut(Astro.cookies);
+        return Astro.redirect(ADMIN_PATH, 303);
+      }
+      if (action === 'lock' || action === 'unlock') {
+        await saveSettings({ ...settings, locked: action === 'lock' });
+        return done(action);
+      }
+      if (action === 'address') {
+        const street = text(data, 'street');
+        const postalCode = text(data, 'postalCode', 5);
+        const city = text(data, 'city');
+        if (!street || !city || !/^\d{5}$/.test(postalCode)) {
+          error = 'Adresse incomplète : rue, code postal à 5 chiffres et ville sont obligatoires.';
+        } else {
+          const geo = await geocode(street, postalCode, city);
+          await saveSettings({ ...settings, street, postalCode, city, geo: geo ?? settings.geo });
+          return done(geo ? 'adresse' : 'adresse-sans-carte');
+        }
+      }
+      if (action === 'delete') {
+        const slug = text(data, 'slug');
+        await saveOpenings(openings.filter((o) => o.slug !== slug));
+        return done('supprimee');
+      }
+    } catch (e) {
+      console.error(e);
+      error = "L'enregistrement a échoué (base de données injoignable). Réessayez dans un instant.";
+      Astro.response.status = 500;
+    }
+  }
+}
+
+const flashes: Record<string, string> = {
+  lock: 'Site verrouillé : le public voit maintenant la page « momentanément fermé ».',
+  unlock: 'Site ouvert : tout le monde peut maintenant le consulter.',
+  adresse: 'Adresse du siège enregistrée, carte mise à jour.',
+  'adresse-sans-carte': "Adresse enregistrée, mais introuvable sur la carte : l'ancien emplacement de la carte est conservé.",
+  supprimee: 'Offre supprimée.',
+  creee: 'Offre publiée.',
+  modifiee: 'Offre mise à jour.',
+};
+const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
+
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+---
+
+<BaseLayout title="Administration" description="Administration du site NovaForge Studio." bare noindex>
+  {
+    !isAdmin ? (
+      <section class="hero lock surface-dark" aria-labelledby="admin-title" data-stardust-host>
+        <canvas class="stardust" data-stardust aria-hidden="true" />
+        <div class="lock-panel">
+          <Logo variant="stacked" tone="dark" />
+          <p class="lock-badge">
+            <Icon name="lock" class="lock-badge-icon" /> Administration
+          </p>
+          <h1 id="admin-title">Espace réservé.</h1>
+          {isConfigured() ? (
+            <form class="lock-form" method="post">
+              <input type="hidden" name="action" value="login" />
+              <div class="field">
+                <label for="password">Mot de passe</label>
+                <input
+                  class="input"
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  autofocus
+                  aria-invalid={error ? 'true' : undefined}
+                  aria-describedby={error ? 'password-error' : undefined}
+                />
+                {error && (
+                  <p class="field-error" id="password-error" role="alert">
+                    {error}
+                  </p>
+                )}
+              </div>
+              <button class="btn btn-primary" type="submit">
+                Se connecter <Icon name="arrow" class="btn-arrow" />
+              </button>
+            </form>
+          ) : (
+            <p class="lock-lead" role="status">
+              Aucun mot de passe n'est configuré : ajoutez SITE_PASSWORD aux variables d'environnement.
+            </p>
+          )}
+        </div>
+      </section>
+    ) : (
+      <>
+        <AdminBar />
+        <div class="admin surface-light-2">
+          <div class="container admin-inner">
+            <h1 class="admin-title">Tableau de bord</h1>
+
+            {!isPersistent() && (
+              <p class="admin-alert">
+                Base de données non configurée : les modifications sont perdues au redémarrage du serveur. Branchez
+                Upstash Redis au projet (Vercel → Storage).
+              </p>
+            )}
+            {flash && (
+              <p class="admin-flash" role="status">
+                <Icon name="check" /> {flash}
+              </p>
+            )}
+            {error && (
+              <p class="admin-alert" role="alert">
+                {error}
+              </p>
+            )}
+
+            <section class="admin-card card" aria-labelledby="a-lock">
+              <div class="admin-card-head">
+                <h2 class="admin-h2" id="a-lock">État du site</h2>
+                <p class:list={['admin-state', settings.locked ? 'admin-state--locked' : 'admin-state--open']}>
+                  {settings.locked ? 'Verrouillé' : 'En ligne'}
+                </p>
+              </div>
+              <p class="admin-text">
+                {settings.locked
+                  ? 'Le public voit la page « Le site est momentanément fermé ». Le site reste visible pour vous tant que votre session d\'administration est ouverte.'
+                  : 'Tout le monde peut consulter le site.'}
+              </p>
+              <form method="post">
+                <input type="hidden" name="action" value={settings.locked ? 'unlock' : 'lock'} />
+                {settings.locked ? (
+                  <button class="btn btn-primary" type="submit">
+                    Ouvrir le site au public <Icon name="arrow" class="btn-arrow" />
+                  </button>
+                ) : (
+                  <button class="btn btn-ghost" type="submit">
+                    <Icon name="lock" /> Verrouiller le site
+                  </button>
+                )}
+              </form>
+            </section>
+
+            <section class="admin-card card" aria-labelledby="a-address">
+              <h2 class="admin-h2" id="a-address">Adresse du siège</h2>
+              <p class="admin-text">
+                Affichée dans le pied de page, la page Contact, la carte, les offres d'emploi et les mentions légales.
+              </p>
+              <form class="form admin-form" method="post">
+                <input type="hidden" name="action" value="address" />
+                <div class="field field--full">
+                  <label for="street">Rue</label>
+                  <input class="input" id="street" name="street" value={settings.street} required maxlength="120" autocomplete="street-address" />
+                </div>
+                <div class="field">
+                  <label for="postalCode">Code postal</label>
+                  <input class="input" id="postalCode" name="postalCode" value={settings.postalCode} required inputmode="numeric" pattern="\d{5}" maxlength="5" autocomplete="postal-code" />
+                </div>
+                <div class="field">
+                  <label for="city">Ville</label>
+                  <input class="input" id="city" name="city" value={settings.city} required maxlength="120" autocomplete="address-level2" />
+                </div>
+                <div class="form-footer">
+                  <p class="form-note">La carte est recalculée automatiquement à partir de l'adresse.</p>
+                  <button class="btn btn-primary" type="submit">Enregistrer l'adresse</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="admin-card card" aria-labelledby="a-jobs">
+              <div class="admin-card-head">
+                <h2 class="admin-h2" id="a-jobs">Offres d'emploi</h2>
+                <a class="btn btn-primary btn-sm" href={`${ADMIN_PATH}/offres/nouvelle`}>
+                  Nouvelle offre <Icon name="arrow" class="btn-arrow" />
+                </a>
+              </div>
+              {openings.length === 0 ? (
+                <p class="admin-text">
+                  Aucune offre publiée : l'onglet Carrières ne propose que la candidature spontanée, et la mention « On
+                  recrute » est masquée.
+                </p>
+              ) : (
+                <ul class="admin-jobs">
+                  {openings.map((o) => (
+                    <li class="admin-job">
+                      <div class="admin-job-main">
+                        <p class="admin-job-title">{o.title}</p>
+                        <p class="admin-job-meta">
+                          {o.contracts.join(' ou ')} · publiée le {formatDate(o.published)}
+                        </p>
+                      </div>
+                      <div class="admin-job-actions">
+                        <a class="admin-link" href={`/carrieres/${o.slug}`} target="_blank" rel="noopener">
+                          Voir
+                        </a>
+                        <a class="admin-link" href={`${ADMIN_PATH}/offres/${o.slug}`}>
+                          Modifier
+                        </a>
+                        <form method="post" data-confirm={`Supprimer l'offre « ${o.title} » ?`}>
+                          <input type="hidden" name="action" value="delete" />
+                          <input type="hidden" name="slug" value={o.slug} />
+                          <button class="admin-link admin-link--danger" type="submit">
+                            Supprimer
+                          </button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+      </>
+    )
+  }
+</BaseLayout>
+
+<script>
+  // Confirmation avant une suppression
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!confirm(form.dataset.confirm)) event.preventDefault();
+    });
+  });
+</script>

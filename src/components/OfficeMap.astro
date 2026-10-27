@@ -1,13 +1,14 @@
 ---
 // Carte interactive (Leaflet + OpenStreetMap) centrée sur l'adresse de l'agence
 import Icon from './Icon.astro';
-import { site } from '../data/site';
+import { getSite } from '../lib/store';
 
 interface Props {
   compact?: boolean;
 }
 
 const { compact = false } = Astro.props;
+const site = getSite(Astro.locals);
 const { lat, lng } = site.geo;
 const query = encodeURIComponent(`${site.address.join(', ')}, France`);
 const directions = `https://www.google.com/maps/dir/?api=1&destination=${query}`;

@@ -24,10 +24,14 @@ export default defineConfig({
   integrations: [accessLock],
   env: {
     schema: {
-      // Mot de passe du site : .env en local, variables d'environnement du projet sur Vercel
+      // Mot de passe de /administration : .env en local, variables d'environnement du projet sur Vercel
       SITE_PASSWORD: envField.string({ context: 'server', access: 'secret', optional: true }),
-      // Clé secrète qui affiche le formulaire de mot de passe : /verrouillage?cle=…
-      UNLOCK_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
+      // Base Upstash Redis (verrou, adresse, offres) : ajoutées par Vercel → Storage → Upstash.
+      // Les noms UPSTASH_* sont acceptés aussi, pour une base créée directement sur upstash.com
+      KV_REST_API_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      KV_REST_API_TOKEN: envField.string({ context: 'server', access: 'secret', optional: true }),
+      UPSTASH_REDIS_REST_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      UPSTASH_REDIS_REST_TOKEN: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Envoi des formulaires par e-mail (Resend) : inactif tant que ces deux variables sont vides
       RESEND_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       MAIL_FROM: envField.string({ context: 'server', access: 'secret', optional: true }),

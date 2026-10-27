@@ -1,8 +1,12 @@
 ---
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
-import { site } from '../data/site';
 import { projects } from '../data/content';
+import { ADMIN_PATH } from '../lib/access';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
+const { isAdmin, openings } = Astro.locals;
 ---
 
 <footer class="site-footer surface-dark">
@@ -26,7 +30,7 @@ import { projects } from '../data/content';
     <nav class="footer-col" aria-label="Nous rejoindre">
       <p class="footer-title">Nous rejoindre</p>
       <ul>
-        <li><a href="/carrieres">Carrières <span class="pill">On recrute</span></a></li>
+        <li><a href="/carrieres">Carrières {openings.length > 0 && <span class="pill">On recrute</span>}</a></li>
         <li><a href="/contact">Contact</a></li>
       </ul>
     </nav>
@@ -63,11 +67,8 @@ import { projects } from '../data/content';
           </ul>
         )
       }
-      {/* Aperçu privé : seuls les visiteurs ayant saisi le mot de passe voient ce pied de page */}
-      <form class="footer-lock" method="post" action="/verrouillage">
-        <input type="hidden" name="action" value="verrouiller" />
-        <button type="submit"><Icon name="lock" /> Verrouiller le site</button>
-      </form>
+      {/* Raccourci visible uniquement une fois connecté à l'administration */}
+      {isAdmin && <a class="footer-admin" href={ADMIN_PATH}><Icon name="lock" /> Administration</a>}
     </div>
   </div>
 

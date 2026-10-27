@@ -3,8 +3,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
 import Icon from '../components/Icon.astro';
 import OfficeMap from '../components/OfficeMap.astro';
-import { site } from '../data/site';
 import { services } from '../data/content';
+import { getSite } from '../lib/store';
+
+const site = getSite(Astro.locals);
 ---
 
 <BaseLayout
