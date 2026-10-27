@@ -9,6 +9,8 @@ export const LOCK_PATH = '/verrouillage';
 /** Espace d'administration : connexion, verrou, adresse du siège, offres d'emploi */
 export const ADMIN_PATH = '/administration';
 const ADMIN_COOKIE = 'nf_admin';
+// Aperçu du site verrouillé : sans lui, l'administrateur voit la page fermée comme tout le monde
+const PREVIEW_COOKIE = 'nf_apercu';
 const ADMIN_DAYS = 30;
 
 const encoder = new TextEncoder();
@@ -60,4 +62,17 @@ export async function logIn(cookies: AstroCookies): Promise<void> {
 
 export function logOut(cookies: AstroCookies): void {
   cookies.delete(ADMIN_COOKIE, { path: '/' });
+  stopPreview(cookies);
+}
+
+/** true : l'administrateur a choisi de consulter le site malgré le verrou (à combiner avec isAdmin) */
+export const isPreviewing = (cookies: AstroCookies): boolean => cookies.get(PREVIEW_COOKIE)?.value === '1';
+
+/** Aperçu valable jusqu'à la fermeture du navigateur */
+export function startPreview(cookies: AstroCookies): void {
+  cookies.set(PREVIEW_COOKIE, '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: import.meta.env.PROD });
+}
+
+export function stopPreview(cookies: AstroCookies): void {
+  cookies.delete(PREVIEW_COOKIE, { path: '/' });
 }

@@ -1,6 +1,6 @@
 ---
-// Horaires de la semaine en cours, jour par jour avec leur date : un créneau par jour sur un axe commun,
-// aujourd'hui mis en avant avec l'état du studio (ouvert / fermé), jours fériés et fermetures exceptionnelles
+// Horaires de la semaine en cours : calculés sur les vraies dates, affichés par nom du jour. Un créneau par jour
+// sur un axe commun, aujourd'hui mis en avant avec l'état du studio (ouvert / fermé), jours fériés et fermetures exceptionnelles
 // signalés, puis les prochaines fermetures. Calculé à l'heure de Paris au moment de la requête.
 import { site } from '../data/site';
 import { addDays, buildCalendar, closureOn, formatDay, formatTime, getStatus, upcomingClosures, weekday } from '../lib/hours';
@@ -23,7 +23,6 @@ const days = site.schedule.map((d, i) => {
   const closure = usual ? closureOn(iso, cal) : null;
   return {
     name: d.day,
-    date: formatDay(iso, { day: 'numeric', month: 'short' }),
     slot: closure ? null : usual,
     closure,
     today: iso === status.date,
@@ -41,13 +40,13 @@ const range = (c: { start: string; end: string }) =>
   <p class:list={['hours-status', { 'is-open': status.open }]}>{status.label}</p>
   <ul class="hours-list">
     {
-      days.map(({ name, date, slot, closure, today }) => (
+      days.map(({ name, slot, closure, today }) => (
         <li
           class:list={['hours-day', { 'is-closed': !slot, 'is-exception': closure, 'is-today': today }]}
           aria-current={today ? 'date' : undefined}
         >
           <span class="hours-name">
-            {name} <span class="hours-date">{date}</span>
+            {name}
           </span>
           {closure ? (
             <span class="hours-note">{closure}</span>

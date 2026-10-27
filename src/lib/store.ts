@@ -13,7 +13,7 @@ import { initialOpenings, type Opening } from '../data/content';
 import type { Closure } from './hours';
 
 export type Settings = {
-  /** true : seul l'administrateur voit le site, le public voit /verrouillage */
+  /** true : tout le monde voit /verrouillage (l'administrateur peut activer un aperçu depuis cette page) */
   locked: boolean;
   street: string;
   postalCode: string;

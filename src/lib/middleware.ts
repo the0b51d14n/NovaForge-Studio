@@ -1,8 +1,9 @@
 // Branché dans astro.config.mjs. Pour chaque page : charge les données modifiables (verrou, adresse, offres)
-// et, si le site est verrouillé, redirige le public vers /verrouillage. L'administrateur voit toujours le site.
+// et, si le site est verrouillé, redirige tout le monde vers /verrouillage, administrateur compris,
+// sauf s'il a choisi « Voir le site en aperçu » sur cette page.
 // Les fichiers statiques (CSS, JS, polices, images, favicon) sont servis directement, sans passer ici.
 import { defineMiddleware } from 'astro:middleware';
-import { ADMIN_PATH, LOCK_PATH, isAdmin } from './access';
+import { ADMIN_PATH, LOCK_PATH, isAdmin, isPreviewing } from './access';
 import { loadData } from './store';
 
 export const onRequest = defineMiddleware(async (context, next) => {
@@ -17,7 +18,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.version = data.version;
 
   const alwaysOpen = pathname === LOCK_PATH || pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
-  if (admin || !data.settings.locked || alwaysOpen) return next();
+  const preview = admin && isPreviewing(context.cookies);
+  if (preview || !data.settings.locked || alwaysOpen) return next();
 
   // Formulaires (fetch) : une réponse claire plutôt qu'une redirection vers la page HTML
   if (pathname.startsWith('/api/')) {

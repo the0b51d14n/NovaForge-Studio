@@ -1,11 +1,27 @@
 ---
 // Page « site fermé » : quand le site est verrouillé (depuis /administration), tout visiteur y est
-// redirigé par src/lib/middleware.ts. Aucun formulaire ici : la connexion se fait sur /administration.
+// redirigé par src/lib/middleware.ts, administrateur compris. La connexion se fait sur /administration ;
+// une fois connecté, l'administrateur trouve ici de quoi consulter le site en aperçu.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
+import { ADMIN_PATH, LOCK_PATH, isPreviewing, startPreview, stopPreview } from '../lib/access';
 
-if (!Astro.locals.settings.locked || Astro.locals.isAdmin) return Astro.redirect('/');
+const { isAdmin, settings } = Astro.locals;
+if (!settings.locked) return Astro.redirect('/');
+
+if (isAdmin && Astro.request.method === 'POST') {
+  const action = (await Astro.request.formData()).get('action');
+  if (action === 'preview-on') {
+    startPreview(Astro.cookies);
+    return Astro.redirect('/', 303);
+  }
+  if (action === 'preview-off') {
+    stopPreview(Astro.cookies);
+    return Astro.redirect(LOCK_PATH, 303);
+  }
+}
+const previewing = isAdmin && isPreviewing(Astro.cookies);
 ---
 
 <BaseLayout
@@ -25,6 +41,23 @@ if (!Astro.locals.settings.locked || Astro.locals.isAdmin) return Astro.redirect
       <p class="lock-lead" role="status">Le site est momentanément fermé. Revenez un peu plus tard.</p>
 
       <p class="lock-note">Agence digitale · Métropole lilloise · ouverture prochaine</p>
+
+      {
+        isAdmin && (
+          <div class="lock-admin">
+            <p>Session d'administration ouverte : le public voit cette page.</p>
+            <div class="lock-admin-actions">
+              <form method="post">
+                <input type="hidden" name="action" value={previewing ? 'preview-off' : 'preview-on'} />
+                <button class="btn btn-ghost btn-sm" type="submit">
+                  {previewing ? "Quitter l'aperçu" : 'Voir le site en aperçu'}
+                </button>
+              </form>
+              <a class="btn btn-ghost btn-sm" href={ADMIN_PATH}>Administration</a>
+            </div>
+          </div>
+        )
+      }
     </div>
   </section>
 </BaseLayout>

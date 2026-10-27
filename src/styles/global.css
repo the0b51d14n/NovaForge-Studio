@@ -1623,7 +1623,7 @@ select.input option { background: #fff; color: #06142a; }
 .hours-list { display: grid; }
 .hours-day {
   display: grid;
-  grid-template-columns: 9.4rem minmax(0, 1fr) auto;
+  grid-template-columns: 5.6rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   margin-inline: -10px;
@@ -1632,7 +1632,6 @@ select.input option { background: #fff; color: #06142a; }
   font-size: .95rem;
 }
 .hours-day.is-closed { color: var(--muted); }
-.hours-date { font-size: .8rem; font-weight: 500; color: var(--muted); }
 /* Jour férié ou fermeture exceptionnelle : le motif remplace la frise */
 .hours-note { overflow: hidden; font-size: .85rem; font-style: italic; text-overflow: ellipsis; white-space: nowrap; }
 .hours-day.is-exception .hours-time { color: var(--error); }
@@ -1860,6 +1859,9 @@ select.input option { background: #fff; color: #06142a; }
 }
 .lock-form .btn { width: 100%; }
 .lock-note { margin-top: 22px; font-size: .84rem; color: var(--muted); }
+/* Visible seulement par l'administrateur connecté */
+.lock-admin { display: grid; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: .9rem; color: var(--muted); }
+.lock-admin-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* ---------- 24b. Administration ---------- */
 .btn-sm { padding: .75em 1.2em; font-size: .9rem; }
@@ -2586,10 +2588,9 @@ textarea.admin-textarea--short { min-height: 80px; }
   border-radius: 999px;
   box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .55);
   font-size: .88rem;
-  text-decoration: none;
-  transition: border-color .2s;
 }
-.admin-preview:hover { border-color: var(--amber); }
+.admin-preview button { margin-left: 4px; padding: 4px 12px; border: 1px solid var(--line-strong); border-radius: 999px; background: none; color: inherit; font: inherit; font-weight: 600; cursor: pointer; transition: border-color .2s, color .2s; }
+.admin-preview button:hover { border-color: var(--amber); color: var(--amber); }
 .admin-preview .icon { width: 1.05em; height: 1.05em; color: var(--amber); }
 .admin-preview strong { color: var(--amber); }
 

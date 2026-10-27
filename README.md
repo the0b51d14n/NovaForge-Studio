@@ -24,7 +24,7 @@ Les polices sont intégrées au projet : le site fonctionne même sans connexion
 `/administration` (mot de passe `SITE_PASSWORD`) permet de :
 
 - **verrouiller ou ouvrir le site** : verrouillé, tout visiteur est redirigé vers `/verrouillage`
-  (« Le site est momentanément fermé », sans formulaire) ; l'administrateur connecté voit toujours le site ;
+  (« Le site est momentanément fermé », sans formulaire) ; l'administrateur connecté aussi, mais il peut consulter le site via « Voir le site en aperçu » sur cette page ;
 - **changer l'adresse du siège** : pied de page, contact, carte (coordonnées recalculées via
   OpenStreetMap), offres d'emploi, mentions légales et confidentialité ;
 - **créer, modifier et supprimer les offres d'emploi** de l'onglet Carrières. Sans offre, les mentions

@@ -14,7 +14,7 @@ import Footer from '../components/Footer.astro';
 import DirectionsPicker from '../components/DirectionsPicker.astro';
 import Icon from '../components/Icon.astro';
 import { site } from '../data/site';
-import { ADMIN_PATH } from '../lib/access';
+import { LOCK_PATH } from '../lib/access';
 
 interface Props {
   title?: string;
@@ -25,7 +25,7 @@ interface Props {
 }
 
 const { title, description = site.description, bare = false, noindex = false } = Astro.props;
-// Site verrouillé mais visible pour l'administrateur connecté : un rappel évite de croire le site ouvert
+// Aperçu du site verrouillé (choisi par l'administrateur sur /verrouillage) : un rappel évite de croire le site ouvert
 const adminPreview = !bare && Astro.locals.isAdmin && Astro.locals.settings.locked;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale · ${site.area}`;
 ---
@@ -64,12 +64,14 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     {!bare && <DirectionsPicker />}
     {
       adminPreview && (
-        <a class="admin-preview surface-dark" href={ADMIN_PATH}>
+        <form class="admin-preview surface-dark" method="post" action={LOCK_PATH}>
           <Icon name="lock" />
           <span>
-            <strong>Site verrouillé</strong> · visible uniquement par vous
+            <strong>Aperçu</strong> · site fermé au public
           </span>
-        </a>
+          <input type="hidden" name="action" value="preview-off" />
+          <button type="submit">Quitter</button>
+        </form>
       )
     }
     <script>

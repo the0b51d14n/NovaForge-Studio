@@ -5,7 +5,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Logo from '../../components/Logo.astro';
 import Icon from '../../components/Icon.astro';
 import AdminBar from '../../components/AdminBar.astro';
-import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut } from '../../lib/access';
+import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
 import { site } from '../../data/site';
 import { ISO_DATE, addDays, buildCalendar, closureOn, formatDay, parisNow, upcomingClosures, weekday, type Closure } from '../../lib/hours';
@@ -42,6 +42,8 @@ if (Astro.request.method === 'POST') {
       }
       if (action === 'lock' || action === 'unlock') {
         await saveSettings({ ...settings, locked: action === 'lock' });
+        // Verrouiller ferme aussi le site pour l'administrateur : l'aperçu se réactive depuis /verrouillage
+        stopPreview(Astro.cookies);
         return done(action);
       }
       if (action === 'address') {
@@ -204,7 +206,7 @@ const formatDate = (iso: string) =>
               </div>
               <p class="admin-text">
                 {settings.locked
-                  ? 'Le public voit la page « Le site est momentanément fermé ». Le site reste visible pour vous tant que votre session d\'administration est ouverte.'
+                  ? 'Tout le monde, vous compris, voit la page « Le site est momentanément fermé ». Depuis cette page, le bouton « Voir le site en aperçu » vous permet de le consulter.'
                   : 'Tout le monde peut consulter le site.'}
               </p>
               <form method="post">
