@@ -8,6 +8,7 @@ import AdminBar from '../../components/AdminBar.astro';
 import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
 import { site } from '../../data/site';
+import { LOCK_REASONS, isLockReason } from '../../data/lock-reasons';
 import { ISO_DATE, addDays, buildCalendar, closureOn, formatDay, parisNow, upcomingClosures, weekday, type Closure } from '../../lib/hours';
 
 const { isAdmin, settings, openings } = Astro.locals;
@@ -40,8 +41,18 @@ if (Astro.request.method === 'POST') {
         logOut(Astro.cookies);
         return Astro.redirect(ADMIN_PATH, 303);
       }
+      if (action === 'lock-reason') {
+        const reason = data.get('reason');
+        if (isLockReason(reason)) await saveSettings({ ...settings, lockReason: reason });
+        return done('motif');
+      }
       if (action === 'lock' || action === 'unlock') {
-        await saveSettings({ ...settings, locked: action === 'lock' });
+        const reason = data.get('reason');
+        await saveSettings({
+          ...settings,
+          locked: action === 'lock',
+          lockReason: action === 'lock' && isLockReason(reason) ? reason : settings.lockReason,
+        });
         // Verrouiller ferme aussi le site pour l'administrateur : l'aperçu se réactive depuis /verrouillage
         stopPreview(Astro.cookies);
         return done(action);
@@ -97,8 +108,12 @@ if (Astro.request.method === 'POST') {
   }
 }
 
+const lockReason = LOCK_REASONS[settings.lockReason] ?? LOCK_REASONS.fermeture;
+// Titre cité entre guillemets dans les messages, sans son point final
+const lockTitle = lockReason.title.replace(/\.$/, '');
 const flashes: Record<string, string> = {
-  lock: 'Site verrouillé : le public voit maintenant la page « momentanément fermé ».',
+  lock: `Site verrouillé (${lockReason.label.toLowerCase()}) : les visiteurs voient maintenant « ${lockTitle} ».`,
+  motif: `Motif changé : les visiteurs voient maintenant « ${lockTitle} ».`,
   unlock: 'Site ouvert : tout le monde peut maintenant le consulter.',
   adresse: 'Adresse du siège enregistrée, carte mise à jour.',
   'adresse-sans-carte': "Adresse enregistrée, mais introuvable sur la carte : l'ancien emplacement de la carte est conservé.",
@@ -201,26 +216,44 @@ const formatDate = (iso: string) =>
               <div class="admin-card-head">
                 <h2 class="admin-h2" id="a-lock">État du site</h2>
                 <p class:list={['admin-state', settings.locked ? 'admin-state--locked' : 'admin-state--open']}>
-                  {settings.locked ? 'Verrouillé' : 'En ligne'}
+                  {settings.locked ? `Verrouillé · ${lockReason.label}` : 'En ligne'}
                 </p>
               </div>
               <p class="admin-text">
                 {settings.locked
-                  ? 'Tout le monde, vous compris, voit la page « Le site est momentanément fermé ». Depuis cette page, le bouton « Voir le site en aperçu » vous permet de le consulter.'
-                  : 'Tout le monde peut consulter le site.'}
+                  ? `Tout le monde, vous compris, voit la page « ${lockTitle} ». Depuis cette page, le bouton « Voir le site en aperçu » vous permet de le consulter.`
+                  : 'Tout le monde peut consulter le site. Choisissez le motif affiché aux visiteurs, puis verrouillez.'}
               </p>
-              <form method="post">
-                <input type="hidden" name="action" value={settings.locked ? 'unlock' : 'lock'} />
+              <form class="admin-lock-form" method="post">
+                <fieldset class="field">
+                  <legend>Motif du verrouillage</legend>
+                  <div class="choices">
+                    {Object.entries(LOCK_REASONS).map(([value, reason]) => (
+                      <label class="choice">
+                        <input type="radio" name="reason" value={value} checked={value === settings.lockReason} />
+                        <span>{reason.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 {settings.locked ? (
-                  <button class="btn btn-primary" type="submit">
-                    Ouvrir le site au public <Icon name="arrow" class="btn-arrow" />
+                  <button class="btn btn-ghost btn-sm" type="submit" name="action" value="lock-reason">
+                    Changer le motif
                   </button>
                 ) : (
-                  <button class="btn btn-ghost" type="submit">
+                  <button class="btn btn-ghost" type="submit" name="action" value="lock">
                     <Icon name="lock" /> Verrouiller le site
                   </button>
                 )}
               </form>
+              {settings.locked && (
+                <form method="post">
+                  <input type="hidden" name="action" value="unlock" />
+                  <button class="btn btn-primary" type="submit">
+                    Ouvrir le site au public <Icon name="arrow" class="btn-arrow" />
+                  </button>
+                </form>
+              )}
             </section>
 
             <section class="admin-card card" aria-labelledby="a-address">

@@ -6,6 +6,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
 import { ADMIN_PATH, LOCK_PATH, isPreviewing, startPreview, stopPreview } from '../lib/access';
+import { LOCK_REASONS } from '../data/lock-reasons';
 
 const { isAdmin, settings } = Astro.locals;
 if (!settings.locked) return Astro.redirect('/');
@@ -22,11 +23,18 @@ if (isAdmin && Astro.request.method === 'POST') {
   }
 }
 const previewing = isAdmin && isPreviewing(Astro.cookies);
+
+const reason = LOCK_REASONS[settings.lockReason] ?? LOCK_REASONS.fermeture;
+// Interruption courte : « 503 » indique aux moteurs de recherche de repasser plus tard sans oublier le site
+if (reason.temporary) {
+  Astro.response.status = 503;
+  Astro.response.headers.set('Retry-After', '3600');
+}
 ---
 
 <BaseLayout
-  title="Bientôt en ligne"
-  description="Le site de NovaForge Studio est momentanément fermé. Revenez un peu plus tard."
+  title={reason.pageTitle}
+  description={reason.lead}
   bare
   noindex
 >
@@ -36,16 +44,16 @@ const previewing = isAdmin && isPreviewing(Astro.cookies);
     <div class="lock-panel">
       <Logo variant="stacked" tone="dark" />
 
-      <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Accès privé</p>
-      <h1 id="lock-title">Le studio vous ouvre ses portes sur invitation.</h1>
-      <p class="lock-lead" role="status">Le site est momentanément fermé. Revenez un peu plus tard.</p>
+      <p class="lock-badge"><Icon name={reason.icon} class="lock-badge-icon" /> {reason.badge}</p>
+      <h1 id="lock-title">{reason.title}</h1>
+      <p class="lock-lead" role="status">{reason.lead}</p>
 
-      <p class="lock-note">Agence digitale · Métropole lilloise · ouverture prochaine</p>
+      <p class="lock-note">Agence digitale · Métropole lilloise{reason.temporary ? '' : ' · ouverture prochaine'}</p>
 
       {
         isAdmin && (
           <div class="lock-admin">
-            <p>Session d'administration ouverte : le public voit cette page.</p>
+            <p>Session d'administration ouverte : le public voit cette page (motif : {reason.label.toLowerCase()}).</p>
             <div class="lock-admin-actions">
               <form method="post">
                 <input type="hidden" name="action" value={previewing ? 'preview-off' : 'preview-on'} />

@@ -11,10 +11,13 @@ import {
 import { site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
 import type { Closure } from './hours';
+import type { LockReason } from '../data/lock-reasons';
 
 export type Settings = {
   /** true : tout le monde voit /verrouillage (l'administrateur peut activer un aperçu depuis cette page) */
   locked: boolean;
+  /** Motif affiché sur /verrouillage (maintenance, fermeture complète, mise à jour) */
+  lockReason: LockReason;
   street: string;
   postalCode: string;
   city: string;
@@ -32,6 +35,7 @@ const stamp = () => Date.now().toString(36);
 const defaults = (): { settings: Settings; openings: Opening[] } => ({
   settings: {
     locked: true,
+    lockReason: 'fermeture',
     street: site.address[0],
     postalCode: site.postalCode,
     city: site.city,

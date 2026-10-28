@@ -1947,6 +1947,7 @@ select.input option { background: #fff; color: #06142a; }
 .admin-state--locked { background: rgba(224, 161, 90, .18); color: #8a5a1f; }
 .admin-state--open { background: rgba(11, 127, 192, .12); color: var(--blue); }
 .admin-form { margin-top: 6px; }
+.admin-lock-form { display: grid; justify-items: start; gap: 18px; }
 textarea.admin-textarea--short { min-height: 80px; }
 .admin-jobs { display: grid; border-top: 1px solid var(--line); }
 .admin-job {
