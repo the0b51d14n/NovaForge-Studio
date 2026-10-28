@@ -35,7 +35,7 @@ const offer = openings[0];
             <a class="btn btn-primary" href={`/carrieres/${offer.slug}`}>
               Découvrir l'offre <Icon name="arrow" class="btn-arrow" />
             </a>
-            <a class="btn btn-ghost" href="/carrieres">
+            <a class="btn btn-ghost" href={openings.length > 1 ? '/carrieres#offres' : '/carrieres#vie-au-studio'}>
               {openings.length > 1 ? `Voir les ${openings.length} offres` : 'La vie au studio'}
             </a>
           </div>

@@ -6,7 +6,7 @@ import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import Faq from '../../components/Faq.astro';
 import CtaBand from '../../components/CtaBand.astro';
-import { job, benefits, dayInLife } from '../../data/content';
+import { job, benefits, culture, officeLife, workSchedules, remoteWeek, remoteRules, dayInLife } from '../../data/content';
 import { getSite } from '../../lib/store';
 
 const site = getSite(Astro.locals);
@@ -20,7 +20,7 @@ const formatDate = (iso: string) =>
 
 <BaseLayout
   title="Carrières"
-  description="Rejoignez NovaForge Studio, agence digitale de la métropole lilloise qui recrute son premier collaborateur : offres d'emploi, avantages, vie au studio et processus de recrutement."
+  description="Rejoignez NovaForge Studio, agence digitale de la métropole lilloise qui recrute son premier collaborateur : offres d'emploi, culture de travail, horaires sur 35 heures, télétravail jusqu'à 3 jours par semaine et processus de recrutement."
 >
   <PageHero
     eyebrow="Carrières"
@@ -35,7 +35,8 @@ const formatDate = (iso: string) =>
       <dl class="info-list">
         <div><dt>Postes ouverts</dt><dd>{openings.length}</dd></div>
         {contracts.length > 0 && <div><dt>Contrats</dt><dd>{contracts.join(' · ')}</dd></div>}
-        <div><dt>Télétravail</dt><dd>Jusqu'à 3 j / semaine</dd></div>
+        <div><dt>Temps de travail</dt><dd><a href="#horaires">35 h / semaine</a></dd></div>
+        <div><dt>Télétravail</dt><dd><a href="#horaires">Jusqu'à 3 j / semaine</a></dd></div>
         <div><dt>Réponse</dt><dd>Sous 1 semaine</dd></div>
       </dl>
     </Fragment>
@@ -126,7 +127,7 @@ const formatDate = (iso: string) =>
   <section class="section surface-light" aria-labelledby="perks-title">
     <div class="container">
       <SectionHead num="03" label="Avantages" titleId="perks-title">
-        Bien travailler,<br /><em>bien grandir.</em>
+        Ce que le studio<br /><em>vous apporte.</em>
       </SectionHead>
 
       <ul class="benefits">
@@ -145,35 +146,139 @@ const formatDate = (iso: string) =>
     </div>
   </section>
 
-  <!-- ============ VIE AU STUDIO ============ -->
-  <section class="section surface-light-2" aria-labelledby="day-title">
+  <!-- ============ VIE AU STUDIO : CULTURE DE TRAVAIL ============ -->
+  <section class="section surface-light-2" id="vie-au-studio" aria-labelledby="life-title">
     <div class="container">
-      <SectionHead num="04" label="La vie au studio" titleId="day-title">
-        Une journée <em>type.</em>
-        <Fragment slot="intro">Chaque journée est différente, mais voici à quoi elle ressemble souvent.</Fragment>
+      <SectionHead num="04" label="La vie au studio" titleId="life-title">
+        Bien travailler, <em>sans oublier de bien vivre.</em>
+        <Fragment slot="intro">
+          Nous voulons une agence où l'ambition ne se paie pas en bien-être. Un endroit où chacun progresse, propose
+          ses idées, apprend de ses erreurs et travaille sur des projets dont il est fier. Les désaccords et les jours
+          difficiles existeront : ils se traitent avec respect et professionnalisme.
+        </Fragment>
       </SectionHead>
 
-      <ol class="day">
+      <ul class="values">
         {
-          dayInLife.map((moment, i) => (
-            <li class="day-item card" data-reveal style={`--d:${i * 0.06}s`}>
-              <span class="day-time">
-                <Icon name="clock" />
-                {moment.time}
-              </span>
-              <h3>{moment.title}</h3>
-              <p>{moment.text}</p>
+          culture.map((principle, i) => (
+            <li class="value card" data-reveal style={`--d:${(i % 4) * 0.06}s`}>
+              <Icon name="star" />
+              <h3>{principle.title}</h3>
+              <p>{principle.text}</p>
             </li>
           ))
         }
-      </ol>
+      </ul>
+
+      <div class="office" data-reveal>
+        <h3 class="office-title">Au studio, concrètement</h3>
+        <ul class="office-list">
+          {
+            officeLife.map((item) => (
+              <li>
+                <Icon name="check" />
+                {item}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HORAIRES, TÉLÉTRAVAIL ET JOURNÉE TYPE ============ -->
+  <section class="section surface-light" id="horaires" aria-labelledby="hours-title">
+    <div class="container">
+      <SectionHead num="05" label="Horaires & télétravail" titleId="hours-title">
+        35 heures,<br /><em>une semaine prévisible.</em>
+        <Fragment slot="intro">
+          Le modèle envisagé : 35 heures de travail effectif sur cinq jours, soit 7 heures par jour, avec une pause
+          déjeuner d'1 h 30. Trois organisations au choix, selon vos préférences et les besoins du studio.
+        </Fragment>
+      </SectionHead>
+
+      <ul class="schedules">
+        {
+          workSchedules.map((s, i) => (
+            <li class:list={['pay-card', 'card', { 'pay-card--featured': s.featured }]} data-reveal style={`--d:${i * 0.06}s`}>
+              <span class="pay-label">{s.label}{s.featured && ' · référence'}</span>
+              <span class="schedule-hours">{s.hours}</span>
+              <span class="pay-detail">
+                {s.detail}
+                <br />7&nbsp;h de travail effectif
+              </span>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="schedule-note">
+        Réunions, échanges et préparation pendant la plage de travail sont du temps de travail, comptés comme tel.
+      </p>
+
+      <div class="remote" data-reveal>
+        <div class="remote-intro">
+          <h3 class="office-title">Le télétravail, prévu à l'avance</h3>
+          <p>Jusqu'à trois jours par semaine. Le lundi, toute l'équipe se retrouve au studio.</p>
+        </div>
+        <ol class="remote-week" aria-label="Semaine type">
+          {
+            remoteWeek.map((d) => (
+              <li class:list={['remote-day', { 'remote-day--office': d.mode === 'Au studio' }]}>
+                <span class="remote-day-name">{d.day}</span>
+                <span class="remote-day-mode">{d.mode}</span>
+                <span class="remote-day-note">{d.note}</span>
+              </li>
+            ))
+          }
+        </ol>
+        <ul class="remote-rules">
+          {
+            remoteRules.map((rule) => (
+              <li>
+                <strong>{rule.title}.</strong> {rule.text}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <div class="day-block">
+        <h3 class="office-title">Une journée type</h3>
+        <p class="day-block-intro">
+          Sur les horaires standards. En matinal ou en décalé, la journée glisse d'autant, avec la même durée.
+        </p>
+        <ol class="day">
+          {
+            dayInLife.map((moment, i) => (
+              <li class="day-item card" data-reveal style={`--d:${i * 0.06}s`}>
+                <span class="day-time">
+                  <Icon name="clock" />
+                  {moment.time}
+                </span>
+                <h4>{moment.title}</h4>
+                <p>{moment.text}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+
+      <p class="policy-note">
+        Cette organisation est celle que nous envisageons. Elle sera formalisée (contrat de travail, charte de
+        télétravail) selon les besoins du studio et dans le respect des règles applicables.
+      </p>
+
+      <p class="life-outro" data-reveal>
+        Notre ambition : créer des projets de qualité, progresser ensemble et construire une agence où chacun a envie
+        de revenir le lendemain.
+      </p>
     </div>
   </section>
 
   <!-- ============ PROCESSUS ============ -->
-  <section class="section surface-light" id="processus" aria-labelledby="process-title">
+  <section class="section surface-light-2" id="processus" aria-labelledby="process-title">
     <div class="container">
-      <SectionHead num="05" label="Processus de recrutement" titleId="process-title">
+      <SectionHead num="06" label="Processus de recrutement" titleId="process-title">
         Cinq étapes,<br /><em>zéro surprise.</em>
       </SectionHead>
       <Steps steps={job.steps} />
@@ -181,9 +286,9 @@ const formatDate = (iso: string) =>
   </section>
 
   <!-- ============ FAQ ============ -->
-  <section class="section surface-light-2" aria-labelledby="faq-title">
+  <section class="section surface-light" aria-labelledby="faq-title">
     <div class="container faq-layout">
-      <SectionHead num="06" label="Questions fréquentes" titleId="faq-title">
+      <SectionHead num="07" label="Questions fréquentes" titleId="faq-title">
         Vos questions,<br /><em>nos réponses.</em>
       </SectionHead>
       <Faq items={job.faq} />

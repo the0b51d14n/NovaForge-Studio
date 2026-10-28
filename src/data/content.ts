@@ -189,7 +189,7 @@ export const job = {
   facts: [
     { value: '1er', label: "salarié du studio : vous construisez l'équipe avec le fondateur" },
     { value: 'A→Z', label: 'des projets suivis du premier rendez-vous à la mise en ligne' },
-    { value: 'Quotidien', label: 'un point avec le fondateur, joignable à tout moment' },
+    { value: 'Quotidien', label: 'un point avec le fondateur, joignable sur vos heures de travail' },
   ],
   pay: [
     { label: 'Alternance', value: 'Grille légale', detail: '+ prime éventuelle sur projet', featured: false },
@@ -218,7 +218,15 @@ export const job = {
   faq: [
     {
       q: 'Je vais être seul la plupart du temps ?',
-      a: 'Non. Un point quotidien est prévu avec le fondateur, qui reste joignable à tout moment.',
+      a: 'Non. Un point quotidien est prévu avec le fondateur, qui reste joignable pendant vos heures de travail. Et le lundi, toute l’équipe se retrouve au studio.',
+    },
+    {
+      q: 'Le télétravail est-il obligatoire ?',
+      a: "Non. Il est possible jusqu'à trois jours par semaine, mais vous pouvez venir au studio plus souvent si vous le préférez. Seul le lundi se passe au studio pour tout le monde.",
+    },
+    {
+      q: 'Faut-il rester tard pour être bien vu ?',
+      a: "Non. C'est le travail accompli qui compte, pas les heures de présence. L'organisation envisagée repose sur 35 heures par semaine, et en dehors de vos horaires, on ne vous attend pas sur vos messages.",
     },
     {
       q: "Je n'ai pas toutes les compétences demandées.",
@@ -295,7 +303,7 @@ export const initialOpenings: Opening[] = [
 export type BenefitIcon = 'home' | 'laptop' | 'book' | 'food' | 'train' | 'building' | 'gift' | 'growth';
 
 export const benefits: { icon: BenefitIcon; title: string; text: string }[] = [
-  { icon: 'home', title: 'Télétravail', text: "Jusqu'à 3 jours par semaine, organisés avec l'équipe." },
+  { icon: 'home', title: 'Télétravail', text: "Jusqu'à 3 jours par semaine, planifiés à l'avance. Le lundi, tout le monde au studio." },
   { icon: 'laptop', title: 'Matériel fourni', text: 'Un ordinateur portable pour travailler dans de bonnes conditions.' },
   { icon: 'book', title: 'Budget formation', text: 'Un budget annuel pour des formations en ligne et des événements tech.' },
   { icon: 'food', title: 'Tickets restaurant', text: 'Pour vos pauses déjeuner.' },
@@ -305,12 +313,59 @@ export const benefits: { icon: BenefitIcon; title: string; text: string }[] = [
   { icon: 'growth', title: 'Évolution', text: "Révision prévue après 6 mois et des responsabilités qui grandissent avec l'agence." },
 ];
 
+// Culture de travail (Carrières → « La vie au studio ») : des principes, pas des promesses contractuelles
+export const culture = [
+  { title: 'Respect mutuel', text: 'On se parle calmement. Pas d’humiliation ni d’engueulade publique : un désaccord se règle en face, avec respect.' },
+  { title: 'Droit à l’erreur', text: 'Une erreur se corrige et s’analyse ensemble, pour apprendre, pas pour chercher un coupable.' },
+  { title: 'Confiance', text: 'De l’autonomie, des responsabilités et un cadre clair plutôt qu’une surveillance de chaque minute.' },
+  { title: 'Objectifs réalistes', text: 'Des priorités expliquées et des délais tenables, définis avec vous.' },
+  { title: 'Pas de présentéisme', text: 'C’est le travail accompli qui compte. Pas d’heures en plus pour « prouver » son implication.' },
+  { title: 'Droit à la déconnexion', text: 'En dehors de vos horaires, ni messages ni appels attendus. Votre vie personnelle passe avant.' },
+  { title: 'Entraide', text: 'Poser une question ou demander de l’aide, c’est normal. Les connaissances se partagent.' },
+  { title: 'Décisions partagées', text: 'Votre avis compte sur les projets, les outils et l’organisation du studio.' },
+];
+
+// Expérience au bureau : uniquement ce qui est envisagé, sans équipement ni avantage inventé
+export const officeLife = [
+  'Un espace de travail agréable, pour se concentrer comme pour travailler à plusieurs.',
+  'Des moments d’échange informels, en début de journée ou autour d’un café.',
+  'Une vraie pause déjeuner d’1 h 30, respectée.',
+  'Des réunions utiles et préparées, à distance quand c’est possible.',
+  'Une ambiance où l’on peut poser des questions sans crainte.',
+  'Repas d’équipe et activités : toujours facultatifs.',
+];
+
+// Horaires envisagés : 35 h de travail effectif sur 5 jours, 1 h 30 de pause déjeuner (8 h 30 d'amplitude par jour)
+export const workSchedules = [
+  { label: 'Matinal', hours: '8 h – 16 h 30', detail: 'Pause déjeuner d’1 h 30', featured: false },
+  { label: 'Standard', hours: '9 h – 17 h 30', detail: 'Pause déjeuner de 12 h 30 à 14 h', featured: true },
+  { label: 'Décalé', hours: '9 h 30 – 18 h', detail: 'Pause déjeuner d’1 h 30', featured: false },
+];
+
+// Semaine type : le lundi au studio pour tous, jusqu'à 3 jours de télétravail sur les 4 autres
+export const remoteWeek = [
+  { day: 'Lundi', mode: 'Au studio', note: 'Toute l’équipe ensemble' },
+  { day: 'Mardi', mode: 'Au choix', note: 'Studio ou télétravail' },
+  { day: 'Mercredi', mode: 'Au choix', note: 'Studio ou télétravail' },
+  { day: 'Jeudi', mode: 'Au choix', note: 'Studio ou télétravail' },
+  { day: 'Vendredi', mode: 'Au choix', note: 'Studio ou télétravail' },
+];
+
+export const remoteRules = [
+  { title: 'Jamais obligatoire', text: 'Vous pouvez venir au studio plus souvent si vous le préférez.' },
+  { title: 'Planifié à l’avance', text: 'Vos jours au studio et en télétravail sont fixés à l’avance : vous organisez votre semaine sereinement.' },
+  { title: 'Présence anticipée', text: 'Les réunions qui demandent vraiment d’être sur place sont prévues le plus tôt possible.' },
+  { title: 'À distance si possible', text: 'Une réunion qui fonctionne bien en visio ne vous fait pas déplacer.' },
+  { title: 'Peu de changements', text: 'Un changement de planning reste exceptionnel, raisonnable et annoncé rapidement.' },
+];
+
+// Journée type sur les horaires standards (les horaires matinaux ou décalés la font glisser d'autant)
 export const dayInLife = [
-  { time: '9 h 30', title: 'Point quotidien', text: 'Un échange avec le fondateur pour fixer les priorités du jour.' },
-  { time: '10 h', title: 'Conception & code', text: 'Maquettes, intégration, développement : vous avancez sur vos projets.' },
-  { time: '14 h', title: 'Rendez-vous client', text: 'En visio ou sur place, pour présenter une maquette ou recueillir un besoin.' },
-  { time: '16 h', title: 'Veille & apprentissage', text: 'Tester un outil, suivre une formation, partager une découverte.' },
-  { time: '17 h 30', title: 'Mise en ligne', text: 'Tests, retours, déploiement : votre travail se voit directement.' },
+  { time: '9 h – 9 h 30', title: 'Arrivée en douceur', text: 'Installation, café et échanges informels avant de se lancer.' },
+  { time: '9 h 30 – 12 h 30', title: 'Concentration', text: 'Travail de fond, et les réunions utiles, préparées à l’avance.' },
+  { time: '12 h 30 – 14 h', title: 'Pause déjeuner', text: '1 h 30, vraiment respectée. Repas d’équipe facultatifs.' },
+  { time: '14 h – 17 h', title: 'Projets & collaboration', text: 'Développement, design, échanges avec l’équipe et les clients.' },
+  { time: '17 h – 17 h 30', title: 'Bilan', text: 'Point sur la journée et préparation du lendemain.' },
 ];
 
 /* ---------- FAQ clients ---------- */
