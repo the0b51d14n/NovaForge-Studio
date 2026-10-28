@@ -17,7 +17,9 @@ export const POST: APIRoute = async ({ request }) => {
   const budget = field(data, 'budget', 80);
   const message = field(data, 'message', 5000);
 
-  if (!nom || !isEmail(email) || !message || !data.get('consentement')) return reply.invalid();
+  // Pas de case de consentement : répondre à une demande repose sur les mesures précontractuelles
+  // ou l'intérêt légitime (voir /confidentialite), l'information est donnée sous le formulaire
+  if (!nom || !isEmail(email) || !message) return reply.invalid();
   if (!mailEnabled()) return reply.unavailable();
 
   const sent = await sendMail({

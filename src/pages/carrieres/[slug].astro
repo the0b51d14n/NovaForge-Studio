@@ -5,6 +5,8 @@ import Icon from '../../components/Icon.astro';
 import Steps from '../../components/Steps.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
 import { job } from '../../data/content';
+import PrelaunchNotice from '../../components/PrelaunchNotice.astro';
+import { isRegistered } from '../../data/site';
 import { getSite } from '../../lib/store';
 
 const site = getSite(Astro.locals);
@@ -65,7 +67,8 @@ const jsonLd = {
 ---
 
 <BaseLayout title={o.title} description={`${site.name} recrute : ${o.title} à ${site.city}. ${o.summary}`}>
-  <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+  {/* Google Jobs : publié seulement une fois l'employeur immatriculé (sinon l'annonce passerait pour un poste ouvert) */}
+  {isRegistered && <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 
   <!-- ============ EN-TÊTE DE L'OFFRE ============ -->
   <section class="page-hero page-hero--compact surface-dark" aria-labelledby="page-title" data-stardust-host>
@@ -97,6 +100,8 @@ const jsonLd = {
   </section>
 
   <!-- ============ CONTENU ============ -->
+  <PrelaunchNotice />
+
   <section class="section surface-light" aria-label="Détail de l'offre">
     <div class="container offer-layout">
       <article class="offer-main">

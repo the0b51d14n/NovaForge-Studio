@@ -49,6 +49,9 @@ if (reason.temporary) {
       <p class="lock-lead" role="status">{reason.lead}</p>
 
       <p class="lock-note">Agence digitale · Métropole lilloise{reason.temporary ? '' : ' · ouverture prochaine'}</p>
+      <p class="lock-note lock-legal">
+        <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a>
+      </p>
 
       {
         isAdmin && (

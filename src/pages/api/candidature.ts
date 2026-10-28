@@ -25,6 +25,8 @@ export const POST: APIRoute = async ({ request }) => {
   const disponibilite = field(data, 'disponibilite', 80);
   const source = field(data, 'source', 80);
   const cv = data.get('cv');
+  // Case facultative, décochée par défaut : conservation pour d'autres postes (2 ans au plus)
+  const vivier = data.get('vivier') === 'oui';
 
   const extension = cv instanceof File ? (cv.name.split('.').pop() ?? '').toLowerCase() : '';
   const cvValid = cv instanceof File && cv.size > 0 && cv.size <= MAX_CV_SIZE && CV_EXTENSIONS.includes(extension);
@@ -37,8 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
     !isUrl(lien) ||
     (linkedin && !isUrl(linkedin)) ||
     !message ||
-    !cvValid ||
-    !data.get('consentement')
+    !cvValid
   ) {
     return reply.invalid();
   }
@@ -59,6 +60,9 @@ export const POST: APIRoute = async ({ request }) => {
       `LinkedIn : ${linkedin || '—'}`,
       `Disponibilité : ${disponibilite || '—'}`,
       `Nous a connus par : ${source || '—'}`,
+      vivier
+        ? 'Conservation pour d’autres postes : OUI, 2 ans au plus après le dernier échange'
+        : 'Conservation pour d’autres postes : NON, à supprimer à la fin du processus si non retenu(e)',
       '',
       message,
       '',

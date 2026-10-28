@@ -137,15 +137,19 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
             <option>Autre</option>
           </select>
         </div>
+        <p class="form-privacy field--full">
+          Votre candidature nous est transmise par e-mail, n'est pas enregistrée sur le site et sert uniquement à ce
+          recrutement. Si elle n'est pas retenue, elle est supprimée à la fin du processus, sauf accord de votre part
+          ci-dessous. Vos droits : <a href="/confidentialite">politique de confidentialité</a>.
+        </p>
         <div class="field field--full" data-field>
           <label class="check">
-            <input type="checkbox" name="consentement" required aria-describedby={id('consent-err')} />
+            <input type="checkbox" name="vivier" value="oui" />
             <span>
-              J'accepte que mes informations soient utilisées dans le cadre de ce recrutement
-              (<a href="/confidentialite">politique de confidentialité</a>).
+              Facultatif : j'accepte que ma candidature soit conservée 2 ans au plus pour être recontacté(e) si un
+              autre poste me correspond. Je peux retirer cet accord à tout moment.
             </span>
           </label>
-          <span class="field-error" id={id('consent-err')}></span>
         </div>
       </div>
     </fieldset>
@@ -164,7 +168,7 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
     <h3>Candidature envoyée !</h3>
     <p>Merci pour votre intérêt. Voici la suite :</p>
     <ol class="apply-next">
-      <li><strong>Sous 1 semaine</strong> — nous revenons vers vous, quelle que soit la réponse.</li>
+      <li><strong>Sous 1 semaine environ</strong> — nous revenons vers vous, quelle que soit la réponse.</li>
       <li><strong>Échange découverte</strong> — un appel visio de 20 minutes avec le fondateur.</li>
       <li><strong>Mini cas pratique</strong> — maquetter ou intégrer une page simple.</li>
     </ol>

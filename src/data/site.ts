@@ -77,11 +77,26 @@ export const legal: Legal = {
 /** true dès que le numéro SIREN est renseigné */
 export const isRegistered = Boolean(legal.siren);
 
-/** Hébergeur du site (mention obligatoire) */
+/**
+ * Hébergeur du site (LCEN, art. 1-1, I, 4° : nom, adresse et téléphone).
+ * Adresse vérifiée dans la politique de confidentialité de Vercel (mise à jour du 1er juin 2026) ;
+ * aucun numéro de téléphone n'y est publié : à obtenir auprès de Vercel (voir AUDIT-LEGAL.md).
+ */
 export const host = {
   name: 'Vercel Inc.',
-  address: '440 N Barranca Ave #4133, Covina, CA 91723, États-Unis',
+  address: '440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis',
+  phone: null as string | null,
   url: 'https://vercel.com',
+};
+
+/**
+ * Prestataire stockant les réglages du site modifiés depuis l'administration (LCEN, art. 1-1, I, 5° :
+ * nom et adresse). Aucune donnée de visiteur n'y est enregistrée. Adresse à vérifier (voir AUDIT-LEGAL.md).
+ */
+export const storage = {
+  name: 'Upstash, Inc. (base de données Upstash Redis, souscrite via Vercel)',
+  address: null as string | null,
+  url: 'https://upstash.com',
 };
 
 export type NavItem = { href: string; label: string; badge?: string };

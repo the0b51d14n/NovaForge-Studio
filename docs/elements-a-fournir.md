@@ -3,6 +3,9 @@
 Le site est prêt à recevoir les informations officielles de NovaForge Studio. Tout se règle dans
 `src/data/site.ts` : un champ laissé à `null` est masqué, il s'affiche dès qu'il est renseigné.
 
+> Audit juridique du 28/10/2026 : voir `AUDIT-LEGAL.md` (anomalies, informations manquantes, sources) et
+> `docs/brouillons-commerciaux.md` (conditions de prestation, devis, contrats : brouillons à valider).
+
 ## 1. Identité légale (après l'immatriculation)
 
 | Élément | Exemple | Où il apparaît |
@@ -17,13 +20,17 @@ Le site est prêt à recevoir les informations officielles de NovaForge Studio. 
 | Directeur de la publication | Prénom Nom, président | Mentions légales |
 | Année de création | 2026 | Accueil (« Depuis… »), L'agence |
 
-Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en cours d'immatriculation ».
+Tant que le SIREN n'est pas renseigné, aucune immatriculation n'est affichée (rien n'est affirmé) et les pages
+Carrières affichent l'avertissement « Recrutements en préparation ». En attendant, il faut au minimum le **nom de
+l'éditeur** (`founder.name`, personne physique) et le **directeur de la publication** (`legal.director`) : les
+mentions légales affichent « À compléter » tant qu'ils manquent, ainsi que le téléphone de l'hébergeur
+(`host.phone`) et l'adresse d'Upstash (`storage.address`).
 
 ## 2. Coordonnées
 
 | Élément | État |
 |:--|:--|
-| Adresse | ✅ 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain (carte mise à jour) |
+| Adresse | ⚠️ Incohérence : 44 rue des Montagnards, 59800 Lille enregistrée dans l'administration, 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain dans `site.ts` et l'offre. Domicile ou local ? À trancher |
 | E-mails | ⚠️ `contact@` et `recrutement@novaforge-studio.fr` : le nom de domaine est-il acheté ? |
 | Téléphone | ✅ 06 95 96 17 49 (Contact, pied de page, mentions légales) |
 | Horaires | ⚠️ « Lun. – Ven. · 9 h – 18 h » à confirmer |

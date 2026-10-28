@@ -7,6 +7,7 @@ import Steps from '../../components/Steps.astro';
 import Faq from '../../components/Faq.astro';
 import CtaBand from '../../components/CtaBand.astro';
 import { job, benefits, culture, officeLife, workSchedules, remoteWeek, remoteRules, dayInLife } from '../../data/content';
+import PrelaunchNotice from '../../components/PrelaunchNotice.astro';
 import { getSite } from '../../lib/store';
 
 const site = getSite(Astro.locals);
@@ -37,10 +38,12 @@ const formatDate = (iso: string) =>
         {contracts.length > 0 && <div><dt>Contrats</dt><dd>{contracts.join(' · ')}</dd></div>}
         <div><dt>Temps de travail</dt><dd><a href="#horaires">35 h / semaine</a></dd></div>
         <div><dt>Télétravail</dt><dd><a href="#horaires">Jusqu'à 3 j / semaine</a></dd></div>
-        <div><dt>Réponse</dt><dd>Sous 1 semaine</dd></div>
+        <div><dt>Réponse</dt><dd>Sous 1 semaine environ</dd></div>
       </dl>
     </Fragment>
   </PageHero>
+
+  <PrelaunchNotice />
 
   <!-- ============ OFFRES ============ -->
   <section class="section surface-light" id="offres" aria-labelledby="offers-title">

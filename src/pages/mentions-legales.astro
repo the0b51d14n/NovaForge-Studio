@@ -1,33 +1,53 @@
 ---
-// Mentions légales : alimentées par src/data/site.ts (seules les informations renseignées s'affichent)
+// Mentions légales (LCEN, art. 1-1) : alimentées par src/data/site.ts. Seuls les faits renseignés s'affichent ;
+// une information obligatoire encore manquante est signalée « à compléter », jamais remplacée par une valeur inventée.
+// Suivi des points ouverts : AUDIT-LEGAL.md
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { legal, host, isRegistered } from '../data/site';
+import { legal, host, storage } from '../data/site';
 import { getSite } from '../lib/store';
 
 const site = getSite(Astro.locals);
+const TODO = 'À compléter';
 
 type Row = { label: string; value: string | null; href?: string };
 
-const publisher: Row[] = [
-  { label: 'Dénomination', value: legal.legalName ?? site.name },
-  { label: 'Forme juridique', value: legal.form },
-  { label: 'Capital social', value: legal.capital },
-  { label: 'Siège social', value: site.address.join(', ') },
-  { label: 'SIREN', value: legal.siren ?? "En cours d'immatriculation" },
-  { label: 'SIRET', value: legal.siret },
-  { label: 'Immatriculation', value: legal.rcs },
-  { label: 'TVA intracommunautaire', value: legal.vat },
-  { label: 'Code APE', value: legal.naf },
+// Société : dénomination sociale et immatriculation. Sinon, personne physique : l'identité du fondateur.
+// « NovaForge Studio » reste un nom commercial, pas une identité juridique.
+const isCompany = Boolean(legal.legalName);
+const publisher: Row[] = isCompany
+  ? [
+      { label: 'Dénomination sociale', value: legal.legalName },
+      { label: 'Forme juridique', value: legal.form },
+      { label: 'Capital social', value: legal.capital },
+      { label: 'Nom commercial', value: site.name },
+      { label: 'Siège social', value: site.address.join(', ') },
+      { label: 'Immatriculation', value: legal.rcs },
+      { label: 'SIREN', value: legal.siren },
+      { label: 'SIRET', value: legal.siret },
+      { label: 'TVA intracommunautaire', value: legal.vat },
+      { label: 'Code APE', value: legal.naf },
+    ]
+  : [
+      { label: 'Éditeur (personne physique)', value: site.founder.name ?? TODO },
+      { label: 'Nom commercial', value: site.name },
+      { label: 'Adresse', value: site.address.join(', ') },
+      { label: 'SIREN', value: legal.siren },
+      { label: 'SIRET', value: legal.siret },
+      { label: 'TVA intracommunautaire', value: legal.vat },
+    ];
+publisher.push(
   { label: 'E-mail', value: site.email, href: `mailto:${site.email}` },
-  { label: 'Téléphone', value: site.phone, href: site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : undefined },
-];
+  { label: 'Téléphone', value: site.phone ?? TODO, href: site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : undefined },
+);
 const rows = publisher.filter((row) => row.value);
 
-const director = legal.director ?? site.founder.name ?? `Le représentant légal de ${site.name}`;
+const director = legal.director ?? site.founder.name;
+// Page complète seulement quand l'éditeur, le directeur de la publication et les prestataires sont identifiés
+const incomplete = (!isCompany && !site.founder.name) || !director || !host.phone || !storage.address;
 ---
 
-<BaseLayout title="Mentions légales" description={`Mentions légales du site ${site.name} : éditeur, hébergeur, propriété intellectuelle.`}>
+<BaseLayout title="Mentions légales" description={`Mentions légales du site ${site.name} : éditeur, hébergement, propriété intellectuelle.`}>
   <PageHero eyebrow="Informations" compact>
     <Fragment slot="title">Mentions <em>légales.</em></Fragment>
   </PageHero>
@@ -35,10 +55,10 @@ const director = legal.director ?? site.founder.name ?? `Le représentant légal
   <section class="section surface-light" aria-label="Mentions légales">
     <div class="container prose">
       {
-        !isRegistered && (
-          <p class="legal-note">
-            {site.name} est en cours de création : les informations d'immatriculation seront publiées ici dès leur
-            obtention.
+        incomplete && (
+          <p class="legal-note" role="note">
+            Page en cours de finalisation : certaines informations obligatoires, signalées « à compléter », doivent encore
+            être renseignées par l'éditeur.
           </p>
         )
       }
@@ -56,32 +76,49 @@ const director = legal.director ?? site.founder.name ?? `Le représentant légal
       </dl>
 
       <h2>Directeur de la publication</h2>
-      <p>{director}</p>
+      <p>{director ?? TODO}</p>
 
       <h2>Hébergement</h2>
+      <dl class="legal-list">
+        <div><dt>Hébergeur</dt><dd>{host.name}</dd></div>
+        <div><dt>Adresse</dt><dd>{host.address}</dd></div>
+        <div><dt>Téléphone</dt><dd>{host.phone ?? TODO}</dd></div>
+        <div><dt>Site</dt><dd><a href={host.url} rel="noopener">{host.url.replace('https://', '')}</a></dd></div>
+      </dl>
+
+      <h2>Stockage des réglages du site</h2>
       <p>
-        {host.name} · {host.address} · <a href={host.url} rel="noopener">{host.url.replace('https://', '')}</a>
+        Les réglages modifiables depuis l'espace d'administration (ouverture du site, adresse, horaires, offres
+        d'emploi) sont enregistrés chez {storage.name}, {storage.address ?? 'adresse à compléter'}. Aucune donnée
+        saisie par les visiteurs n'y est conservée.
       </p>
 
       <h2>Propriété intellectuelle</h2>
       <p>
-        L'ensemble des contenus de ce site (textes, logo, visuels, photographies, code) est la propriété de
-        {' '}{legal.legalName ?? site.name}, sauf mention contraire. Toute reproduction ou représentation, totale ou
-        partielle, sans autorisation écrite préalable est interdite.
+        Les textes, le logo et les visuels propres à {site.name} sont protégés par le droit d'auteur. Toute
+        reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable de l'éditeur est
+        interdite. Les éléments de tiers listés dans les crédits restent la propriété de leurs auteurs et sont
+        utilisés selon leurs licences.
       </p>
 
       <h2>Données personnelles</h2>
       <p>
-        Les informations transmises via les formulaires sont utilisées uniquement pour répondre à votre demande ou
-        traiter votre candidature. Pour en savoir plus et exercer vos droits, consultez notre
-        {' '}<a href="/confidentialite">politique de confidentialité</a>.
+        L'utilisation des informations transmises via les formulaires, les durées de conservation et la façon
+        d'exercer vos droits sont détaillées dans la <a href="/confidentialite">politique de confidentialité</a>.
       </p>
 
       <h2>Crédits</h2>
-      <p>
-        Conception et développement : {site.name}. Site construit avec Astro. Carte : © contributeurs OpenStreetMap.
-        Polices : Sora, Manrope, Instrument Serif, JetBrains Mono et Montserrat (licence SIL Open Font).
-      </p>
+      <ul class="legal-points">
+        <li>Conception et développement : {site.name}. Site construit avec Astro (licence MIT).</li>
+        <li>
+          Carte : bibliothèque Leaflet (licence BSD 2-Clause) ; fonds de carte et données © contributeurs
+          <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a> (licence ODbL).
+        </li>
+        <li>
+          Polices Sora, Manrope, Instrument Serif, JetBrains Mono et Montserrat : licence SIL Open Font, hébergées
+          sur ce site (aucun appel à un service de polices externe).
+        </li>
+      </ul>
 
       <p><a href="/">← Retour à l'accueil</a></p>
     </div>

@@ -206,14 +206,14 @@ export const job = {
     { label: 'Formation', value: 'Budget annuel pour formations en ligne et événements tech' },
     { label: 'Tickets resto', value: 'Oui' },
     { label: 'Transport', value: "50 % de l'abonnement pris en charge" },
-    { label: 'Lieu', value: 'Neuville-en-Ferrain · métropole lilloise' },
+    { label: 'Lieu', value: 'Métropole lilloise (adresse sur la page Contact)' },
   ],
   steps: [
     { title: 'Candidature', text: 'CV + portfolio ou GitHub.', meta: 'Durée · —' },
     { title: 'Échange découverte', text: 'Appel visio avec le fondateur.', meta: 'Durée · 20 min' },
     { title: 'Mini cas pratique', text: 'Maquetter ou intégrer une page simple.', meta: 'Durée · 2–3 h à la maison' },
     { title: 'Entretien final', text: 'Présentation du cas pratique + discussion.', meta: 'Durée · 45 min' },
-    { title: 'Réponse', text: 'Un retour à tous les candidats.', meta: 'Délai · sous 1 semaine' },
+    { title: 'Réponse', text: 'Un retour à tous les candidats.', meta: 'Délai visé · 1 semaine' },
   ] as Step[],
   faq: [
     {
@@ -308,7 +308,7 @@ export const benefits: { icon: BenefitIcon; title: string; text: string }[] = [
   { icon: 'book', title: 'Budget formation', text: 'Un budget annuel pour des formations en ligne et des événements tech.' },
   { icon: 'food', title: 'Tickets restaurant', text: 'Pour vos pauses déjeuner.' },
   { icon: 'train', title: 'Transport', text: '50 % de votre abonnement de transport pris en charge.' },
-  { icon: 'building', title: 'Métropole lilloise', text: 'Le studio est à Neuville-en-Ferrain, aux portes de Tourcoing.' },
+  { icon: 'building', title: 'Métropole lilloise', text: 'Le studio est situé dans la métropole lilloise.' },
   { icon: 'gift', title: 'Prime sur projet', text: 'En alternance, une prime éventuelle selon les projets.' },
   { icon: 'growth', title: 'Évolution', text: "Révision prévue après 6 mois et des responsabilités qui grandissent avec l'agence." },
 ];

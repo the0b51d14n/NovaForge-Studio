@@ -1,5 +1,7 @@
 ---
-// Politique de confidentialité (RGPD) : modèle à faire relire, alimenté par src/data/site.ts
+// Politique de confidentialité (RGPD, art. 13) : décrit le fonctionnement réel du site, vérifié dans le code
+// (src/pages/api/*.ts, src/lib/forms.ts, src/lib/access.ts, src/scripts/live.ts, src/components/OfficeMap.astro).
+// Toute évolution technique (nouveau service, mesure d'audience…) doit être reportée ici. Suivi : AUDIT-LEGAL.md
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
 import { legal, host } from '../data/site';
@@ -7,13 +9,14 @@ import { getSite } from '../lib/store';
 
 const site = getSite(Astro.locals);
 
-const controller = legal.legalName ?? site.name;
-const updated = new Date('2026-10-07').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+// Responsable du traitement : la société si elle existe, sinon la personne physique qui exploite NovaForge Studio
+const controller = legal.legalName ?? site.founder.name;
+const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
 <BaseLayout
   title="Politique de confidentialité"
-  description={`Comment ${site.name} collecte et protège vos données personnelles, et comment exercer vos droits.`}
+  description={`Comment ${site.name} utilise les données transmises via ses formulaires, combien de temps et comment exercer vos droits.`}
 >
   <PageHero eyebrow="Informations" compact>
     <Fragment slot="title">Politique de <em>confidentialité.</em></Fragment>
@@ -23,46 +26,118 @@ const updated = new Date('2026-10-07').toLocaleDateString('fr-FR', { day: 'numer
     <div class="container prose">
       <h2>Responsable du traitement</h2>
       <p>
-        {controller}, {site.address.join(', ')}. Pour toute question sur vos données :
+        {controller ? `${controller}, qui exploite ${site.name}` : `L'éditeur de ${site.name} (identité à compléter, voir les mentions légales)`},
+        {' '}{site.address.join(', ')}. Pour toute question sur vos données :
         {' '}<a href={`mailto:${site.email}`}>{site.email}</a>.
       </p>
 
-      <h2>Données collectées et utilisation</h2>
-      <p>Nous ne collectons que les données que vous nous transmettez volontairement.</p>
+      <h2>Ce que fait le site</h2>
+      <p>
+        Le site ne crée pas de compte visiteur, n'utilise ni mesure d'audience ni publicité, et n'enregistre pas les
+        messages envoyés via ses formulaires : ceux-ci sont transmis par e-mail à {site.name}, puis traités depuis sa
+        messagerie.
+      </p>
+
+      <h2>Formulaire de contact</h2>
       <ul class="legal-points">
         <li>
-          <strong>Formulaire de contact</strong> : nom, e-mail, entreprise, téléphone, type de projet, budget et
-          message. Ils servent à répondre à votre demande et à établir un devis (mesures précontractuelles prises à
-          votre demande). Conservation : 3 ans après notre dernier échange.
+          <strong>Données</strong> : nom, e-mail et message (obligatoires, sans eux nous ne pouvons pas vous répondre) ;
+          entreprise, téléphone, type de projet et budget (facultatifs).
         </li>
         <li>
-          <strong>Candidature</strong> : identité, coordonnées, liens (portfolio, LinkedIn), CV, message et
-          disponibilité. Ils servent à étudier votre candidature. Si elle n'est pas retenue, ils sont conservés 2 ans
-          après notre dernier échange pour vous proposer d'autres postes, sauf si vous vous y opposez.
+          <strong>Finalité</strong> : répondre à votre demande et, si vous le souhaitez, préparer un devis.
+        </li>
+        <li>
+          <strong>Base légale</strong> : les mesures précontractuelles prises à votre demande (RGPD, art. 6.1.b) ou, pour
+          une simple question, notre intérêt légitime à vous répondre (art. 6.1.f).
+        </li>
+        <li>
+          <strong>Durée</strong> : le temps de traiter votre demande, puis 3 ans au plus après notre dernier échange. Si
+          un contrat est conclu, les documents utiles sont conservés pendant la durée légale applicable.
         </li>
       </ul>
 
-      <h2>Destinataires</h2>
+      <h2>Candidatures</h2>
+      <ul class="legal-points">
+        <li>
+          <strong>Données</strong> : prénom, nom, e-mail, type de contrat souhaité, lien vers un portfolio ou GitHub, CV
+          et message (obligatoires pour étudier votre candidature) ; téléphone, LinkedIn, disponibilité et source
+          (facultatifs). Ne transmettez que des informations utiles à l'évaluation de vos compétences.
+        </li>
+        <li>
+          <strong>Finalité</strong> : étudier votre candidature et organiser le recrutement.
+        </li>
+        <li>
+          <strong>Base légale</strong> : les mesures précontractuelles prises à votre demande (RGPD, art. 6.1.b).
+        </li>
+        <li>
+          <strong>Durée</strong> : jusqu'à la fin du processus de recrutement. Si vous n'êtes pas retenu, votre
+          candidature est supprimée, sauf si vous avez coché la case pour qu'elle soit conservée en vue d'autres postes :
+          elle l'est alors 2 ans au plus après notre dernier échange, et vous pouvez retirer cet accord à tout moment.
+        </li>
+      </ul>
+
+      <h2>Destinataires et prestataires</h2>
       <p>
-        Vos données sont réservées à l'équipe de {site.name} et ne sont jamais vendues ni cédées. Elles transitent par
-        nos prestataires techniques : l'hébergeur du site ({host.name}) et notre service d'envoi d'e-mails. Certains
-        sont situés hors de l'Union européenne ; ces transferts sont encadrés par les garanties prévues par le RGPD.
+        Vos messages et candidatures ne sont lus que par les personnes chargées d'y répondre chez {site.name}. Ils ne
+        sont ni vendus ni cédés. Pour fonctionner, le site s'appuie sur ces prestataires :
+      </p>
+      <ul class="legal-points">
+        <li>
+          <strong>{host.name}</strong> (États-Unis), hébergeur : il reçoit les requêtes envoyées au site, dont le
+          contenu des formulaires au moment de l'envoi, et conserve des journaux techniques (adresse IP, pages
+          demandées) selon sa propre politique.
+        </li>
+        <li>
+          <strong>Resend</strong> (États-Unis), service d'envoi d'e-mails : il achemine le message du formulaire vers
+          notre boîte de réception.
+        </li>
+        <li>
+          <strong>Notre fournisseur de messagerie</strong>, qui héberge la boîte de réception de {site.email}.
+        </li>
+      </ul>
+      <p>
+        Vercel et Resend sont des sociétés américaines : des données peuvent donc être transférées hors de l'Union
+        européenne. Toutes deux déclarent adhérer au cadre de protection des données UE–États-Unis (Data Privacy
+        Framework), reconnu par la Commission européenne.
       </p>
 
-      <h2>Cookies</h2>
-      <p>
-        Ce site n'utilise ni cookie publicitaire ni mesure d'audience, et ne dépose aucun cookie chez ses visiteurs. Seul
-        l'espace d'administration, réservé à l'équipe, utilise un cookie de session (30 jours).
-        La carte qui indique notre adresse est affichée depuis les serveurs d'OpenStreetMap, qui reçoivent à cette occasion votre
-        adresse IP.
-      </p>
+      <h2>Cookies et stockage dans votre navigateur</h2>
+      <ul class="legal-points">
+        <li>
+          <strong>Aucun cookie</strong> n'est déposé chez les visiteurs du site. Seul l'espace d'administration, réservé
+          à l'équipe, utilise deux cookies nécessaires : l'un maintient la connexion (30 jours), l'autre retient le
+          choix de prévisualiser le site lorsqu'il est fermé (jusqu'à la fermeture du navigateur).
+        </li>
+        <li>
+          <strong>Stockage de session</strong> : pour recharger les pages ouvertes quand le site est mis à jour, sans
+          boucle de rechargements, le navigateur garde un simple numéro de version du site. Il ne vous identifie pas
+          et s'efface à la fermeture de l'onglet.
+        </li>
+      </ul>
+      <p>Ces éléments, strictement nécessaires au fonctionnement du site, ne demandent pas votre consentement.</p>
+
+      <h2>Services tiers affichés</h2>
+      <ul class="legal-points">
+        <li>
+          <strong>Carte</strong> : le fond de carte des pages Contact et L'agence provient des serveurs d'OpenStreetMap (Royaume-Uni),
+          qui reçoivent votre adresse IP lorsque la carte s'affiche.
+        </li>
+        <li>
+          <strong>Itinéraire</strong> : Google Maps, Plans (Apple) ou Waze ne sont contactés que si vous choisissez de
+          les ouvrir ; leur propre politique de confidentialité s'applique alors.
+        </li>
+        <li><strong>Polices de caractères</strong> : hébergées sur ce site, sans appel à un service externe.</li>
+      </ul>
 
       <h2>Vos droits</h2>
       <p>
-        Vous pouvez accéder à vos données, les rectifier, les effacer, en limiter l'utilisation, vous y opposer ou en
-        demander la portabilité, en écrivant à <a href={`mailto:${site.email}`}>{site.email}</a>. Nous répondons dans
-        un délai d'un mois. Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation
-        à la CNIL (<a href="https://www.cnil.fr" rel="noopener">cnil.fr</a>).
+        Vous pouvez accéder à vos données, les rectifier, les effacer, en limiter l'utilisation, vous opposer à un
+        traitement fondé sur notre intérêt légitime, retirer à tout moment l'accord donné pour conserver votre
+        candidature, et demander la portabilité des données fournies dans le cadre de mesures précontractuelles. Écrivez
+        à <a href={`mailto:${site.email}`}>{site.email}</a> : nous répondons dans un délai d'un mois. Si vous estimez,
+        après nous avoir contactés, que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la
+        CNIL (<a href="https://www.cnil.fr/fr/plaintes" rel="noopener">cnil.fr/fr/plaintes</a>).
       </p>
 
       <p class="form-note">Dernière mise à jour : {updated}.</p>

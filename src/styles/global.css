@@ -1737,6 +1737,21 @@ select.input option { background: #fff; color: #06142a; }
 .prose a { color: var(--accent); font-weight: 700; }
 
 .legal-list { display: grid; margin-top: 1em; border-top: 1px solid var(--line); }
+.legal-note,
+.prelaunch-note {
+  max-width: 46rem;
+  padding: 14px 18px;
+  border-left: 3px solid var(--amber);
+  border-radius: 0 12px 12px 0;
+  background: rgba(224, 161, 90, .12);
+  color: var(--fg);
+  font-size: .95rem;
+}
+.legal-note { margin-bottom: 1.5em; }
+.prelaunch-note { margin-block: clamp(28px, 4vw, 44px) 0; }
+.form-privacy { font-size: .86rem; color: var(--muted); }
+.form-privacy a { color: var(--accent); font-weight: 700; }
+.lock-legal a { color: inherit; }
 .legal-list div { display: grid; grid-template-columns: 13rem 1fr; gap: 4px 20px; padding-block: 12px; border-bottom: 1px solid var(--line); }
 .legal-list dt { font-weight: 700; }
 .legal-list dd { margin: 0; color: var(--muted); overflow-wrap: anywhere; }

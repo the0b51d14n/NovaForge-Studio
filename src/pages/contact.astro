@@ -40,7 +40,7 @@ const { openings } = Astro.locals;
           data-form
           data-email={site.email}
           novalidate
-          data-success="Merci ! Votre message a bien été envoyé : nous revenons vers vous sous 48 h ouvrées."
+          data-success="Merci ! Votre message a bien été envoyé : nous revenons vers vous rapidement, en général sous 48 h ouvrées."
         >
           <div class="hp" aria-hidden="true">
             <label>Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" /></label>
@@ -92,16 +92,11 @@ const { openings } = Astro.locals;
               placeholder="Votre activité, vos objectifs, vos délais…"></textarea>
             <span class="field-error" id="c-message-err"></span>
           </div>
-          <div class="field field--full" data-field>
-            <label class="check">
-              <input type="checkbox" name="consentement" required aria-describedby="c-consent-err" />
-              <span>
-                J'accepte que mes informations soient utilisées pour être recontacté au sujet de mon projet
-                (<a href="/confidentialite">politique de confidentialité</a>).
-              </span>
-            </label>
-            <span class="field-error" id="c-consent-err"></span>
-          </div>
+          <p class="form-privacy field--full">
+            Vos informations servent uniquement à répondre à votre demande et, si vous le souhaitez, à préparer un
+            devis. Elles nous sont transmises par e-mail et ne sont pas enregistrées sur le site. Durée de conservation
+            et exercice de vos droits : <a href="/confidentialite">politique de confidentialité</a>.
+          </p>
           <div class="form-footer">
             <p class="form-note"><span aria-hidden="true">*</span> Champs obligatoires</p>
             <button class="btn btn-primary" type="submit">Envoyer le message <Icon name="arrow" class="btn-arrow" /></button>
@@ -119,7 +114,7 @@ const { openings } = Astro.locals;
             <div><dt>E-mail</dt><dd><a href={`mailto:${site.email}`}>{site.email}</a></dd></div>
             {site.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a></dd></div>}
             <div class="info-hours"><dt>Horaires</dt><dd><OpeningHours /></dd></div>
-            <div><dt>Réponse</dt><dd>Sous 48 h ouvrées</dd></div>
+            <div><dt>Réponse</dt><dd>En général sous 48 h ouvrées</dd></div>
           </dl>
 
           {

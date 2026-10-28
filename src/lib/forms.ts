@@ -24,10 +24,11 @@ export async function sendMail(mail: Mail): Promise<boolean> {
         attachments: mail.attachments,
       }),
     });
-    if (!res.ok) console.error(`Envoi d'e-mail refusé (${res.status}) :`, await res.text());
+    // Journal sans le corps de la réponse : il peut recopier les adresses e-mail du message
+    if (!res.ok) console.error(`Envoi d'e-mail refusé par le service (HTTP ${res.status})`);
     return res.ok;
   } catch (error) {
-    console.error("Envoi d'e-mail impossible :", error);
+    console.error("Envoi d'e-mail impossible :", error instanceof Error ? error.name : 'erreur inconnue');
     return false;
   }
 }
