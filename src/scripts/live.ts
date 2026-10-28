@@ -1,10 +1,11 @@
 // Rafraîchissement automatique : quand une modification est enregistrée dans l'administration
-// (verrou, adresse, fermetures, offres), les pages ouvertes se rechargent d'elles-mêmes en quelques secondes.
-// Vérification toutes les 3 s tant que le visiteur est actif, toutes les 30 s après 2 min sans activité,
-// jamais quand l'onglet est caché (vérification immédiate au retour). Si le visiteur a commencé à remplir
-// un formulaire, on ne recharge pas : un bandeau lui propose d'actualiser quand il le souhaite.
+// (verrou, adresse, fermetures, offres), les pages ouvertes se rechargent d'elles-mêmes.
+// - Autres onglets du même navigateur : prévenus instantanément par l'onglet d'administration.
+// - Autres appareils : vérification toutes les 2 s tant que le visiteur est actif, toutes les 30 s après
+//   2 min sans activité, jamais quand l'onglet est caché (vérification immédiate au retour).
+// Si le visiteur a commencé à remplir un formulaire, on ne recharge pas : un bandeau lui propose d'actualiser.
 const meta = document.querySelector<HTMLMetaElement>('meta[name="nf-version"]');
-const FAST = 3_000;
+const FAST = 2_000;
 const SLOW = 30_000;
 const IDLE = 2 * 60_000;
 // Garde-fou contre une boucle : on ne recharge qu'une fois pour une même version
@@ -44,6 +45,10 @@ if (meta) {
     document.body.append(bar);
   };
 
+  const update = (version: string) => {
+    if (dirty || !reload(version)) notify();
+  };
+
   const check = async () => {
     if (document.hidden || notified || busy) return;
     busy = true;
@@ -51,14 +56,23 @@ if (meta) {
       const res = await fetch('/api/version', { cache: 'no-store' });
       if (!res.ok) return;
       const { version } = (await res.json()) as { version: string };
-      if (version === current) return;
-      if (dirty || !reload(version)) notify();
+      if (version !== current) update(version);
     } catch {
       // Hors ligne ou serveur injoignable : on réessaiera au prochain passage
     } finally {
       busy = false;
     }
   };
+
+  // Onglets du même navigateur : après un enregistrement, la page d'administration (rechargée avec ?ok=…)
+  // transmet directement la nouvelle version, sans attendre la prochaine vérification
+  const channel = 'BroadcastChannel' in window ? new BroadcastChannel('nf-live') : null;
+  channel?.addEventListener('message', ({ data }) => {
+    if (typeof data === 'string' && data !== current) update(data);
+  });
+  if (location.pathname.startsWith('/administration') && new URLSearchParams(location.search).has('ok')) {
+    channel?.postMessage(current);
+  }
 
   const schedule = () => {
     clearTimeout(timer);
