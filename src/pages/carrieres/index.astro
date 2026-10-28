@@ -192,8 +192,9 @@ const formatDate = (iso: string) =>
       <SectionHead num="05" label="Horaires & télétravail" titleId="hours-title">
         35 heures,<br /><em>une semaine prévisible.</em>
         <Fragment slot="intro">
-          Le modèle envisagé : 35 heures de travail effectif sur cinq jours, soit 7 heures par jour, avec une pause
-          déjeuner d'1 h 30. Trois organisations au choix, selon vos préférences et les besoins du studio.
+          Notre modèle : 35 heures de travail effectif sur cinq jours, soit 7 heures par jour, avec une pause déjeuner
+          d'1 h 30. La formule standard sert de référence ; les deux autres s'adaptent à vos préférences, dans une
+          organisation convenue avec le studio.
         </Fragment>
       </SectionHead>
 
@@ -201,7 +202,10 @@ const formatDate = (iso: string) =>
         {
           workSchedules.map((s, i) => (
             <li class:list={['pay-card', 'card', { 'pay-card--featured': s.featured }]} data-reveal style={`--d:${i * 0.06}s`}>
-              <span class="pay-label">{s.label}{s.featured && ' · référence'}</span>
+              <span class="pay-label">
+                {s.label}
+                {s.featured && ' · référence'}
+              </span>
               <span class="schedule-hours">{s.hours}</span>
               <span class="pay-detail">
                 {s.detail}
@@ -245,7 +249,8 @@ const formatDate = (iso: string) =>
       <div class="day-block">
         <h3 class="office-title">Une journée type</h3>
         <p class="day-block-intro">
-          Sur les horaires standards. En matinal ou en décalé, la journée glisse d'autant, avec la même durée.
+          Sur la formule standard. En formule matinale ou décalée, les créneaux suivent vos horaires et votre pause,
+          pour la même durée de travail.
         </p>
         <ol class="day">
           {
@@ -264,8 +269,9 @@ const formatDate = (iso: string) =>
       </div>
 
       <p class="policy-note">
-        Cette organisation est celle que nous envisageons. Elle sera formalisée (contrat de travail, charte de
-        télétravail) selon les besoins du studio et dans le respect des règles applicables.
+        Ces principes sont notre cadre de référence. Les modalités précises (formule horaire, jours de télétravail,
+        changements de planning) seront fixées dans le contrat de travail et une charte de télétravail, dans le
+        respect des règles applicables.
       </p>
 
       <p class="life-outro" data-reveal>

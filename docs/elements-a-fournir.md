@@ -46,13 +46,20 @@ Tant que le SIREN n'est pas renseigné, les mentions légales indiquent « en co
 - **Retirés car invérifiables**, à remettre seulement s'ils sont vrais : « carnet de commandes stable
   depuis 2 ans », « clients fidèles », le réseau de partenaires, la question candidat « Et si l'agence
   n'a plus assez de clients ? ».
-- **Politique de travail** (Carrières → « La vie au studio » et « Horaires & télétravail ») : présentée
-  comme envisagée. À formaliser avant de la garantir (contrat, charte de télétravail, éventuel
-  conseil juridique) : 35 h sur 5 jours, trois formules (8 h – 16 h 30, 9 h – 17 h 30, 9 h 30 – 18 h)
-  avec 1 h 30 de pause, lundi au studio, jusqu'à 3 jours de télétravail planifiés à l'avance, droit à
-  la déconnexion. Les heures de pause des formules matinale et décalée ne sont pas précisées sur le
-  site. Textes dans `src/data/content.ts` (`culture`, `officeLife`, `workSchedules`, `remoteWeek`,
-  `remoteRules`, `dayInLife`). Les horaires d'accueil client (page Contact) sont indépendants.
+- **Politique de travail** (Carrières → « La vie au studio » et « Horaires & télétravail ») : ✅ adoptée
+  comme cadre de référence, présentée de façon affirmative sur le site.
+  - Horaires (35 h de travail effectif sur 5 jours, 1 h 30 de pause, 7 h par jour) : formule matinale
+    8 h – 16 h 30 (pause 12 h – 13 h 30), formule standard 9 h – 17 h 30 (pause 12 h 30 – 14 h, la
+    référence), formule décalée 9 h 30 – 18 h (pause 13 h – 14 h 30).
+  - Télétravail : lundi au bureau pour tous, jusqu'à 3 jours par semaine, facultatif, planifié à
+    l'avance ; réunions en présentiel anticipées et calées sur les horaires convenus ; changements de
+    planning raisonnables, motivés et annoncés rapidement.
+  - Repas d'équipe : possibles, notamment le lundi, toujours facultatifs (pas un avantage payé).
+  - ⚠️ Reste à formaliser avant de le garantir aux salariés : contrat de travail (formule horaire),
+    charte ou accord de télétravail (jours, délai de prévenance des changements), idéalement avec un
+    conseil juridique. Le site le précise sous la section « Horaires & télétravail ».
+  - Textes dans `src/data/content.ts` (`culture`, `officeLife`, `workSchedules`, `remoteWeek`,
+    `remoteRules`, `dayInLife`). Les horaires d'accueil client (page Contact) sont indépendants.
 - **Engagements affichés** : réponse sous 48 h ouvrées, premier rendez-vous et devis gratuits.
 - **Photos** : les photos des locaux ont été supprimées. De vraies photos (studio, fondateur,
   projets) pourront être ajoutées plus tard.

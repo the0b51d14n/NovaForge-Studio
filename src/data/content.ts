@@ -226,7 +226,7 @@ export const job = {
     },
     {
       q: 'Faut-il rester tard pour être bien vu ?',
-      a: "Non. C'est le travail accompli qui compte, pas les heures de présence. L'organisation envisagée repose sur 35 heures par semaine, et en dehors de vos horaires, on ne vous attend pas sur vos messages.",
+      a: "Non. C'est le travail accompli qui compte, pas les heures de présence. Notre organisation repose sur 35 heures par semaine, et en dehors de vos horaires, on ne vous attend pas sur vos messages.",
     },
     {
       q: "Je n'ai pas toutes les compétences demandées.",
@@ -325,21 +325,22 @@ export const culture = [
   { title: 'Décisions partagées', text: 'Votre avis compte sur les projets, les outils et l’organisation du studio.' },
 ];
 
-// Expérience au bureau : uniquement ce qui est envisagé, sans équipement ni avantage inventé
+// Expérience au bureau : sans équipement ni avantage inventé (les repas d'équipe ne sont pas un avantage payé)
 export const officeLife = [
   'Un espace de travail agréable, pour se concentrer comme pour travailler à plusieurs.',
   'Des moments d’échange informels, en début de journée ou autour d’un café.',
   'Une vraie pause déjeuner d’1 h 30, respectée.',
   'Des réunions utiles et préparées, à distance quand c’est possible.',
   'Une ambiance où l’on peut poser des questions sans crainte.',
-  'Repas d’équipe et activités : toujours facultatifs.',
+  'Des repas d’équipe, souvent le lundi, et des moments conviviaux : toujours facultatifs.',
 ];
 
-// Horaires envisagés : 35 h de travail effectif sur 5 jours, 1 h 30 de pause déjeuner (8 h 30 d'amplitude par jour)
+// Horaires de référence : 35 h de travail effectif sur 5 jours, 1 h 30 de pause déjeuner
+// Matinale 8 h–12 h + 13 h 30–16 h 30 · Standard 9 h–12 h 30 + 14 h–17 h 30 · Décalée 9 h 30–13 h + 14 h 30–18 h = 7 h / jour
 export const workSchedules = [
-  { label: 'Matinal', hours: '8 h – 16 h 30', detail: 'Pause déjeuner d’1 h 30', featured: false },
-  { label: 'Standard', hours: '9 h – 17 h 30', detail: 'Pause déjeuner de 12 h 30 à 14 h', featured: true },
-  { label: 'Décalé', hours: '9 h 30 – 18 h', detail: 'Pause déjeuner d’1 h 30', featured: false },
+  { label: 'Formule matinale', hours: '8 h – 16 h 30', detail: 'Pause de 12 h à 13 h 30', featured: false },
+  { label: 'Formule standard', hours: '9 h – 17 h 30', detail: 'Pause de 12 h 30 à 14 h', featured: true },
+  { label: 'Formule décalée', hours: '9 h 30 – 18 h', detail: 'Pause de 13 h à 14 h 30', featured: false },
 ];
 
 // Semaine type : le lundi au studio pour tous, jusqu'à 3 jours de télétravail sur les 4 autres
@@ -356,14 +357,15 @@ export const remoteRules = [
   { title: 'Planifié à l’avance', text: 'Vos jours au studio et en télétravail sont fixés à l’avance : vous organisez votre semaine sereinement.' },
   { title: 'Présence anticipée', text: 'Les réunions qui demandent vraiment d’être sur place sont prévues le plus tôt possible.' },
   { title: 'À distance si possible', text: 'Une réunion qui fonctionne bien en visio ne vous fait pas déplacer.' },
-  { title: 'Peu de changements', text: 'Un changement de planning reste exceptionnel, raisonnable et annoncé rapidement.' },
+  { title: 'Vos horaires respectés', text: 'Les réunions tiennent compte des horaires convenus avec chacun.' },
+  { title: 'Peu de changements', text: 'Un changement de planning reste raisonnable, motivé et annoncé rapidement.' },
 ];
 
-// Journée type sur les horaires standards (les horaires matinaux ou décalés la font glisser d'autant)
+// Journée type sur la formule standard (les autres formules décalent les créneaux et la pause, pour la même durée)
 export const dayInLife = [
   { time: '9 h – 9 h 30', title: 'Arrivée en douceur', text: 'Installation, café et échanges informels avant de se lancer.' },
   { time: '9 h 30 – 12 h 30', title: 'Concentration', text: 'Travail de fond, et les réunions utiles, préparées à l’avance.' },
-  { time: '12 h 30 – 14 h', title: 'Pause déjeuner', text: '1 h 30, vraiment respectée. Repas d’équipe facultatifs.' },
+  { time: '12 h 30 – 14 h', title: 'Pause déjeuner', text: '1 h 30, vraiment respectée. Le lundi, repas d’équipe pour qui le souhaite.' },
   { time: '14 h – 17 h', title: 'Projets & collaboration', text: 'Développement, design, échanges avec l’équipe et les clients.' },
   { time: '17 h – 17 h 30', title: 'Bilan', text: 'Point sur la journée et préparation du lendemain.' },
 ];
