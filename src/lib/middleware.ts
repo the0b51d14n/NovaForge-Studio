@@ -4,7 +4,7 @@
 // Les fichiers statiques (CSS, JS, polices, images, favicon) sont servis directement, sans passer ici.
 import { defineMiddleware } from 'astro:middleware';
 import { ADMIN_PATH, LOCK_PATH, isAdmin, isPreviewing } from './access';
-import { loadData } from './store';
+import { loadData, purgeExpiredClosures } from './store';
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
@@ -13,7 +13,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const [admin, data] = await Promise.all([isAdmin(context.cookies), loadData()]);
   context.locals.isAdmin = admin;
-  context.locals.settings = data.settings;
+  context.locals.settings = await purgeExpiredClosures(data.settings);
   context.locals.openings = data.openings;
   context.locals.version = data.version;
 

@@ -1,9 +1,9 @@
 ---
 // Horaires de la semaine en cours : calculés sur les vraies dates, affichés par nom du jour. Un créneau par jour
-// sur un axe commun, aujourd'hui mis en avant avec l'état du studio (ouvert / fermé), jours fériés et fermetures exceptionnelles
-// signalés, puis les prochaines fermetures. Calculé à l'heure de Paris au moment de la requête.
+// sur un axe commun, aujourd'hui mis en avant avec l'état du studio (ouvert / fermé), jours fériés et fermetures
+// exceptionnelles signalés. Calculé à l'heure de Paris au moment de la requête.
 import { site } from '../data/site';
-import { addDays, buildCalendar, closureOn, formatDay, formatTime, getStatus, upcomingClosures, weekday } from '../lib/hours';
+import { addDays, buildCalendar, dayOn, formatRanges, getStatus, weekday } from '../lib/hours';
 
 const cal = buildCalendar(site.schedule, Astro.locals.settings);
 const status = getStatus(cal);
@@ -18,36 +18,33 @@ const nowOnAxis = status.minutes > start && status.minutes < end;
 const monday = addDays(status.date, -weekday(status.date));
 const days = site.schedule.map((d, i) => {
   const iso = addDays(monday, i);
-  const usual = cal.slots[i];
-  // Fermeture exceptionnelle signalée seulement si le studio aurait dû ouvrir ce jour-là
-  const closure = usual ? closureOn(iso, cal) : null;
+  const { ranges, reason, partial } = dayOn(iso, cal);
   return {
     name: d.day,
-    slot: closure ? null : usual,
-    closure,
+    ranges,
+    // Journée entière fermée : le motif remplace la frise (seulement si le studio aurait dû ouvrir ce jour-là)
+    closure: cal.slots[i] && !partial ? reason : null,
+    // Demi-journée : les plages restantes s'affichent, le motif reste en info-bulle
+    partialReason: partial ? reason : null,
     today: iso === status.date,
   };
 });
-
-// Prochaines fermetures après cette semaine (celles de la semaine apparaissent déjà dans la liste)
-const upcoming = upcomingClosures(cal, addDays(monday, 7)).slice(0, 4);
-const short = { weekday: 'short', day: 'numeric', month: 'short' } as const;
-const range = (c: { start: string; end: string }) =>
-  c.start === c.end ? formatDay(c.start, short) : `du ${formatDay(c.start, short)} au ${formatDay(c.end, short)}`;
 ---
 
 <div class="hours">
   <p class:list={['hours-status', { 'is-open': status.open }]}>{status.label}</p>
   <ul class="hours-list">
     {
-      days.map(({ name, slot, closure, today }) => (
+      days.map(({ name, ranges, closure, partialReason, today }) => (
         <li
-          class:list={['hours-day', { 'is-closed': !slot, 'is-exception': closure, 'is-today': today }]}
+          class:list={[
+            'hours-day',
+            { 'is-closed': ranges.length === 0, 'is-exception': closure, 'is-partial': partialReason, 'is-today': today },
+          ]}
           aria-current={today ? 'date' : undefined}
+          title={partialReason ?? undefined}
         >
-          <span class="hours-name">
-            {name}
-          </span>
+          <span class="hours-name">{name}</span>
           {closure ? (
             <span class="hours-note">{closure}</span>
           ) : (
@@ -56,26 +53,14 @@ const range = (c: { start: string; end: string }) =>
               style={today && nowOnAxis ? `--now: ${pct(status.minutes)}` : undefined}
               aria-hidden="true"
             >
-              {slot && <span class="hours-bar" style={`--from: ${pct(slot[0])}; --to: ${pct(slot[1])}`} />}
+              {ranges.map(([a, b]) => (
+                <span class="hours-bar" style={`--from: ${pct(a)}; --to: ${pct(b)}`} />
+              ))}
             </span>
           )}
-          <span class="hours-time">{slot ? `${formatTime(slot[0])} – ${formatTime(slot[1])}` : 'Fermé'}</span>
+          <span class="hours-time">{ranges.length ? formatRanges(ranges) : 'Fermé'}</span>
         </li>
       ))
     }
   </ul>
-  {
-    upcoming.length > 0 && (
-      <div class="hours-upcoming">
-        <p class="hours-upcoming-title">Prochaines fermetures</p>
-        <ul>
-          {upcoming.map((c) => (
-            <li>
-              <span class="hours-upcoming-date">{range(c)}</span> · {c.reason}
-            </li>
-          ))}
-        </ul>
-      </div>
-    )
-  }
 </div>

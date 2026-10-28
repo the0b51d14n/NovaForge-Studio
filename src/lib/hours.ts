@@ -4,8 +4,14 @@
 /** Créneau d'une journée en minutes depuis minuit, `null` = fermé */
 export type Slot = [number, number] | null;
 
-/** Fermeture exceptionnelle saisie dans l'administration (bornes incluses, format AAAA-MM-JJ) */
-export type Closure = { start: string; end: string; reason: string };
+/**
+ * Fermeture exceptionnelle saisie dans l'administration (bornes incluses, format AAAA-MM-JJ).
+ * from / to (HH:MM, facultatifs) : fermeture partielle, par exemple une demi-journée, chaque jour de la période.
+ */
+export type Closure = { start: string; end: string; reason: string; from?: string; to?: string };
+
+/** Plage d'ouverture en minutes depuis minuit */
+export type Range = [number, number];
 
 /** Ce qu'il faut pour savoir si le studio est ouvert un jour donné */
 export type Calendar = {
@@ -17,6 +23,7 @@ export type Calendar = {
 };
 
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** « 09:30 » → 570 */
 export function toMinutes(time: string) {
@@ -43,6 +50,9 @@ export function addDays(iso: string, n: number) {
 
 /** Jour de la semaine d'une date, 0 = lundi */
 export const weekday = (iso: string) => (toDate(iso).getUTCDay() + 6) % 7;
+
+/** Lundi de la semaine d'une date */
+export const startOfWeek = (iso: string) => addDays(iso, -weekday(iso));
 
 /** « 2026-11-11 » → « mercredi 11 novembre », « 2027-01-01 » → « vendredi 1er janvier » (options Intl au choix) */
 export const formatDay = (iso: string, options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long' }) =>
@@ -96,54 +106,64 @@ export function frenchHolidays(year: number): Map<string, string> {
   ]);
 }
 
-/** Motif de la fermeture exceptionnelle d'une date (fermeture saisie ou jour férié), sinon null */
-export function closureOn(iso: string, cal: Calendar): string | null {
-  const manual = cal.closures.find((c) => c.start <= iso && iso <= c.end);
-  if (manual) return manual.reason || 'Fermeture exceptionnelle';
-  return cal.holidays ? frenchHolidays(Number(iso.slice(0, 4))).get(iso) ?? null : null;
+/** « 9 h – 12 h », ou « 9 h – 11 h / 15 h – 18 h » si une fermeture coupe la journée */
+export const formatRanges = (ranges: Range[]) =>
+  ranges.map(([a, b]) => `${formatTime(a)} – ${formatTime(b)}`).join(' / ');
+
+// Retire une plage fermée [a, b] des plages d'ouverture
+function subtract(ranges: Range[], [a, b]: Range): Range[] {
+  return ranges.flatMap(([s, e]): Range[] => {
+    if (b <= s || a >= e) return [[s, e]];
+    const left: Range[] = a > s ? [[s, a]] : [];
+    const right: Range[] = b < e ? [[b, e]] : [];
+    return [...left, ...right];
+  });
 }
 
-/** Créneau réel d'une date : horaires de la semaine, sauf fermeture exceptionnelle */
-export const slotOn = (iso: string, cal: Calendar): Slot => (closureOn(iso, cal) ? null : cal.slots[weekday(iso)]);
+/**
+ * Journée réelle d'une date : plages d'ouverture après fermetures exceptionnelles et jours fériés.
+ * reason : motif de la fermeture (journée entière ou partielle), null si la journée est normale.
+ */
+export function dayOn(iso: string, cal: Calendar): { ranges: Range[]; reason: string | null; partial: boolean } {
+  const usual = cal.slots[weekday(iso)];
+  const manual = cal.closures.filter((c) => c.start <= iso && iso <= c.end);
+  const label = (c: Closure) => c.reason || 'Fermeture exceptionnelle';
+
+  const full = manual.find((c) => !c.from || !c.to);
+  if (full) return { ranges: [], reason: label(full), partial: false };
+  const holiday = cal.holidays ? frenchHolidays(Number(iso.slice(0, 4))).get(iso) : undefined;
+  if (holiday) return { ranges: [], reason: holiday, partial: false };
+  if (!usual) return { ranges: [], reason: null, partial: false };
+
+  let ranges: Range[] = [usual];
+  for (const c of manual) ranges = subtract(ranges, [toMinutes(c.from!), toMinutes(c.to!)]);
+  const touched = ranges.length !== 1 || ranges[0][0] !== usual[0] || ranges[0][1] !== usual[1];
+  return { ranges, reason: touched ? label(manual[0]) : null, partial: touched && ranges.length > 0 };
+}
 
 /** État du studio : « Ouvert · ferme à 18 h », « Fermé (Toussaint) · ouvre demain à 9 h »… */
 export function getStatus(cal: Calendar, now = new Date()) {
   const { date, minutes } = parisNow(now);
-  const today = slotOn(date, cal);
-  if (today && minutes >= today[0] && minutes < today[1]) {
-    return { date, minutes, open: true, label: `Ouvert · ferme à ${formatTime(today[1])}` };
+  const today = dayOn(date, cal);
+  const current = today.ranges.find(([a, b]) => minutes >= a && minutes < b);
+  if (current) {
+    return { date, minutes, open: true, label: `Ouvert · ferme à ${formatTime(current[1])}` };
   }
-  // Le motif n'est utile que si le studio aurait dû ouvrir ce jour-là
-  const reason = cal.slots[weekday(date)] ? closureOn(date, cal) : null;
-  const closed = reason ? `Fermé (${reason})` : 'Fermé';
+  // Le motif n'est utile que si le studio aurait dû être ouvert à cette heure-ci
+  const usual = cal.slots[weekday(date)];
+  const duringUsualHours = usual !== null && minutes >= usual[0] && minutes < usual[1];
+  const showReason = today.reason && usual && (today.ranges.length === 0 || duringUsualHours);
+  const closed = showReason ? `Fermé (${today.reason})` : 'Fermé';
   // Prochaine ouverture : plus tard aujourd'hui, ou dans l'année (vacances comprises)
   for (let k = 0; k <= 366; k++) {
     const iso = addDays(date, k);
-    const slot = slotOn(iso, cal);
-    if (!slot || (k === 0 && minutes >= slot[0])) continue;
+    const next = (k === 0 ? today : dayOn(iso, cal)).ranges.find(([a]) => k > 0 || a > minutes);
+    if (!next) continue;
     const when =
       k === 0 ? '' : k === 1 ? ' demain' : k < 7 ? ` ${formatDay(iso, { weekday: 'long' })}` : ` le ${formatDay(iso)}`;
-    return { date, minutes, open: false, label: `${closed} · ouvre${when} à ${formatTime(slot[0])}` };
+    return { date, minutes, open: false, label: `${closed} · ouvre${when} à ${formatTime(next[0])}` };
   }
   return { date, minutes, open: false, label: closed };
-}
-
-/** Fermetures à venir d'ici `days` jours : fermetures saisies, puis jours fériés tombant un jour normalement ouvert */
-export function upcomingClosures(cal: Calendar, from: string, days = 120): Closure[] {
-  const until = addDays(from, days);
-  const list = cal.closures
-    .filter((c) => c.end >= from && c.start <= until)
-    .map((c) => ({ ...c, reason: c.reason || 'Fermeture exceptionnelle' }));
-  if (cal.holidays) {
-    for (let k = 0; k < days; k++) {
-      const iso = addDays(from, k);
-      const name = frenchHolidays(Number(iso.slice(0, 4))).get(iso);
-      if (name && cal.slots[weekday(iso)] && !list.some((c) => c.start <= iso && iso <= c.end)) {
-        list.push({ start: iso, end: iso, reason: name });
-      }
-    }
-  }
-  return list.sort((a, b) => a.start.localeCompare(b.start));
 }
 
 /** Calendrier du studio : horaires de src/data/site.ts + fermetures enregistrées dans l'administration */

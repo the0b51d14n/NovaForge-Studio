@@ -10,7 +10,7 @@ import {
 } from 'astro:env/server';
 import { site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
-import type { Closure } from './hours';
+import { parisNow, startOfWeek, type Closure } from './hours';
 import type { LockReason } from '../data/lock-reasons';
 
 export type Settings = {
@@ -105,6 +105,25 @@ export async function saveSettings(settings: Settings): Promise<void> {
     ['SET', KEYS.settings, JSON.stringify(settings)],
     ['SET', KEYS.version, stamp()],
   ]);
+}
+
+/**
+ * Fermetures exceptionnelles : une fermeture passée reste enregistrée jusqu'à la fin de sa semaine
+ * (la page Contact affiche « Fermé » ce jour-là), puis elle est supprimée de la base pour de bon.
+ * Appelée à chaque requête ; n'écrit que lorsqu'il y a quelque chose à supprimer.
+ */
+export async function purgeExpiredClosures(settings: Settings): Promise<Settings> {
+  const monday = startOfWeek(parisNow().date);
+  const kept = settings.closures.filter((c) => c.end >= monday);
+  if (kept.length === settings.closures.length) return settings;
+  const next = { ...settings, closures: kept };
+  try {
+    // Pas de nouveau tampon de version : l'affichage des pages ouvertes ne change pas
+    await redis([['SET', KEYS.settings, JSON.stringify(next)]]);
+  } catch (error) {
+    console.error(error);
+  }
+  return next;
 }
 
 export async function saveOpenings(openings: Opening[]): Promise<void> {
