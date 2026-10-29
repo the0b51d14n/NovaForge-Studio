@@ -1,162 +1,399 @@
 # Audit juridique du site NovaForge Studio
 
-- **Date de l'audit** : 28 octobre 2026
 - **Site** : https://nova-forge-studio-lyart.vercel.app/ (Astro 7, rendu serveur, hébergé sur Vercel)
+- **Phase 1** : 28 octobre 2026, commit `4a50bb5` (mentions légales, confidentialité, formulaires, recrutement)
+- **Phase 2** : 28 octobre 2026, après les réponses du propriétaire. Modifications **non commitées et non
+  déployées** à la date du rapport, sur instruction du propriétaire.
 - **Nature du document** : audit technique et rédactionnel, réalisé sans avis d'un professionnel du droit. Il corrige
-  les problèmes démontrables et liste les décisions restantes. **Il ne certifie pas la conformité du site.**
+  les problèmes démontrables et rend explicites les décisions restantes. **Il ne certifie pas la conformité du site,
+  et un build réussi ne vaut pas conformité.**
 
-## 1. Situation de départ (faits constatés dans le dépôt)
+## 0. Phase 3 (28/10/2026) : documentation de lancement
 
-| Fait | Source dans le dépôt | Statut |
+### Résumé exécutif
+
+Le site est cohérent avec un **projet en pré-lancement non immatriculé** (phases 1 et 2). La phase 3 ajoute une
+documentation interne de lancement de 33 fichiers sous `docs/`, non publiée sur le site. Elle couvre :
+
+- le statut juridique (comparaison neutre, recommandation provisoire) et les décisions à prendre ;
+- les mentions légales, le registre des traitements, les sous-traitants, les cookies ;
+- les contrats pour particuliers et professionnels, les clients particuliers, la propriété intellectuelle ;
+- le catalogue des prestations, le processus client, les conditions commerciales à fixer ;
+- l'organisation, la politique de travail, le recrutement futur et les associés ;
+- le budget et les seuils de décision ;
+- la technique (architecture, **administration du site**, sécurité, exploitation) et des modèles internes.
+
+**Aucun code du site n'a été modifié en phase 3.** Rien n'est validé par un professionnel, et le site n'est pas
+déclaré conforme.
+
+### État initial de la phase 3
+
+- **Git** : branche `main`, 1 commit non poussé (`4a50bb5`), modifications de la phase 2 non commitées.
+- **Documents existants** : `AUDIT-LEGAL.md`, `docs/brouillons-commerciaux.md`, `docs/elements-a-fournir.md`,
+  `docs/archives/`. Tous conservés.
+
+### Fichiers créés (phase 3)
+
+Tous en Markdown :
+
+- `docs/README.md` ;
+- `docs/audit-site.md` ;
+- `docs/lancement/` : `statut-juridique.md`, `decisions-a-prendre.md`, `checklist-lancement.md` ;
+- `docs/juridique/` : `mentions-legales.md`, `registre-traitements.md`, `sous-traitants-et-transferts.md`,
+  `cookies-et-traceurs.md`, `contrats-et-cgv.md`, `consommateurs.md`, `propriete-intellectuelle.md`,
+  `points-a-valider.md` ;
+- `docs/commercial/` : `catalogue-prestations.md`, `processus-client.md`, `conditions-commerciales.md`,
+  `maintenance-et-support.md` ;
+- `docs/organisation/` : `organisation-interne.md`, `politique-de-travail.md`, `recrutement-futur.md`,
+  `politique-associes.md` ;
+- `docs/finance/` : `budget-previsionnel.md`, `seuils-de-decision.md` ;
+- `docs/technique/` : `architecture.md`, `administration.md`, `securite.md`, `exploitation.md` ;
+- `docs/modeles/` : `cadrage-client.md`, `proposition-et-devis.md`, `recette-et-livraison.md`,
+  `changement-de-perimetre.md`, `compte-rendu.md`, `fiche-incident.md`.
+
+Choix de structure : les fichiers proposés mais redondants ont été regroupés pour éviter les doublons.
+- rétractation et médiation → `consommateurs.md` ;
+- grille tarifaire → `conditions-commerciales.md` ;
+- vision, organisation et rôles → `organisation-interne.md` ;
+- déploiement, variables, sauvegardes et incidents → `exploitation.md`.
+
+Les trames de conditions générales et de contrats restent dans `docs/brouillons-commerciaux.md`.
+
+### Fichiers modifiés (phase 3)
+
+`AUDIT-LEGAL.md` (cette section).
+
+### Contrôles
+
+| Contrôle | Résultat |
+|:--|:--|
+| Liens internes de `docs/` | Aucun lien cassé (vérification par script) |
+| Build de production | Réussi |
+| Documents internes exposés ? | Non : aucun `.md` dans `dist/` ; `public/` ne contient que les favicons |
+| Secrets dans le dépôt suivi | Aucun motif de clé trouvé ; `.env` ignoré |
+| `npm audit --omit=dev` | **8 vulnérabilités de gravité élevée**, toutes transitives via `@astrojs/vercel` (`path-to-regexp`, `zod`, `undici`, `@vercel/*`). Correctif disponible, **non appliqué** (changement de dépendances soumis à accord) |
+| Linter, types, tests | Aucun configuré |
+| Non exécuté | Envoi réel d'e-mails, contrôle en production, test d'intrusion, revue des comptes Vercel et Upstash, URSSAF (page injoignable lors de la consultation) |
+
+### Risques ouverts
+
+**P0 (bloquant)** :
+1. Statut juridique et immatriculation.
+2. Adresse et domiciliation (exacte, statut, publication).
+3. Moyen de contact écrit (messagerie inexistante) pour les droits RGPD et les réclamations.
+4. Conditions générales et médiateur avant toute vente à un particulier.
+5. Téléphone de Vercel absent des mentions légales.
+
+**P1 (avant l'activité concernée)** :
+6. Vulnérabilités de dépendances (`npm audit fix`, puis build et test).
+7. MFA sur GitHub, Vercel, Upstash et messagerie.
+8. Adresse d'Upstash.
+9. DPA des prestataires.
+10. Procédure manuelle de suppression des données.
+11. Assurance responsabilité civile professionnelle.
+12. Validation des clauses de propriété intellectuelle.
+13. Offres prévisionnelles stockées dans l'administration à revoir.
+14. Récit « freelance » et horaires de la page Contact à confirmer.
+
+**P2 (à planifier)** :
+15. Limitation des tentatives de connexion et comptes nominatifs pour l'administration.
+16. En-têtes de sécurité et CSP.
+17. Sauvegarde des réglages Upstash.
+18. Drapeaux de lancement pilotables depuis l'administration.
+19. Protection de la branche `main`.
+
+### Décisions du propriétaire
+
+Voir [docs/lancement/decisions-a-prendre.md](docs/lancement/decisions-a-prendre.md) (18 décisions).
+
+### Professionnels à consulter
+
+Voir [docs/juridique/points-a-valider.md](docs/juridique/points-a-valider.md) :
+- **expert-comptable** (statut, TVA, budget) ;
+- **juriste** (mentions légales, conditions générales, propriété intellectuelle, RGPD, droit social, statuts) ;
+- **assureur**.
+
+### Checklist avant publication des pages juridiques définitives
+
+- [ ] Adresse confirmée, et décision de publication prise.
+- [ ] Moyen de contact écrit opérationnel.
+- [ ] Téléphone de Vercel et adresse d'Upstash renseignés.
+- [ ] Après l'immatriculation : `legal` complété (SIREN, RNE ou RCS, TVA ou franchise).
+- [ ] Politique de confidentialité relue (prestataires réels, durées, procédure de suppression).
+- [ ] Relecture par un juriste.
+
+### Checklist avant ouverture commerciale (`launch.commercial = true`)
+
+- [ ] Immatriculation, compte bancaire, outil de facturation (facturation électronique).
+- [ ] Assurance souscrite si retenue.
+- [ ] Messagerie et formulaires testés (`launch.mailbox = true`).
+- [ ] Conditions générales pour particuliers et pour professionnels, formulaire de rétractation, médiateur :
+      validés et publiés.
+- [ ] Grille tarifaire décidée ([docs/commercial/conditions-commerciales.md](docs/commercial/conditions-commerciales.md)).
+- [ ] Vulnérabilités de dépendances corrigées, site vérifié en production.
+
+### Checklist avant le premier contrat client
+
+- [ ] Client qualifié (particulier ou professionnel).
+- [ ] Cahier des besoins écrit.
+- [ ] Devis conforme (mentions, prix TTC pour un particulier, validité).
+- [ ] Particulier : information précontractuelle, rétractation, demande expresse si exécution anticipée.
+- [ ] Clauses de propriété intellectuelle et accord de sous-traitance RGPD si des données sont traitées.
+- [ ] Abonnements de tiers attribués (qui souscrit, qui paie).
+- [ ] Assurance active.
+
+### Checklist avant la première embauche
+
+Voir [docs/organisation/recrutement-futur.md](docs/organisation/recrutement-futur.md). En résumé :
+- seuil financier atteint ;
+- structure immatriculée ;
+- convention collective identifiée ;
+- contrat et charte de télétravail rédigés avec un juriste ;
+- DPAE, paie, santé au travail ;
+- accès informatiques nominatifs ;
+- données des candidats gérées ;
+- offre revue dans l'administration ;
+- `launch.recruitment = true`.
+
+### État Git final et confirmation
+
+- **État Git** : voir la fin de la phase 3 dans le compte rendu à l'utilisateur. Branche `main`, commit
+  `4a50bb5` non poussé, modifications des phases 2 et 3 non commitées.
+- **Aucun déploiement, aucun push et aucun commit** n'a été effectué pendant les phases 2 et 3. Aucun service
+  externe n'a été activé. Aucun secret n'a été ajouté.
+
+## 1. Situation confirmée par le propriétaire (phase 2)
+
+| Point | Réponse du propriétaire | Conséquence sur le site |
 |:--|:--|:--|
-| Aucune identité légale renseignée (dénomination, forme, SIREN, SIRET, RCS, TVA, APE, directeur de publication) | `src/data/site.ts` (`legal` : toutes les valeurs à `null`) | Confirmé |
-| Nom du fondateur non renseigné | `src/data/site.ts` (`founder.name = null`) | Confirmé |
-| « NovaForge Studio » est un nom commercial ; le projet est « en cours de structuration » | Brief du propriétaire (28/10/2026) | Confirmé |
-| Aucune preuve d'immatriculation, ni en cours ni réalisée | Dépôt et documentation | Confirmé : rien ne permet de l'affirmer |
-| Parcours client : prise de contact puis devis. Pas de commande, de paiement ni de signature en ligne | `src/pages/contact.astro`, `src/pages/api/contact.ts` | Confirmé |
-| Clientèle visée : TPE, PME, jeunes entreprises (professionnels) | `src/data/site.ts` (`description`), pages Services | Déclaré sur le site, à confirmer |
-| Formulaires : données envoyées par e-mail via Resend, **rien n'est stocké** par le site | `src/lib/forms.ts`, `src/pages/api/*.ts` | Confirmé dans le code |
-| Envoi d'e-mails actif seulement si `RESEND_API_KEY` et `MAIL_FROM` sont configurés | `src/lib/forms.ts` | Configuration en production **non vérifiable** depuis le dépôt |
-| Réglages du site (verrou, adresse, fermetures, offres) stockés dans Upstash Redis | `src/lib/store.ts` | Confirmé (aucune donnée de visiteur) |
-| Adresse enregistrée en production : 44 rue des Montagnards, 59800 Lille ; adresse par défaut du code : 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain | Base Upstash (lecture du 28/10) et `src/data/site.ts` | **Incohérence** à trancher |
+| Statut | Projet en pré-lancement, **non immatriculé** | Aucune dénomination, forme, SIREN, RNE, RCS, TVA ni capital affichés. Bandeau « projet en préparation » sur les pages publiques |
+| Porteur du projet | **Théo ANDRIMANANARISOA** | Éditeur (personne physique), directeur de la publication et responsable du traitement (`legal.publisher`, `legal.director`) |
+| Adresse | **Lille**. Adresse exacte, statut et modalités de publication à confirmer | Voir la section 4 |
+| Messagerie professionnelle, Resend | **Pas configurés** | Adresses e-mail masquées, formulaires fermés, API refusées (`launch.mailbox = false`) |
+| Clientèle envisagée | **Particuliers** (consommateurs) | Droit de la consommation applicable dès l'ouverture : voir la section 7 |
+| Activité commerciale | **Pas encore ouverte** | Aucun devis ni prestation présentés comme disponibles (`launch.commercial = false`) |
+| Recrutement | **Pas ouvert**, prévu plus tard | Pas d'offre, de formulaire, de salaire ni d'avantage affichés (`launch.recruitment = false`) |
+| Rémunérations et avantages | Prévisionnels, à revoir | Retirés des pages publiques |
+
+Ces trois drapeaux sont dans `src/data/site.ts` (`launch`). Ne les passer à `true` que lorsque la condition est
+réellement remplie (voir les sections 9 et 10).
 
 ## 2. Périmètre audité
 
-- **Pages** (`src/pages`) : accueil, L'agence, Services, Réalisations (masquée sans projet), Contact, Carrières,
-  offre `carrieres/[slug]`, candidature spontanée, mentions légales, confidentialité, page de verrouillage, 404,
-  administration (privée).
+- **Pages** : accueil, L'agence, Services, Réalisations (masquée sans projet), Contact, Carrières, offre
+  `carrieres/[slug]`, candidature spontanée, mentions légales, confidentialité, verrouillage, 404, administration
+  (privée).
 - **API** : `/api/contact`, `/api/candidature`, `/api/version`.
-- **Composants** : `Footer`, `Header`, `HiringBanner`, `ApplyForm`, `OfficeMap`, `DirectionsPicker`, `OpeningHours`,
-  `BaseLayout`.
-- **Logique serveur** : `src/lib/middleware.ts`, `access.ts`, `store.ts`, `forms.ts`, `hours.ts`.
-- **Navigateur** : `src/scripts/main.ts`, `src/scripts/live.ts`.
+- **Composants** : `Header`, `Footer`, `HiringBanner`, `CtaBand`, `ApplyForm`, `PrelaunchNotice`, `OfficeMap`,
+  `OpeningHours`, `BaseLayout`.
+- **Logique** : `src/lib/middleware.ts`, `access.ts`, `store.ts`, `forms.ts`, `hours.ts` ; `src/scripts/main.ts` et
+  `live.ts`.
 - **Services externes** :
   - Vercel (hébergement) ;
-  - Resend (e-mails) ;
-  - Upstash (réglages) ;
+  - Resend (e-mails, inactif) ;
+  - Upstash (réglages de l'administration) ;
   - OpenStreetMap (tuiles de carte) ;
-  - Nominatim (géocodage, depuis l'administration uniquement) ;
-  - liens Google Maps, Apple Plans et Waze, ouverts seulement au clic.
-- **Contenus** : `src/data/content.ts` (offre, avantages, politique de travail), `docs/`.
-- **Hors périmètre** : `docs/archives/brief-job-dating.md` (non publié), et les documents commerciaux et factures,
-  qui n'existent pas dans le dépôt.
+  - Nominatim (géocodage, depuis l'administration seulement) ;
+  - liens Google Maps, Apple Plans et Waze, ouverts au clic seulement.
+- **Documents** : `docs/brouillons-commerciaux.md`, `docs/elements-a-fournir.md`.
 
-## 3. Anomalies
+## 3. Anomalies et statut
 
 Gravité : **B** bloquant · **I** important · **A** amélioration.
 
 | # | Gravité | Anomalie | Statut |
 |:--|:--|:--|:--|
-| 1 | B | Les mentions légales affichaient « SIREN : En cours d'immatriculation » sans preuve | Corrigé dans le code |
-| 2 | B | Identité de l'éditeur absente (LCEN art. 1-1 I : nom, adresse et téléphone de la personne physique, ou dénomination et siège de la société). Le nom commercial était présenté comme « Dénomination » et l'adresse comme « Siège social » | Libellés corrigés dans le code. **Identité : à confirmer par le propriétaire** |
-| 3 | B | Directeur de la publication non nommé (remplacé par « le représentant légal de NovaForge Studio ») | Affiché « À compléter » dans le code. **À confirmer par le propriétaire** |
-| 4 | B | Les pages légales étaient inaccessibles quand le site est verrouillé (redirection vers `/verrouillage`) | Corrigé dans le code : accessibles en permanence, et liens ajoutés sur la page de verrouillage |
-| 5 | I | Téléphone de l'hébergeur exigé (LCEN art. 1-1 I 4°), non publié par Vercel | Affiché « À compléter ». **Action administrative externe** : le demander à Vercel |
-| 6 | I | Prestataire de stockage Upstash non mentionné (LCEN art. 1-1 I 5° : nom et adresse) | Nom ajouté dans le code. **Adresse à confirmer par le propriétaire** ; applicabilité à valider par un professionnel du droit |
-| 7 | I | Formulaire de contact : case de consentement **obligatoire**, alors que la réponse repose sur les mesures précontractuelles ou l'intérêt légitime | Corrigé dans le code : mention d'information sans case, et le serveur ne l'exige plus |
-| 8 | I | Candidature : case de consentement obligatoire, sans distinction entre le recrutement en cours et la conservation pour d'autres postes | Corrigé dans le code : mention d'information, plus une case **facultative et décochée** « conserver 2 ans ». Le choix figure dans l'e-mail reçu |
-| 9 | I | Politique de confidentialité générique : bases légales incomplètes, prestataires non nommés, garanties de transfert affirmées sans preuve, stockage de session non mentionné, carte de la page L'agence oubliée | Corrigé dans le code (réécrite d'après le code réel) |
-| 10 | I | Responsable du traitement désigné par le nom commercial | Corrigé dans le code (personne physique ou société dès qu'elle est renseignée). **Identité à confirmer** |
-| 11 | I | Offre d'emploi présentée comme ouverte, alors qu'aucun employeur n'est identifié. Données Google Jobs (`JobPosting`) publiées | Corrigé dans le code : avertissement « Recrutements en préparation » sur les 3 pages Carrières, et `JobPosting` publié seulement si un SIREN est renseigné. **Statut réel du recrutement à confirmer** |
-| 12 | I | Conditions annoncées non confirmées : salaire ~30 000 €, tickets restaurant, budget formation, prime, révision à 6 mois | Présentées comme prévisionnelles par l'avertissement. **À confirmer par le propriétaire** |
-| 13 | I | Incohérence d'adresse : Lille en production, Neuville-en-Ferrain dans le code, l'offre et la documentation ; « aux portes de Tourcoing » sur L'agence | Textes rendus génériques dans le code (avantages, page L'agence, perks de l'offre). **Adresse réelle à confirmer** ; le lieu de l'offre enregistrée se corrige depuis l'administration |
-| 14 | I | L'envoi des formulaires dépend de Resend et du domaine `novaforge-studio.fr`, non confirmés | **À confirmer par le propriétaire** (variables Vercel, domaine, boîte de réception) |
-| 15 | I | Aucune condition de prestation (CGV) pour une activité de vente de services aux professionnels | Brouillon préparé : `docs/brouillons-commerciaux.md`. **À valider par un professionnel du droit** |
-| 16 | I | Facturation électronique : réception obligatoire pour toutes les entreprises depuis le 1er septembre 2026, émission pour les TPE et PME au 1er septembre 2027 (sources non officielles) | **Action administrative externe** dès l'immatriculation (plateforme agréée). Calendrier à vérifier sur impots.gouv.fr |
-| 17 | I | Politique de travail : le télétravail suppose un accord ou une charte (C. trav. L1222-9) ; droit à la déconnexion ; convention collective applicable non déterminée | Mention de formalisation déjà présente sur la page Carrières. **À valider par un professionnel du droit** |
-| 18 | A | Délais de réponse présentés comme garantis (48 h ouvrées, 1 semaine) | Corrigé dans le code (« en général », « environ », « délai visé ») |
-| 19 | A | Un journal d'erreur pouvait recopier la réponse de Resend, qui peut contenir des adresses e-mail | Corrigé dans le code (statut HTTP seul) |
-| 20 | A | Test pratique de 2 à 3 h à domicile : sujet et réutilisation des résultats non précisés | **À confirmer par le propriétaire** (s'engager sur un sujet fictif, jamais réutilisé) |
-| 21 | A | Icônes SVG de `Icon.astro` : origine et licence non documentées | **À confirmer par le propriétaire** |
-| 22 | A | Bandeau « On recrute » (menu, accueil) maintenu pendant le pré-lancement | Conservé, car l'avertissement figure sur les pages Carrières. **À confirmer par le propriétaire** |
-| 23 | — | Bannière de cookies | **Non applicable** : aucun cookie déposé chez les visiteurs ; stockage de session technique sans identifiant ; cookies d'administration nécessaires à l'authentification ; aucune mesure d'audience. Tuiles OpenStreetMap vérifiées : pas de `Set-Cookie` |
-| 24 | — | Droit de rétractation et médiateur de la consommation | **Non applicable** si la clientèle est exclusivement professionnelle. **À confirmer** : si des particuliers peuvent commander, ces obligations s'appliquent |
-| 25 | — | « Premier rendez-vous et devis gratuits » | Engagement commercial choisi par le propriétaire, conservé. À reprendre dans les futures conditions de prestation |
+| 1 | B | Mentions légales : « SIREN : En cours d'immatriculation » affirmé sans preuve | Corrigé dans le code (phase 1) |
+| 2 | B | Éditeur non identifié, nom commercial présenté comme dénomination | Corrigé dans le code : éditeur personne physique « Théo ANDRIMANANARISOA », « Nom du projet : NovaForge Studio », statut « pas encore immatriculé, aucune activité commerciale ouverte » |
+| 3 | B | Directeur de la publication non nommé | Corrigé dans le code (Théo ANDRIMANANARISOA) |
+| 4 | B | Pages légales inaccessibles site verrouillé | Corrigé dans le code (phase 1) |
+| 5 | B | Adresses `contact@` et `recrutement@novaforge-studio.fr` affichées (pied de page, contact, mentions, confidentialité, bandeau d'appel, offre) alors que la messagerie n'existe pas | Corrigé dans le code : masquées tant que `launch.mailbox` est faux |
+| 6 | B | Formulaires actifs sans messagerie : données saisies pour rien, message d'échec renvoyant vers une adresse inexistante | Corrigé dans le code : formulaire de contact remplacé par « Le formulaire ouvre bientôt » et le téléphone. API refusées **avant lecture des données**. Message d'échec sans adresse e-mail |
+| 7 | B | Recrutement présenté comme ouvert alors qu'il ne l'est pas : bandeaux « On recrute », offre, formulaire de candidature, salaire, avantages, données Google Jobs | Corrigé dans le code :<br>• « On recrute » masqué partout ;<br>• offre et candidature spontanée redirigées vers `/carrieres#recrutement` (prévisualisation réservée à l'administration) ;<br>• section « Des recrutements à venir » ;<br>• avantages, chiffres et question sur le salaire retirés ;<br>• `JobPosting` jamais publié tant que le recrutement est fermé |
+| 8 | B | Prestations et devis présentés comme disponibles (« Démarrer un projet », « Demander un devis », « Premier rendez-vous et devis gratuits », « 48 h ») | Corrigé dans le code : bandeau « NovaForge Studio est un projet en préparation : les prestations ne sont pas encore ouvertes à la commande », boutons « Nous contacter », mentions de devis reportées à l'ouverture |
+| 9 | B | **Moyen de contact écrit pour exercer ses droits RGPD** : seul le téléphone est disponible | **À confirmer par le propriétaire** : ouvrir une messagerie (ou indiquer une adresse postale) avant toute collecte de données |
+| 10 | B | **Adresse de l'éditeur** : Lille déclarée, adresse exacte et statut (domicile ?) inconnus ; le code affiche l'adresse saisie dans l'administration | **À confirmer par le propriétaire**, voir la section 4 |
+| 11 | I | Téléphone de l'hébergeur exigé (LCEN art. 1-1 I 4°), non publié par Vercel | **Action administrative externe** : le demander à Vercel. Affiché « À compléter » |
+| 12 | I | Adresse d'Upstash (prestataire de stockage, LCEN art. 1-1 I 5°) | **À confirmer par le propriétaire**. Applicabilité **à valider par un professionnel du droit** |
+| 13 | I | Politique de confidentialité à réaligner : formulaires fermés, contact sans e-mail, responsable du traitement | Corrigé dans le code :<br>• responsable identifié ;<br>• traitements qui subsistent décrits (journaux d'hébergement, carte, stockage de session) ;<br>• formulaires et candidatures marqués fermés ;<br>• droits exercés par téléphone en attendant la messagerie |
+| 14 | I | Récit « développeur freelance qui accompagne ses clients » (accueil, L'agence, Carrières si recrutement ouvert) : il suppose une activité exercée | **À confirmer par le propriétaire** : vrai et passé, ou à reformuler (il n'a pas été réécrit) |
+| 15 | I | Horaires d'ouverture et état « Ouvert / Fermé » sur la page Contact pour une activité non ouverte | Partiellement corrigé : libellé « Horaires prévus ». **À confirmer par le propriétaire** (les retirer, ou les présenter comme une disponibilité téléphonique) |
+| 16 | I | Clientèle de particuliers : information précontractuelle, rétractation, médiateur | Pas d'activité commerciale ouverte. Liste de vérification en section 7. **À valider par un professionnel du droit** avant la première vente |
+| 17 | I | Conditions de prestation, devis, contrats inexistants | Brouillons dans `docs/brouillons-commerciaux.md`, mis à jour pour une clientèle de consommateurs. **À valider par un professionnel du droit** |
+| 18 | I | Facturation électronique : réception obligatoire depuis le 1er septembre 2026, émission au 1er septembre 2027 pour les TPE et PME (sources non officielles) | **Action administrative externe** après immatriculation. Calendrier à vérifier sur impots.gouv.fr |
+| 19 | I | Politique de travail : télétravail (C. trav. L1222-9), déconnexion, convention collective | Corrigé dans le code : présentée comme des principes futurs, non contractuels. Modalités **à valider par un professionnel du droit** au moment des recrutements |
+| 20 | A | Journaux d'erreur pouvant contenir des adresses e-mail | Corrigé dans le code (phase 1) |
+| 21 | A | Délais de réponse présentés comme garantis | Corrigé dans le code. Masqués tant que l'activité n'est pas ouverte |
+| 22 | A | Test pratique de 2 à 3 h, origine des icônes SVG | **À confirmer par le propriétaire** (avant l'ouverture du recrutement) |
+| 23 | — | Bannière de cookies | **Non applicable** : aucun cookie chez les visiteurs ; stockage de session technique sans identifiant ; cookies d'administration nécessaires à l'authentification ; aucune mesure d'audience. Vérifié : pas de `Set-Cookie` sur le site ni sur les tuiles OpenStreetMap |
+| 24 | — | Médiateur de la consommation, droit de rétractation | **Non applicable tant qu'aucune vente n'est proposée.** Deviendra obligatoire avant la première vente à un particulier (section 7) |
 
-## 4. Modifications réalisées
+## 4. Adresse : état et décisions à prendre
+
+- **Adresse utilisée par le code** :
+  - la valeur saisie dans l'administration, stockée dans Upstash : « 44 rue des Montagnards, 59800 Lille » lors de
+    la lecture du 28/10/2026 ;
+  - à défaut, la valeur de secours de `src/data/site.ts` : « 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain ».
+- **Où elle est affichée** : pied de page, page Contact, carte (pages Contact et L'agence), mentions légales,
+  politique de confidentialité. La phase 2 **n'a ajouté aucun nouvel affichage**.
+- **À confirmer** : l'adresse exacte à Lille, son statut (domicile personnel, local, domiciliation) et le fait de la
+  publier ou non sur les pages autres que légales.
+- **Domiciliation à domicile** :
+  - l'adresse personnelle devient publique (mentions légales, et registres après immatriculation) ;
+  - le bail ou le règlement de copropriété peut limiter l'exercice d'une activité ou l'accueil de clients ;
+  - les règles diffèrent selon le statut retenu.
+
+  **À valider par un professionnel du droit.**
+- **Autres options**, à comparer avant l'immatriculation :
+  - société de domiciliation agréée (contrat de domiciliation) ;
+  - local professionnel ;
+  - pépinière ou couveuse d'entreprises.
+
+  Aucune n'a été choisie à la place du propriétaire.
+- **Site de présentation et site professionnel** : la LCEN (art. 1-1, II) permet à un éditeur **non professionnel** de
+  ne publier que les coordonnées de son hébergeur. Un site qui prépare une activité commerciale relève plutôt du
+  régime professionnel (art. 1-1, I : identité, adresse, téléphone). Les mentions actuelles suivent le régime
+  professionnel, par prudence. **À valider par un professionnel du droit.**
+
+## 5. Formulaires et e-mails : état réel (vérifié dans le code)
+
+| Formulaire | Affiché ? | Données transmises ? | Stockées ? | Variables attendues |
+|:--|:--|:--|:--|:--|
+| Contact (`/contact`, `/api/contact`) | Non : remplacé par « Le formulaire ouvre bientôt » et le téléphone | Non : l'API répond 503 **avant** de lire la requête | Non | `launch.mailbox = true`, `RESEND_API_KEY`, `MAIL_FROM` |
+| Candidature (offre, candidature spontanée, `/api/candidature`) | Non pour le public (redirection). Visible seulement en prévisualisation d'administration | Non : 503 avant lecture | Non | `launch.recruitment = true`, `launch.mailbox = true`, `RESEND_API_KEY`, `MAIL_FROM` |
+
+- Messages d'échec sans adresse e-mail, et jamais de message de succès quand l'envoi n'a pas eu lieu.
+- Aucun secret n'est présent dans le code ni dans ce rapport.
+- **Réactivation** :
+  1. créer la messagerie ;
+  2. configurer Resend (domaine vérifié) sur Vercel ;
+  3. passer `launch.mailbox` à `true` ;
+  4. tester un envoi réel de bout en bout ;
+  5. relire la politique de confidentialité.
+
+## 6. Modifications réalisées
+
+**Phase 1 (commit `4a50bb5`)** :
+- mentions légales et politique de confidentialité réécrites ;
+- cases de consentement obligatoires supprimées, case facultative pour conserver une candidature ;
+- pages légales ouvertes même site verrouillé ;
+- journaux sans données personnelles ;
+- `docs/brouillons-commerciaux.md` créé.
+
+**Phase 2 (non commitée)** :
 
 | Fichier | Modification |
 |:--|:--|
-| `src/pages/mentions-legales.astro` | Réécrite :<br>• éditeur personne physique ou société selon les données ;<br>• nom commercial distinct ;<br>• « À compléter » au lieu de valeurs inventées ;<br>• bandeau « en cours de finalisation » ;<br>• hébergeur détaillé ;<br>• stockage Upstash ;<br>• propriété intellectuelle et crédits (Astro, Leaflet, OpenStreetMap/ODbL, polices OFL) |
-| `src/pages/confidentialite.astro` | Réécrite d'après le code :<br>• un bloc par traitement (données obligatoires et facultatives, finalité, base légale, durée) ;<br>• prestataires nommés ;<br>• transferts vers les États-Unis et adhésion déclarée au DPF ;<br>• cookies et stockage de session ;<br>• services tiers ;<br>• droits et réclamation CNIL |
-| `src/data/site.ts` | Hébergeur : adresse vérifiée, téléphone `null`. Ajout de `storage` (Upstash) |
-| `src/lib/middleware.ts` | `/mentions-legales` et `/confidentialite` restent accessibles quand le site est verrouillé |
-| `src/pages/verrouillage.astro` | Liens vers les deux pages légales |
-| `src/pages/contact.astro`, `src/pages/api/contact.ts` | Case de consentement remplacée par une mention d'information. Le serveur ne l'exige plus |
-| `src/components/ApplyForm.astro`, `src/pages/api/candidature.ts` | Mention d'information, case facultative « vivier » décochée et transmise dans l'e-mail. Délai présenté comme approximatif |
-| `src/components/PrelaunchNotice.astro` (nouveau) | Avertissement « Recrutements en préparation », affiché tant qu'aucun SIREN n'est renseigné |
-| `src/pages/carrieres/index.astro`, `[slug].astro`, `candidature-spontanee.astro` | Avertissement, `JobPosting` conditionné au SIREN, délais nuancés |
-| `src/data/content.ts`, `src/pages/agence.astro` | Lieu rendu générique, délai de réponse « visé » |
-| `src/pages/index.astro` | Statistique « 48 h » présentée comme délai habituel |
-| `src/lib/forms.ts` | Journaux sans données personnelles |
-| `src/styles/global.css` | Styles des avertissements et des mentions de formulaire |
-| `docs/brouillons-commerciaux.md` (nouveau), `docs/elements-a-fournir.md` | Brouillons de documents commerciaux, liste des éléments à fournir mise à jour |
+| `src/data/site.ts` | `legal.publisher` et `legal.director` (Théo ANDRIMANANARISOA), drapeaux `launch` (`commercial`, `recruitment`, `mailbox`) à `false` |
+| `src/lib/store.ts` | `visibleOffers()` : aucune offre au public tant que le recrutement est fermé |
+| `src/components/Header.astro`, `src/layouts/BaseLayout.astro`, `src/styles/global.css` | Bandeau « projet en préparation » intégré à l'en-tête (version courte sur mobile) |
+| `src/components/Footer.astro`, `HiringBanner.astro`, `CtaBand.astro`, `ApplyForm.astro` | « On recrute » et adresses e-mail masqués, bandeau d'appel sans devis |
+| `src/pages/index.astro`, `agence.astro`, `services.astro` | Boutons « Nous contacter », devis reportés à l'ouverture, recrutement présenté comme envisagé |
+| `src/pages/contact.astro`, `src/pages/api/contact.ts`, `src/pages/api/candidature.ts`, `src/scripts/main.ts` | Formulaire fermé avec un message honnête, API refusées avant lecture, messages d'échec sans adresse inexistante |
+| `src/pages/carrieres/index.astro`, `[slug].astro`, `candidature-spontanee.astro`, `src/components/PrelaunchNotice.astro` | Recrutement présenté comme futur : redirections, sections conditionnelles numérotées automatiquement, principes de travail non contractuels |
+| `src/pages/mentions-legales.astro`, `src/pages/confidentialite.astro` | Identité du porteur, statut, traitements réels, droits par téléphone |
+| `AUDIT-LEGAL.md`, `docs/brouillons-commerciaux.md` | Rapport et brouillons mis à jour |
 
-## 5. Informations manquantes
+## 7. Avant toute vente à des particuliers : liste de vérification
+
+À traiter avec un professionnel du droit. Aucun prix, médiateur ni clause définitive n'a été choisi.
+
+- [ ] **Identité et statut** du professionnel : nom, adresse, immatriculation, TVA ou franchise, coordonnées de contact
+      (téléphone **et** moyen écrit).
+- [ ] **Caractéristiques essentielles** de chaque prestation : contenu, livrables, nombre de retouches.
+- [ ] **Prix** TTC, modalités de paiement, acompte, frais éventuels.
+- [ ] **Délais et modalités d'exécution**, date ou délai de livraison.
+- [ ] **Conditions contractuelles** : conditions générales, devis, contrat ; acceptation et conservation.
+- [ ] **Droit de rétractation** de 14 jours pour les contrats conclus à distance ou hors établissement (C. conso.
+      L221-18 et suivants), avec un formulaire type de rétractation.
+- [ ] **Exécution avant la fin du délai** : demande expresse du consommateur et paiement au prorata (L221-25).
+- [ ] **Exceptions au droit de rétractation** : service pleinement exécuté avec accord exprès et renonciation
+      (L221-28). À vérifier au cas par cas.
+- [ ] **Rétractation en ligne** : si des contrats sont conclus en ligne, fonctionnalité de rétractation sur le site
+      (obligation signalée par la DGCCRF depuis le 19 juin 2026, à vérifier).
+- [ ] **Réclamations** : procédure et coordonnées.
+- [ ] **Médiateur de la consommation** à désigner, et ses coordonnées à communiquer (C. conso. L612-1, à vérifier).
+- [ ] **Propriété intellectuelle** des livrables : cession écrite et détaillée, éléments de tiers.
+- [ ] **Responsabilités, maintenance, résiliation** (contrat de maintenance si elle est proposée).
+- [ ] **Facturation et obligations fiscales** : mentions des factures, TVA, facturation électronique.
+- [ ] **Données personnelles des clients** : registre, sous-traitance si le site du client traite des données.
+- [ ] **Assurance** responsabilité civile professionnelle, selon les risques.
+
+## 8. Formalisation administrative à préparer
+
+Aucune décision n'est prise à la place du propriétaire. Questions à étudier, idéalement avec un accompagnement :
+chambres consulaires, BGE, Réseau Entreprendre, Initiative France.
+
+1. **Statut** : entreprise individuelle, au régime micro ou réel, ou société (SASU, EURL…). Critères : chiffre
+   d'affaires prévu, protection sociale, futur recrutement, responsabilité, associés éventuels.
+2. **Domiciliation** : voir la section 4.
+3. **Immatriculation** sur le guichet des formalités des entreprises (au plus tôt un mois avant le début d'activité,
+   au plus tard 15 jours après). Inscription au RNE, et au RCS selon la nature de l'activité. Exercer sans
+   immatriculation est sanctionné (source : Entreprendre.Service-Public, fiche F36763).
+4. **Régime fiscal et TVA** : franchise en base ou TVA, imposition des bénéfices. Mentions correspondantes sur
+   les devis et factures.
+5. **Facturation** : numérotation, mentions, facturation électronique (réception, puis émission).
+6. **Assurance** : responsabilité civile professionnelle, selon les risques et les exigences des clients.
+7. **Messagerie professionnelle** : domaine, boîtes `contact@` et `recrutement@`, puis Resend et un test réel.
+8. **Documents commerciaux** : valider les brouillons (`docs/brouillons-commerciaux.md`).
+9. **Mentions légales définitives** : renseigner `legal` dans `src/data/site.ts` après l'immatriculation.
+
+## 9. Conditions avant l'ouverture commerciale (`launch.commercial = true`)
+
+- Immatriculation obtenue, `legal` complété (SIREN, RNE ou RCS, TVA ou franchise).
+- Adresse confirmée.
+- Téléphone de l'hébergeur et adresse d'Upstash renseignés.
+- Messagerie en service et formulaires testés (`launch.mailbox = true`).
+- Conditions générales, devis, contrat et formulaire de rétractation validés ; médiateur désigné.
+- Politique de confidentialité relue (durées, prestataires réels).
+- Assurance souscrite, si elle est retenue.
+
+## 10. Conditions avant un recrutement (`launch.recruitment = true`)
+
+- Structure employeuse immatriculée.
+- Conditions de l'offre confirmées par écrit : contrat, salaire, avantages, lieu, date.
+- Convention collective identifiée.
+- Contrat de travail, charte de télétravail et organisation de la déconnexion rédigés avec un professionnel.
+- Processus de recrutement organisé (qui lit, délais, conservation), messagerie `recrutement@` opérationnelle,
+  formulaire de candidature testé.
+- Mentions de la page Carrières relues ; `JobPosting` publié uniquement à ce moment-là.
+
+## 11. Informations encore à fournir
 
 | Information | Utilité |
 |:--|:--|
-| **Statut juridique** choisi (entreprise individuelle, micro-entreprise, SASU, EURL…) et date d'immatriculation | Détermine les mentions obligatoires, l'émetteur des devis et factures, l'employeur des futurs salariés |
-| **Nom et prénom** de l'exploitant (personne physique) ou **dénomination sociale** | Mentions légales (éditeur), responsable du traitement, directeur de publication |
-| **Adresse de l'éditeur** : domicile ou siège ; Lille ou Neuville-en-Ferrain | Mentions légales, politique de confidentialité, offre d'emploi, carte |
-| **Directeur de la publication** | Mentions légales (LCEN art. 1-1 I 3°) |
-| **SIREN, SIRET, RCS ou RNE, TVA, APE, capital** (après immatriculation) | Mentions légales, devis, factures ; leur saisie active aussi `JobPosting` et retire l'avertissement de pré-lancement |
-| **Téléphone de Vercel** | Mentions légales (art. 1-1 I 4°) |
-| **Adresse postale d'Upstash** | Mentions légales (art. 1-1 I 5°) |
-| **Nom de domaine et messagerie** de `contact@` et `recrutement@novaforge-studio.fr` | Fonctionnement des formulaires, prestataire à citer dans la politique |
-| **Configuration de Resend** en production (`RESEND_API_KEY`, `MAIL_FROM`) | Savoir si les formulaires transmettent réellement des données |
-| **Clientèle** : uniquement des professionnels, ou aussi des particuliers ? | Rétractation, médiateur de la consommation, contenu des CGV |
-| **Conditions de l'offre d'emploi** confirmées (salaire, avantages, date, contrat) | Retrait de la mention « prévisionnel » |
-| **Convention collective** visée (probablement Syntec, IDCC 1486, à vérifier selon le code APE) | Durée du travail, salaires minima, télétravail |
+| Adresse exacte à Lille, son statut, et l'accord pour la publier | Mentions légales, confidentialité, pied de page, carte |
+| Moyen de contact écrit (e-mail ou adresse postale) | Exercice des droits RGPD, réclamations |
+| Téléphone de Vercel, adresse d'Upstash | Mentions légales |
+| Vérité du récit « freelance » et des clients passés | Accueil, L'agence |
+| Choix concernant les horaires affichés sur la page Contact | Ne pas suggérer une activité ouverte |
+| Statut juridique, régime fiscal, date de lancement envisagée | Sections 8 et 9 |
 
-## 6. Sources officielles consultées
+## 12. Sources officielles consultées
 
 | Source | Résultat |
 |:--|:--|
-| [Légifrance, LCEN, art. 1-1](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000049568614/2026-10-28) (version en vigueur au 28/10/2026) | Identification de l'éditeur, du directeur de la publication, de l'hébergeur (nom, adresse, **téléphone**) et du prestataire de stockage (nom, adresse) |
-| [Légifrance, LCEN, art. 6](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000042038977) (modifié par la loi n° 2026-813 du 24 août 2026) | Renvoie aux conditions d'identification de l'art. 1-1 |
-| [CNIL, Cookies : que dit la loi ?](https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies/que-dit-la-loi) | Liste des traceurs exemptés (authentification, préférences d'interface, équilibrage de charge…) |
-| [CNIL, Exemples de formulaires de collecte](https://www.cnil.fr/fr/exemples-de-formulaire-de-collecte-de-donnees-caractere-personnel) | Contenu de la mention d'information, distinction entre champs obligatoires et facultatifs |
-| [CNIL, Guide du recrutement](https://www.cnil.fr/fr/le-guide-du-recrutement) | Données strictement nécessaires, durée de conservation définie à l'avance |
-| [CNIL, Référentiel RH (avril 2026)](https://www.cnil.fr/sites/default/files/2026-04/referentiel_durees_de_conservation_gestion_des_ressources_humaines.pdf) | Téléchargé mais **illisible par l'outil** : la durée de 2 ans reste à vérifier dans le référentiel |
-| [Vercel, Privacy Policy (1er juin 2026)](https://vercel.com/legal/privacy-policy) | Adresse de Vercel Inc., adhésion au Data Privacy Framework, **aucun téléphone publié** |
-| [Resend, Data Privacy Framework Certification](https://resend.com/changelog/data-privacy-framework-certification) | Adhésion déclarée au DPF (annonce de mars 2025), à revérifier sur dataprivacyframework.gov |
-| [Ministère de l'Économie, Mentions sur votre site](https://www.economie.gouv.fr/entreprises/developper-son-entreprise/innover-et-numeriser-son-entreprise/mentions-sur-votre-site-internet-les-obligations-respecter) | **Non consulté** : accès automatique refusé (HTTP 403) |
-| Facturation électronique ([Cegid](https://www.cegid.com/fr/facture-electronique-obligatoire/calendrier-facture-electronique/), [La Poste](https://www.laposte.fr/entreprise-collectivites/actualites/calendrier-dematerialisation-factures-en-est-votre-entreprise)) | **Sources non officielles** : calendrier à confirmer sur impots.gouv.fr |
+| [Légifrance, LCEN, art. 1-1](https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000049568614/2026-10-28) | Identification de l'éditeur, du directeur de publication, de l'hébergeur (avec téléphone) et du prestataire de stockage ; régime de l'éditeur non professionnel (II) |
+| [Légifrance, C. conso., art. L221-18 à L221-28](https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006069565/LEGISCTA000032221365/) et [art. L221-25](https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000032226826) | Rétractation, exécution anticipée, exceptions |
+| [DGCCRF, Délais de réflexion ou de rétractation](https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/les-delais-de-reflexion-ou-de-retractation) (vu en résultat de recherche, page non ouverte : HTTP 403) | Fonctionnalité de rétractation en ligne depuis le 19/06/2026 |
+| [Entreprendre.Service-Public, F36763](https://entreprendre.service-public.gouv.fr/vosdroits/F36763) (vérifié le 18/03/2026) | Immatriculation d'une entreprise individuelle : guichet, délais, pièces, sanctions |
+| [CNIL, Cookies : que dit la loi ?](https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies/que-dit-la-loi), [CNIL, Formulaires](https://www.cnil.fr/fr/exemples-de-formulaire-de-collecte-de-donnees-caractere-personnel), [CNIL, Guide du recrutement](https://www.cnil.fr/fr/le-guide-du-recrutement) | Traceurs exemptés, mentions d'information, données de recrutement |
+| [Vercel, Privacy Policy (1er juin 2026)](https://vercel.com/legal/privacy-policy) | Adresse de Vercel Inc. et adhésion au Data Privacy Framework ; aucun téléphone publié |
+| [Resend, Data Privacy Framework](https://resend.com/changelog/data-privacy-framework-certification) | Adhésion déclarée (mars 2025), à revérifier |
+| Pages du ministère de l'Économie ([mentions sur un site](https://www.economie.gouv.fr/entreprises/developper-son-entreprise/innover-et-numeriser-son-entreprise/mentions-sur-votre-site-internet-les-obligations-respecter), [contrat et information préalable](https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/le-contrat-un-accord-entre-des-parties-bien-informees-au-prealable)) | **Non consultées** : accès automatique refusé (HTTP 403) |
+| Facturation électronique ([Cegid](https://www.cegid.com/fr/facture-electronique-obligatoire/calendrier-facture-electronique/), [La Poste](https://www.laposte.fr/entreprise-collectivites/actualites/calendrier-dematerialisation-factures-en-est-votre-entreprise)) | Sources non officielles : à confirmer sur impots.gouv.fr |
 
-## 7. Contrôles techniques réalisés
+## 13. Contrôles techniques (phase 2)
 
 | Contrôle | Résultat |
 |:--|:--|
-| Build de production (`astro build`) | Réussi |
-| Linter, vérification de types, tests | **Aucun configuré dans le projet.** `astro check` demande d'installer `@astrojs/check` : non installé, pour ne pas ajouter de dépendance sans accord |
-| Pages légales, site verrouillé, en visiteur anonyme (copie isolée sans `.env`) | `/mentions-legales` et `/confidentialite` répondent 200 ; les autres pages redirigent vers `/verrouillage`, qui contient les liens |
-| Formulaire de contact sans case | Accepté. Il répond « indisponible » parce que l'e-mail n'est pas configuré en test. Un e-mail invalide est refusé (400) |
-| Candidature sans case, avec CV | Accepté (« indisponible », même raison) |
-| Case « vivier » | Présente, décochée par défaut |
-| `JobPosting` sur l'offre | Absent tant qu'aucun SIREN n'est renseigné |
-| Avertissement de pré-lancement | Présent sur les 3 pages Carrières |
-| Rendu des pages | Mentions légales vues sur ordinateur, offre d'emploi vue sur mobile (390 px), sans débordement horizontal |
-| Cookies | Aucun `Set-Cookie`, ni sur le site en ligne ni sur une tuile OpenStreetMap ; stockage navigateur limité à `sessionStorage` (`live.ts`) |
-| **Non vérifié** | Envoi réel des e-mails (clé Resend absente en test) ; ces changements en production (non déployés à la date de l'audit) ; console navigateur page par page ; contenu des offres enregistrées dans la base de production |
-
-## 8. Avant de présenter le site comme prêt pour une activité commerciale ou un recrutement
-
-1. Choisir le statut juridique et **s'immatriculer** (action administrative externe), puis renseigner `legal` et
-   `founder` dans `src/data/site.ts`.
-2. Renseigner le **directeur de la publication**, le **téléphone de Vercel** et l'**adresse d'Upstash** : le bandeau
-   « en cours de finalisation » disparaît alors.
-3. Trancher l'**adresse** (domicile ou local, Lille ou Neuville-en-Ferrain) et la corriger dans l'administration,
-   l'offre et `site.ts`.
-4. Configurer l'envoi des formulaires (domaine, Resend, boîtes de réception) et **tester un envoi réel**.
-5. Faire valider la politique de confidentialité et les durées de conservation (**professionnel du droit** ou DPO
-   externe).
-6. Finaliser les **conditions de prestation, le modèle de devis et le contrat** à partir de
-   `docs/brouillons-commerciaux.md` (**professionnel du droit**).
-7. Avant toute embauche :
-   - confirmer les conditions de l'offre ;
-   - identifier la convention collective ;
-   - rédiger le contrat de travail et la charte de télétravail ;
-   - organiser la déconnexion (**professionnel du droit**).
-8. Après l'immatriculation : s'équiper pour la **facturation électronique** (réception dès maintenant, émission au
-   1er septembre 2027 pour une TPE, à vérifier).
+| Build de production | Réussi |
+| Linter, vérification de types, tests | Aucun configuré dans le projet (`astro check` demande une dépendance non installée) |
+| Site verrouillé, visiteur anonyme | `/mentions-legales` et `/confidentialite` répondent 200 |
+| Site ouvert, visiteur anonyme | `/carrieres/developpeur-web-junior` et `/carrieres/candidature-spontanee` redirigent (302) vers `/carrieres#recrutement` ; l'administration y accède avec l'avertissement |
+| API | `/api/contact` et `/api/candidature` répondent 503, sans lire le contenu |
+| Pages publiques (accueil, L'agence, Services, Contact, Carrières, pages légales) | Aucune adresse `@novaforge-studio.fr`, aucun formulaire, ni « 30 000 » ni « tickets » ; bandeau présent. Seule occurrence de « On recrute » : un commentaire CSS embarqué en développement, invisible |
+| Carrières | Sections numérotées de 01 à 06, sans avantages ni offres |
+| Rendu | Contact sur ordinateur (1440 px), Carrières sur mobile (390 px) sans débordement, menu mobile ouvert sous le bandeau |
+| Console | Seules erreurs : 11 polices refusées (403) par le serveur de développement de la copie de test, dont `node_modules` est un lien hors du projet. **Artefact de test**, les polices sont embarquées au build |
+| **Non testé** | Envoi réel d'e-mails (Resend non configuré) ; production (rien n'est déployé ni commité) |

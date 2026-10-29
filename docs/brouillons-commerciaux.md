@@ -6,15 +6,19 @@
 >
 > Contexte vérifié le 28/10/2026 :
 > - le site fonctionne par **prise de contact puis devis** (pas de commande ni de paiement en ligne) ;
-> - la clientèle visée est **professionnelle** (TPE, PME, jeunes entreprises) ;
-> - aucune immatriculation n'est renseignée.
+> - le propriétaire envisage une clientèle de **particuliers** (consommateurs), le site citant aussi des TPE et PME ;
+> - le projet **n'est pas immatriculé** et l'activité commerciale **n'est pas ouverte**.
+>
+> Liste de vérification avant toute vente à un particulier : `AUDIT-LEGAL.md`, section 7.
 >
 > Voir `AUDIT-LEGAL.md`.
 
-## 1. Conditions générales de prestation de services (clients professionnels)
+## 1. Conditions générales de prestation de services
 
-Entre professionnels, les conditions générales de vente doivent être communiquées à tout client professionnel qui
-en fait la demande (code de commerce, art. L441-1, à vérifier). Elles servent de socle à chaque devis.
+Avec des **consommateurs**, le code de la consommation impose une information précontractuelle complète et, pour
+les contrats conclus à distance ou hors établissement, un droit de rétractation (art. L221-18 et suivants). Si des
+**professionnels** deviennent clients, les conditions générales de vente doivent leur être communiquées sur demande
+(code de commerce, art. L441-1, à vérifier). Prévoir deux versions si les deux clientèles coexistent.
 
 1. **Identification du prestataire** : [dénomination ou nom, forme, adresse, SIREN, RCS ou RNE, TVA ou mention de
    franchise en base].
@@ -41,9 +45,16 @@ en fait la demande (code de commerce, art. L441-1, à vérifier). Elles servent 
 14. **Durée, suspension et résiliation** [À DÉFINIR].
 15. **Force majeure**.
 16. **Droit applicable et juridiction compétente** [À DÉFINIR].
-17. **Si des particuliers deviennent clients** : information précontractuelle, droit de rétractation de 14 jours
-    pour les contrats conclus à distance ou hors établissement, médiateur de la consommation [à désigner]. **À
-    ajouter seulement si cette clientèle est confirmée.**
+17. **Clients particuliers (clientèle envisagée)** :
+    - information précontractuelle ;
+    - droit de rétractation de 14 jours pour les contrats conclus à distance ou hors établissement, avec un
+      formulaire type ;
+    - exécution anticipée sur demande expresse (paiement au prorata) ;
+    - exceptions ;
+    - médiateur de la consommation [à désigner] ;
+    - procédure de réclamation.
+
+    **Obligatoire avant la première vente à un particulier.**
 
 ## 2. Modèle de devis
 
