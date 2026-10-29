@@ -7,6 +7,7 @@ import Steps from '../components/Steps.astro';
 import Faq from '../components/Faq.astro';
 import CtaBand from '../components/CtaBand.astro';
 import { services, method, clientFaq } from '../data/content';
+import { launch } from '../data/site';
 ---
 
 <BaseLayout
@@ -19,7 +20,9 @@ import { services, method, clientFaq } from '../data/content';
   >
     <Fragment slot="title">Du site vitrine à <em>l'application</em> sur mesure.</Fragment>
     <Fragment slot="actions">
-      <a class="btn btn-primary" href="/contact">Demander un devis <Icon name="arrow" class="btn-arrow" /></a>
+      <a class="btn btn-primary" href="/contact">
+        {launch.commercial ? 'Demander un devis' : 'Nous contacter'} <Icon name="arrow" class="btn-arrow" />
+      </a>
       <a class="btn btn-ghost" href="#methode">Notre méthode</a>
     </Fragment>
   </PageHero>

@@ -6,8 +6,11 @@ import Steps from '../../components/Steps.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
 import { job } from '../../data/content';
 import PrelaunchNotice from '../../components/PrelaunchNotice.astro';
-import { isRegistered } from '../../data/site';
+import { isRegistered, launch } from '../../data/site';
 import { getSite } from '../../lib/store';
+
+// Recrutement pas encore ouvert : l'offre n'est pas présentée au public (l'administration peut la prévisualiser)
+if (!launch.recruitment && !Astro.locals.isAdmin) return Astro.redirect('/carrieres#recrutement', 302);
 
 const site = getSite(Astro.locals);
 
@@ -68,7 +71,7 @@ const jsonLd = {
 
 <BaseLayout title={o.title} description={`${site.name} recrute : ${o.title} à ${site.city}. ${o.summary}`}>
   {/* Google Jobs : publié seulement une fois l'employeur immatriculé (sinon l'annonce passerait pour un poste ouvert) */}
-  {isRegistered && <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+  {isRegistered && launch.recruitment && <script slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 
   <!-- ============ EN-TÊTE DE L'OFFRE ============ -->
   <section class="page-hero page-hero--compact surface-dark" aria-labelledby="page-title" data-stardust-host>
@@ -232,9 +235,13 @@ const jsonLd = {
             {o.start && <div><dt>Début</dt><dd>{o.start}</dd></div>}
           </dl>
           <a class="btn btn-primary" href="#postuler">Postuler <Icon name="arrow" class="btn-arrow" /></a>
-          <p class="offer-contact">
-            Une question ? <a href={`mailto:${site.jobsEmail}`}>{site.jobsEmail}</a>
-          </p>
+          {
+            launch.mailbox && (
+              <p class="offer-contact">
+                Une question ? <a href={`mailto:${site.jobsEmail}`}>{site.jobsEmail}</a>
+              </p>
+            )
+          }
         </div>
       </aside>
     </div>

@@ -13,7 +13,7 @@ import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import DirectionsPicker from '../components/DirectionsPicker.astro';
 import Icon from '../components/Icon.astro';
-import { site } from '../data/site';
+import { launch, site } from '../data/site';
 import { LOCK_PATH } from '../lib/access';
 
 interface Props {
@@ -26,12 +26,14 @@ interface Props {
 
 const { title, description = site.description, bare = false, noindex = false } = Astro.props;
 // Aperçu du site verrouillé (choisi par l'administrateur sur /verrouillage) : un rappel évite de croire le site ouvert
+// Pré-lancement : bandeau « projet en préparation » dans l'en-tête (hauteur ajustée par la classe is-prelaunch)
+const prelaunch = !bare && !launch.commercial;
 const adminPreview = !bare && Astro.locals.isAdmin && Astro.locals.settings.locked;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale · ${site.area}`;
 ---
 
 <!doctype html>
-<html lang="fr">
+<html lang="fr" class:list={[{ 'is-prelaunch': prelaunch }]}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

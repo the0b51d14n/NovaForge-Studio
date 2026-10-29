@@ -7,11 +7,17 @@ import Steps from '../../components/Steps.astro';
 import Faq from '../../components/Faq.astro';
 import CtaBand from '../../components/CtaBand.astro';
 import { job, benefits, culture, officeLife, workSchedules, remoteWeek, remoteRules, dayInLife } from '../../data/content';
-import PrelaunchNotice from '../../components/PrelaunchNotice.astro';
-import { getSite } from '../../lib/store';
+import { launch } from '../../data/site';
+import { getSite, visibleOffers } from '../../lib/store';
 
 const site = getSite(Astro.locals);
-const { openings } = Astro.locals;
+// Recrutement pas encore ouvert (launch.recruitment) : aucune offre, aucun formulaire ni avantage annoncé
+const open = launch.recruitment;
+const openings = visibleOffers(Astro.locals);
+// Numérotation des sections selon celles réellement affichées
+let sectionCount = 0;
+const num = () => String(++sectionCount).padStart(2, '0');
+const faq = open ? job.faq : job.faq.filter((item) => !/salaire/i.test(item.q));
 const contracts = [...new Set(openings.flatMap((o) => o.contracts))];
 const lastUpdate = openings.map((o) => o.published).sort().at(-1);
 
@@ -21,34 +27,68 @@ const formatDate = (iso: string) =>
 
 <BaseLayout
   title="Carrières"
-  description="Rejoignez NovaForge Studio, agence digitale de la métropole lilloise qui recrute son premier collaborateur : offres d'emploi, culture de travail, horaires sur 35 heures, télétravail jusqu'à 3 jours par semaine et processus de recrutement."
+  description={
+    open
+      ? "Rejoignez NovaForge Studio, agence digitale de la métropole lilloise : offres d'emploi, culture de travail, horaires sur 35 heures, télétravail jusqu'à 3 jours par semaine et processus de recrutement."
+      : "NovaForge Studio, projet d'agence digitale en préparation dans la métropole lilloise : la façon de travailler que nous voulons construire. Aucun recrutement n'est ouvert pour le moment."
+  }
 >
   <PageHero
     eyebrow="Carrières"
-    lead="NovaForge Studio, c'est un développeur freelance qui monte sa boîte. Rejoignez-le dès le début, comme premier collaborateur : votre travail se verra directement, et votre place grandira avec l'agence."
+    lead={
+      open
+        ? "NovaForge Studio, c'est un développeur freelance qui monte sa boîte. Rejoignez-le dès le début, comme premier collaborateur : votre travail se verra directement, et votre place grandira avec l'agence."
+        : "NovaForge Studio est un projet en préparation. Aucun recrutement n'est ouvert pour le moment : voici la façon de travailler que nous voulons construire avec nos futurs collaborateurs."
+    }
   >
     <Fragment slot="title">Grandissez <em>avec nous.</em></Fragment>
     <Fragment slot="actions">
-      <a class="btn btn-primary" href="#offres">Voir les offres <Icon name="arrow" class="btn-arrow" /></a>
-      <a class="btn btn-ghost" href="/carrieres/candidature-spontanee">Candidature spontanée</a>
+      {
+        open ? (
+          <Fragment>
+            <a class="btn btn-primary" href="#offres">Voir les offres <Icon name="arrow" class="btn-arrow" /></a>
+            <a class="btn btn-ghost" href="/carrieres/candidature-spontanee">Candidature spontanée</a>
+          </Fragment>
+        ) : (
+          <Fragment>
+            <a class="btn btn-primary" href="#vie-au-studio">Notre façon de travailler <Icon name="arrow" class="btn-arrow" /></a>
+            <a class="btn btn-ghost" href="#horaires">Horaires &amp; télétravail</a>
+          </Fragment>
+        )
+      }
     </Fragment>
     <Fragment slot="aside">
       <dl class="info-list">
-        <div><dt>Postes ouverts</dt><dd>{openings.length}</dd></div>
+        {open ? <div><dt>Postes ouverts</dt><dd>{openings.length}</dd></div> : <div><dt>Recrutement</dt><dd>Pas encore ouvert</dd></div>}
         {contracts.length > 0 && <div><dt>Contrats</dt><dd>{contracts.join(' · ')}</dd></div>}
         <div><dt>Temps de travail</dt><dd><a href="#horaires">35 h / semaine</a></dd></div>
         <div><dt>Télétravail</dt><dd><a href="#horaires">Jusqu'à 3 j / semaine</a></dd></div>
-        <div><dt>Réponse</dt><dd>Sous 1 semaine environ</dd></div>
+        {open && <div><dt>Réponse</dt><dd>Sous 1 semaine environ</dd></div>}
       </dl>
     </Fragment>
   </PageHero>
 
-  <PrelaunchNotice />
+  {
+    !open && (
+      <section class="section surface-light" id="recrutement" aria-labelledby="future-title">
+        <div class="container">
+          <SectionHead num={num()} label="Recrutement" titleId="future-title">
+            Des recrutements <em>à venir.</em>
+            <Fragment slot="intro">
+              Aucun poste n'est ouvert et aucune candidature n'est collectée pour le moment. Les premiers recrutements
+              seront annoncés sur cette page une fois NovaForge Studio créé, avec des conditions confirmées par écrit.
+            </Fragment>
+          </SectionHead>
+        </div>
+      </section>
+    )
+  }
 
   <!-- ============ OFFRES ============ -->
+  {open && (
   <section class="section surface-light" id="offres" aria-labelledby="offers-title">
     <div class="container">
-      <SectionHead num="01" label="Offres" titleId="offers-title">
+      <SectionHead num={num()} label="Offres" titleId="offers-title">
         Nos postes <em>ouverts.</em>
         <Fragment slot="intro">
           {lastUpdate
@@ -91,11 +131,12 @@ const formatDate = (iso: string) =>
       </ul>
     </div>
   </section>
+  )}
 
   <!-- ============ POURQUOI NOUS REJOINDRE ============ -->
   <section class="section surface-dark hiring" aria-labelledby="why-title">
     <div class="container">
-      <SectionHead num="02" label="Pourquoi nous rejoindre" titleId="why-title">
+      <SectionHead num={num()} label="Pourquoi nous rejoindre" titleId="why-title">
         Pas un simple exécutant.<br /><em>Un vrai rôle.</em>
       </SectionHead>
 
@@ -113,23 +154,26 @@ const formatDate = (iso: string) =>
         }
       </ul>
 
-      <ul class="facts">
-        {
-          job.facts.map((f, i) => (
-            <li class="fact" data-reveal style={`--d:${i * 0.08}s`}>
-              <span class="fact-value">{f.value}</span>
-              <span class="fact-label">{f.label}</span>
-            </li>
-          ))
-        }
-      </ul>
+      {
+        open && (
+          <ul class="facts">
+            {job.facts.map((f, i) => (
+              <li class="fact" data-reveal style={`--d:${i * 0.08}s`}>
+                <span class="fact-value">{f.value}</span>
+                <span class="fact-label">{f.label}</span>
+              </li>
+            ))}
+          </ul>
+        )
+      }
     </div>
   </section>
 
-  <!-- ============ AVANTAGES ============ -->
+  <!-- ============ AVANTAGES (seulement une fois le recrutement ouvert et les conditions confirmées) ============ -->
+  {open && (
   <section class="section surface-light" aria-labelledby="perks-title">
     <div class="container">
-      <SectionHead num="03" label="Avantages" titleId="perks-title">
+      <SectionHead num={num()} label="Avantages" titleId="perks-title">
         Ce que le studio<br /><em>vous apporte.</em>
       </SectionHead>
 
@@ -148,11 +192,12 @@ const formatDate = (iso: string) =>
       </ul>
     </div>
   </section>
+  )}
 
   <!-- ============ VIE AU STUDIO : CULTURE DE TRAVAIL ============ -->
   <section class="section surface-light-2" id="vie-au-studio" aria-labelledby="life-title">
     <div class="container">
-      <SectionHead num="04" label="La vie au studio" titleId="life-title">
+      <SectionHead num={num()} label="La vie au studio" titleId="life-title">
         Bien travailler, <em>sans oublier de bien vivre.</em>
         <Fragment slot="intro">
           Nous voulons une agence où l'ambition ne se paie pas en bien-être. Un endroit où chacun progresse, propose
@@ -192,7 +237,7 @@ const formatDate = (iso: string) =>
   <!-- ============ HORAIRES, TÉLÉTRAVAIL ET JOURNÉE TYPE ============ -->
   <section class="section surface-light" id="horaires" aria-labelledby="hours-title">
     <div class="container">
-      <SectionHead num="05" label="Horaires & télétravail" titleId="hours-title">
+      <SectionHead num={num()} label="Horaires & télétravail" titleId="hours-title">
         35 heures,<br /><em>une semaine prévisible.</em>
         <Fragment slot="intro">
           Notre modèle : 35 heures de travail effectif sur cinq jours, soit 7 heures par jour, avec une pause déjeuner
@@ -272,9 +317,10 @@ const formatDate = (iso: string) =>
       </div>
 
       <p class="policy-note">
-        Ces principes sont notre cadre de référence. Les modalités précises (formule horaire, jours de télétravail,
-        changements de planning) seront fixées dans le contrat de travail et une charte de télétravail, dans le
-        respect des règles applicables.
+        Ces principes guideront l'organisation de NovaForge Studio quand l'équipe se constituera. Ce ne sont pas des
+        engagements contractuels : les contrats de travail, les modalités de télétravail et la convention collective
+        applicable seront définis lorsque la structure et les recrutements seront établis, dans le respect des règles
+        en vigueur.
       </p>
 
       <p class="life-outro" data-reveal>
@@ -287,8 +333,9 @@ const formatDate = (iso: string) =>
   <!-- ============ PROCESSUS ============ -->
   <section class="section surface-light-2" id="processus" aria-labelledby="process-title">
     <div class="container">
-      <SectionHead num="06" label="Processus de recrutement" titleId="process-title">
+      <SectionHead num={num()} label="Processus de recrutement" titleId="process-title">
         Cinq étapes,<br /><em>zéro surprise.</em>
+        {!open && <Fragment slot="intro">Quand les recrutements ouvriront, ils se dérouleront ainsi.</Fragment>}
       </SectionHead>
       <Steps steps={job.steps} />
     </div>
@@ -297,18 +344,29 @@ const formatDate = (iso: string) =>
   <!-- ============ FAQ ============ -->
   <section class="section surface-light" aria-labelledby="faq-title">
     <div class="container faq-layout">
-      <SectionHead num="07" label="Questions fréquentes" titleId="faq-title">
+      <SectionHead num={num()} label="Questions fréquentes" titleId="faq-title">
         Vos questions,<br /><em>nos réponses.</em>
       </SectionHead>
-      <Faq items={job.faq} />
+      <Faq items={faq} />
     </div>
   </section>
 
-  <CtaBand
-    title="Envie de nous rejoindre ?"
-    text="Postulez à notre offre ou envoyez une candidature spontanée : nous répondons à tous les candidats."
-    href={openings[0] ? `/carrieres/${openings[0].slug}#postuler` : '/carrieres/candidature-spontanee'}
-    label="Postuler"
-    email={site.jobsEmail}
-  />
+  {
+    open ? (
+      <CtaBand
+        title="Envie de nous rejoindre ?"
+        text="Postulez à notre offre ou envoyez une candidature spontanée : nous répondons à tous les candidats."
+        href={openings[0] ? `/carrieres/${openings[0].slug}#postuler` : '/carrieres/candidature-spontanee'}
+        label="Postuler"
+        email={launch.mailbox ? site.jobsEmail : undefined}
+      />
+    ) : (
+      <CtaBand
+        title="Envie de suivre l'aventure ?"
+        text="Aucun recrutement n'est ouvert pour le moment : les premiers postes seront annoncés sur cette page."
+        href="/agence"
+        label="Découvrir le projet"
+      />
+    )
+  }
 </BaseLayout>

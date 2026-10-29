@@ -8,10 +8,11 @@ import ProjectCard from '../components/ProjectCard.astro';
 import HiringBanner from '../components/HiringBanner.astro';
 import CtaBand from '../components/CtaBand.astro';
 import { services, method, projects } from '../data/content';
-import { getSite } from '../lib/store';
+import { getSite, visibleOffers } from '../lib/store';
+import { launch } from '../data/site';
 
 const site = getSite(Astro.locals);
-const { openings } = Astro.locals;
+const openings = visibleOffers(Astro.locals);
 
 // Pastille « On recrute » du hero : le titre du poste s'il n'y a qu'une offre (et qu'il tient dans le cercle)
 const hiringTitle = openings[0]?.title.replace(/\s*\((h\/f|f\/h)\)\s*/i, '').toUpperCase() ?? '';
@@ -44,7 +45,9 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
           jeunes entreprises. Chaque projet est suivi de A à Z, du premier rendez-vous jusqu'à la mise en ligne.
         </p>
         <div class="hero-actions">
-          <a class="btn btn-primary" href="/contact">Démarrer un projet <Icon name="arrow" class="btn-arrow" /></a>
+          <a class="btn btn-primary" href="/contact">
+            {launch.commercial ? 'Démarrer un projet' : 'Nous contacter'} <Icon name="arrow" class="btn-arrow" />
+          </a>
           {
             featured.length ? (
               <a class="btn btn-ghost" href="/realisations">Voir nos réalisations</a>
@@ -84,7 +87,7 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
         {site.founded && <li><Icon name="star" />Est. {site.founded}</li>}
         <li><Icon name="star" />{site.city} · Nord</li>
         <li><Icon name="star" />Web · Design · Sur mesure</li>
-        <li><Icon name="star" />Premier rendez-vous et devis gratuits</li>
+        <li><Icon name="star" />{launch.commercial ? 'Premier rendez-vous et devis gratuits' : 'Projet en préparation'}</li>
       </ul>
     </div>
   </section>
@@ -121,8 +124,8 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
               lui-même, avec la même proximité qu'en freelance.
             </p>
             <p>
-              Prochaine étape : le studio recrute son premier collaborateur pour passer d'une activité solo à une vraie
-              équipe.
+              À terme, le studio prévoit de recruter son premier collaborateur pour passer d'une activité solo à une
+              vraie équipe.
             </p>
           </div>
           <a class="link-arrow" href="/agence">Découvrir l'agence <Icon name="arrow" /></a>
@@ -161,8 +164,8 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
         <li class="journey-step journey-step--now" data-reveal style="--d:.16s">
           <span class="journey-when">Prochaine étape</span>
           <strong>Une équipe</strong>
-          <span>Premier recrutement : un développeur web junior pour grandir avec le studio.</span>
-          <a class="journey-link" href="/carrieres/developpeur-web-junior">Et si c'était vous ? <Icon name="arrow" /></a>
+          <span>Un premier recrutement est envisagé, une fois le studio lancé.</span>
+          <a class="journey-link" href="/carrieres#vie-au-studio">Notre façon de travailler <Icon name="arrow" /></a>
         </li>
       </ol>
     </div>
@@ -211,8 +214,19 @@ const marquee = ['Sites vitrines', 'Boutiques en ligne', 'Identité visuelle', '
       <ul class="stats" data-reveal>
         <li class="stat"><span class="stat-value">A→Z</span><span class="stat-label">Chaque projet suivi du premier rendez-vous à la mise en ligne</span></li>
         <li class="stat"><span class="stat-value">1</span><span class="stat-label">Interlocuteur unique pour chaque client</span></li>
-        <li class="stat"><span class="stat-value">48 h</span><span class="stat-label">Délai de réponse habituel, en jours ouvrés</span></li>
-        <li class="stat"><span class="stat-value">0 €</span><span class="stat-label">Premier rendez-vous et devis, sans engagement</span></li>
+        {
+          launch.commercial ? (
+            <li class="stat"><span class="stat-value">48 h</span><span class="stat-label">Délai de réponse habituel, en jours ouvrés</span></li>
+          ) : (
+            <li class="stat"><span class="stat-value">Bientôt</span><span class="stat-label">Ouverture des prestations : projet en préparation</span></li>
+          )
+        }
+        <li class="stat">
+          <span class="stat-value">0 €</span>
+          <span class="stat-label">
+            {launch.commercial ? 'Premier rendez-vous et devis, sans engagement' : "Premier rendez-vous et devis gratuits, dès l'ouverture"}
+          </span>
+        </li>
       </ul>
     </div>
   </section>

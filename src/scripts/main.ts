@@ -169,12 +169,13 @@ const initSteps = (form: HTMLFormElement) => {
   };
 };
 
-/* Envoi au serveur (src/pages/api) ; en cas d'échec, l'adresse e-mail est proposée en secours */
+/* Envoi au serveur (src/pages/api) ; en cas d'échec, l'adresse e-mail n'est proposée en secours que si le
+   formulaire en fournit une (data-email, seulement quand la messagerie est en service) */
 const failureMessages: Record<string, string> = {
-  indisponible: "L'envoi en ligne n'est pas encore activé. Écrivez-nous directement à ",
-  invalide: 'Certaines informations semblent incomplètes. Vérifiez le formulaire ou écrivez-nous à ',
-  verrouille: 'Votre accès au site a expiré : rechargez la page, ou écrivez-nous à ',
-  envoi: "L'envoi n'a pas abouti. Réessayez dans un instant ou écrivez-nous à ",
+  indisponible: "L'envoi en ligne n'est pas encore activé : votre message n'a pas été transmis.",
+  invalide: 'Certaines informations semblent incomplètes. Vérifiez le formulaire.',
+  verrouille: 'Votre accès au site a expiré : rechargez la page.',
+  envoi: "L'envoi n'a pas abouti : votre message n'a pas été transmis. Réessayez dans un instant.",
 };
 
 const sendForm = async (form: HTMLFormElement, status: Element | null): Promise<boolean> => {
@@ -201,9 +202,14 @@ const sendForm = async (form: HTMLFormElement, status: Element | null): Promise<
     return true;
   }
   if (status) {
-    const email = form.dataset.email ?? '';
-    const link = Object.assign(document.createElement('a'), { href: `mailto:${email}`, textContent: email });
-    status.replaceChildren(failureMessages[error] ?? failureMessages.envoi, link, '.');
+    const message = failureMessages[error] ?? failureMessages.envoi;
+    const email = form.dataset.email;
+    if (email) {
+      const link = Object.assign(document.createElement('a'), { href: `mailto:${email}`, textContent: email });
+      status.replaceChildren(message, ' Vous pouvez aussi nous écrire à ', link, '.');
+    } else {
+      status.replaceChildren(message);
+    }
   }
   return false;
 };

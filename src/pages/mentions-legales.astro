@@ -4,7 +4,7 @@
 // Suivi des points ouverts : AUDIT-LEGAL.md
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { legal, host, storage } from '../data/site';
+import { legal, host, storage, launch, isRegistered } from '../data/site';
 import { getSite } from '../lib/store';
 
 const site = getSite(Astro.locals);
@@ -29,22 +29,30 @@ const publisher: Row[] = isCompany
       { label: 'Code APE', value: legal.naf },
     ]
   : [
-      { label: 'Éditeur (personne physique)', value: site.founder.name ?? TODO },
-      { label: 'Nom commercial', value: site.name },
+      { label: 'Éditeur (personne physique)', value: legal.publisher ?? site.founder.name ?? TODO },
+      {
+        label: 'Statut',
+        value: isRegistered
+          ? null
+          : `Porteur du projet ${site.name}, en préparation : pas encore immatriculé, aucune activité commerciale ouverte`,
+      },
+      { label: 'Nom du projet', value: site.name },
       { label: 'Adresse', value: site.address.join(', ') },
       { label: 'SIREN', value: legal.siren },
       { label: 'SIRET', value: legal.siret },
       { label: 'TVA intracommunautaire', value: legal.vat },
     ];
 publisher.push(
-  { label: 'E-mail', value: site.email, href: `mailto:${site.email}` },
+  // E-mail affiché seulement quand la messagerie professionnelle est en service
+  { label: 'E-mail', value: launch.mailbox ? site.email : null, href: `mailto:${site.email}` },
   { label: 'Téléphone', value: site.phone ?? TODO, href: site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : undefined },
 );
 const rows = publisher.filter((row) => row.value);
 
-const director = legal.director ?? site.founder.name;
+const director = legal.director ?? legal.publisher ?? site.founder.name;
 // Page complète seulement quand l'éditeur, le directeur de la publication et les prestataires sont identifiés
-const incomplete = (!isCompany && !site.founder.name) || !director || !host.phone || !storage.address;
+const incomplete =
+  (!isCompany && !legal.publisher && !site.founder.name) || !director || !host.phone || !storage.address;
 ---
 
 <BaseLayout title="Mentions légales" description={`Mentions légales du site ${site.name} : éditeur, hébergement, propriété intellectuelle.`}>
@@ -95,7 +103,7 @@ const incomplete = (!isCompany && !site.founder.name) || !director || !host.phon
 
       <h2>Propriété intellectuelle</h2>
       <p>
-        Les textes, le logo et les visuels propres à {site.name} sont protégés par le droit d'auteur. Toute
+        Les textes, le logo et les visuels propres au projet {site.name} sont protégés par le droit d'auteur. Toute
         reproduction ou représentation, totale ou partielle, sans autorisation écrite préalable de l'éditeur est
         interdite. Les éléments de tiers listés dans les crédits restent la propriété de leurs auteurs et sont
         utilisés selon leurs licences.

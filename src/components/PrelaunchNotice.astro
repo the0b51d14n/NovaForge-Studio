@@ -1,18 +1,18 @@
 ---
-// Avertissement des pages Carrières tant que la structure employeuse n'est pas immatriculée (SIREN absent de
-// src/data/site.ts) : les offres annoncent de futurs recrutements, sans contrat ni conditions garanties.
-// Disparaît automatiquement dès que le SIREN est renseigné. Suivi : AUDIT-LEGAL.md
-import { isRegistered } from '../data/site';
+// Avertissement des pages d'offre et de candidature spontanée tant que le recrutement n'est pas ouvert
+// (launch.recruitment) ou que la structure employeuse n'est pas immatriculée (SIREN absent de src/data/site.ts).
+// Le public est redirigé vers /carrieres : seul l'administrateur voit ces pages en prévisualisation.
+// Suivi : AUDIT-LEGAL.md
+import { isRegistered, launch } from '../data/site';
 ---
 
 {
-  !isRegistered && (
+  (!launch.recruitment || !isRegistered) && (
     <div class="container">
       <p class="prelaunch-note" role="note">
-        <strong>Recrutements en préparation.</strong> NovaForge Studio est en cours de structuration : les postes
-        présentés ici annoncent nos premiers recrutements. Aucun contrat ne peut être signé tant que la structure
-        employeuse n'est pas créée ; le type de contrat, la rémunération et les avantages indiqués sont prévisionnels
-        et seront confirmés par écrit avant toute embauche.
+        <strong>Recrutement pas encore ouvert.</strong> NovaForge Studio est un projet en préparation, non immatriculé :
+        aucun poste n'est disponible et aucun contrat ne peut être proposé. Le type de contrat, la rémunération et les
+        avantages indiqués ici sont prévisionnels et seront revus avant toute annonce.
       </p>
     </div>
   )

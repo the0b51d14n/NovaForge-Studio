@@ -4,6 +4,10 @@ import PageHero from '../../components/PageHero.astro';
 import ApplyForm from '../../components/ApplyForm.astro';
 import PrelaunchNotice from '../../components/PrelaunchNotice.astro';
 import Icon from '../../components/Icon.astro';
+import { launch } from '../../data/site';
+
+// Recrutement pas encore ouvert : aucune candidature (ni CV) n'est collectée ; l'administration peut prévisualiser
+if (!launch.recruitment && !Astro.locals.isAdmin) return Astro.redirect('/carrieres#recrutement', 302);
 
 const { openings } = Astro.locals;
 ---

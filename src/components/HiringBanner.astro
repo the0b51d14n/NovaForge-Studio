@@ -1,10 +1,11 @@
 ---
 // Bandeau « On recrute » (accueil, agence) : présente l'offre la plus récente, masqué s'il n'y en a aucune
+// ou tant que le recrutement n'est pas ouvert (launch.recruitment)
 import Icon from './Icon.astro';
-import { getSite } from '../lib/store';
+import { getSite, visibleOffers } from '../lib/store';
 
 const site = getSite(Astro.locals);
-const { openings } = Astro.locals;
+const openings = visibleOffers(Astro.locals);
 const offer = openings[0];
 ---
 

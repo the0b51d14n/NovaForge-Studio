@@ -1,9 +1,11 @@
 // Formulaire de contact (page /contact) : envoi par e-mail à l'adresse de contact
 import type { APIRoute } from 'astro';
-import { site } from '../../data/site';
+import { launch, site } from '../../data/site';
 import { field, isEmail, mailEnabled, oneLine, readForm, reply, sendMail } from '../../lib/forms';
 
 export const POST: APIRoute = async ({ request }) => {
+  // Messagerie pas en service : on refuse avant même de lire le contenu (aucune donnée traitée)
+  if (!launch.mailbox || !mailEnabled()) return reply.unavailable();
   const data = await readForm(request);
   if (!data) return reply.invalid();
   // Champ invisible rempli : c'est un robot, on fait comme si tout allait bien
@@ -20,7 +22,6 @@ export const POST: APIRoute = async ({ request }) => {
   // Pas de case de consentement : répondre à une demande repose sur les mesures précontractuelles
   // ou l'intérêt légitime (voir /confidentialite), l'information est donnée sous le formulaire
   if (!nom || !isEmail(email) || !message) return reply.invalid();
-  if (!mailEnabled()) return reply.unavailable();
 
   const sent = await sendMail({
     to: site.email,

@@ -1,7 +1,7 @@
 ---
 // Formulaire de candidature en 3 étapes : validation dans le navigateur, envoi par e-mail (src/pages/api/candidature.ts)
 import Icon from './Icon.astro';
-import { site } from '../data/site';
+import { launch, site } from '../data/site';
 
 interface Props {
   position: string;
@@ -21,7 +21,7 @@ const steps = ['Vous', 'Votre profil', 'Motivation'];
   enctype="multipart/form-data"
   data-form
   data-steps
-  data-email={site.jobsEmail}
+  data-email={launch.mailbox ? site.jobsEmail : undefined}
   novalidate
   aria-label={`Candidature : ${position}`}
 >

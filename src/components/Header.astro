@@ -1,14 +1,25 @@
 ---
 import Logo from './Logo.astro';
-import { nav } from '../data/site';
+import { launch, nav } from '../data/site';
+import { visibleOffers } from '../lib/store';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
-// « On recrute » seulement s'il y a au moins une offre publiée
-const hiring = Astro.locals.openings.length > 0;
+// « On recrute » seulement si le recrutement est ouvert et qu'au moins une offre est publiée
+const hiring = visibleOffers(Astro.locals).length > 0;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 ---
 
 <header class="site-header" data-header>
+  {
+    !launch.commercial && (
+      <p class="prelaunch-strip">
+        <span class="prelaunch-strip-long">
+          NovaForge Studio est un projet en préparation : les prestations ne sont pas encore ouvertes à la commande.
+        </span>
+        <span class="prelaunch-strip-short">Projet en préparation · prestations pas encore ouvertes</span>
+      </p>
+    )
+  }
   <div class="container header-inner">
     <a class="brand" href="/" aria-label="NovaForge Studio, retour à l'accueil">
       <Logo variant="lockup" tone="dark" />

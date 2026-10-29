@@ -60,6 +60,8 @@ export type Legal = {
   naf: string | null;
   /** Directeur de la publication : nom et fonction (ex. « Prénom Nom, président ») */
   director: string | null;
+  /** Éditeur personne physique (tant qu'aucune société n'existe) : prénom et nom */
+  publisher: string | null;
 };
 
 export const legal: Legal = {
@@ -71,11 +73,27 @@ export const legal: Legal = {
   rcs: null,
   vat: null,
   naf: null,
-  director: null,
+  // Porteur du projet, confirmé par le propriétaire le 28/10/2026 (projet non immatriculé)
+  director: 'Théo ANDRIMANANARISOA',
+  publisher: 'Théo ANDRIMANANARISOA',
 };
 
 /** true dès que le numéro SIREN est renseigné */
 export const isRegistered = Boolean(legal.siren);
+
+/**
+ * Ouverture réelle du projet (pré-lancement au 28/10/2026, voir AUDIT-LEGAL.md). Ne passer un drapeau à true que
+ * lorsque c'est vrai :
+ * - commercial : prestations ouvertes à la commande (statut créé, documents commerciaux validés) ;
+ * - recruitment : recrutement ouvert (employeur immatriculé, conditions confirmées, processus organisé) ;
+ * - mailbox : messagerie professionnelle en service (adresses e-mail affichées, formulaires réactivables
+ *   une fois Resend configuré et testé de bout en bout).
+ */
+export const launch = {
+  commercial: false,
+  recruitment: false,
+  mailbox: false,
+};
 
 /**
  * Hébergeur du site (LCEN, art. 1-1, I, 4° : nom, adresse et téléphone).

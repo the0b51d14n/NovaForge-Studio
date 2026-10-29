@@ -1,6 +1,6 @@
 // Candidatures (fiches de poste et candidature spontanée) : envoi par e-mail, CV en pièce jointe
 import type { APIRoute } from 'astro';
-import { site } from '../../data/site';
+import { launch, site } from '../../data/site';
 import { field, isEmail, isUrl, mailEnabled, oneLine, readForm, reply, sendMail } from '../../lib/forms';
 
 // Vercel limite le corps d'une requête à 4,5 Mo : le CV doit rester en dessous
@@ -8,6 +8,8 @@ const MAX_CV_SIZE = 4 * 1024 * 1024;
 const CV_EXTENSIONS = ['pdf', 'doc', 'docx'];
 
 export const POST: APIRoute = async ({ request }) => {
+  // Recrutement fermé ou messagerie pas en service : refus avant de lire le contenu (aucun CV traité)
+  if (!launch.recruitment || !launch.mailbox || !mailEnabled()) return reply.unavailable();
   const data = await readForm(request);
   if (!data) return reply.invalid();
   // Champ invisible rempli : c'est un robot, on fait comme si tout allait bien
@@ -43,7 +45,6 @@ export const POST: APIRoute = async ({ request }) => {
   ) {
     return reply.invalid();
   }
-  if (!mailEnabled()) return reply.unavailable();
 
   const sent = await sendMail({
     to: site.jobsEmail,

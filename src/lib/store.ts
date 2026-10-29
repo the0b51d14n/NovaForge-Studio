@@ -8,7 +8,7 @@ import {
   UPSTASH_REDIS_REST_TOKEN,
   UPSTASH_REDIS_REST_URL,
 } from 'astro:env/server';
-import { site } from '../data/site';
+import { launch, site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
 import { parisNow, startOfWeek, type Closure } from './hours';
 import type { LockReason } from '../data/lock-reasons';
@@ -132,6 +132,9 @@ export async function saveOpenings(openings: Opening[]): Promise<void> {
     ['SET', KEYS.version, stamp()],
   ]);
 }
+
+/** Offres affichées au public : aucune tant que le recrutement n'est pas réellement ouvert (launch.recruitment) */
+export const visibleOffers = (locals: App.Locals) => (launch.recruitment ? locals.openings : []);
 
 /** Informations de l'entreprise, avec l'adresse du siège enregistrée depuis l'administration */
 export function getSite(locals: App.Locals) {

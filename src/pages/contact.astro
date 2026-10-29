@@ -7,22 +7,35 @@ import Icon from '../components/Icon.astro';
 import OfficeMap from '../components/OfficeMap.astro';
 import OpeningHours from '../components/OpeningHours.astro';
 import { services } from '../data/content';
-import { getSite } from '../lib/store';
+import { getSite, visibleOffers } from '../lib/store';
+import { launch } from '../data/site';
+import { mailEnabled } from '../lib/forms';
 
 const site = getSite(Astro.locals);
-const { openings } = Astro.locals;
+const openings = visibleOffers(Astro.locals);
+// Formulaire affiché seulement si la messagerie est en service ET l'envoi configuré (sinon aucune donnée n'est collectée)
+const formOpen = launch.mailbox && mailEnabled();
+const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
 ---
 
 <BaseLayout
   title="Contact"
-  description="Un projet de site, de boutique en ligne ou d'identité visuelle ? Contactez NovaForge Studio, dans la métropole lilloise : premier rendez-vous et devis gratuits."
+  description={
+    launch.commercial
+      ? "Un projet de site, de boutique en ligne ou d'identité visuelle ? Contactez NovaForge Studio, dans la métropole lilloise : premier rendez-vous et devis gratuits."
+      : "NovaForge Studio, projet d'agence digitale dans la métropole lilloise, en préparation : comment nous joindre."
+  }
 >
   <div class="contact-split">
     <div class="contact-hero">
       <PageHero
         eyebrow="Contact"
         compact
-        lead="Parlez-nous de votre activité et de vos envies : nous revenons vers vous pour fixer un premier rendez-vous. Le devis est gratuit et sans engagement."
+        lead={
+          launch.commercial
+            ? "Parlez-nous de votre activité et de vos envies : nous revenons vers vous pour fixer un premier rendez-vous. Le devis est gratuit et sans engagement."
+            : "NovaForge Studio est en préparation : les prestations ne sont pas encore ouvertes à la commande. Une question sur le projet ? Vous pouvez nous appeler."
+        }
       >
         <Fragment slot="title">Un projet ? <em>Parlons-en.</em></Fragment>
       </PageHero>
@@ -30,15 +43,18 @@ const { openings } = Astro.locals;
 
     <section class="contact-panel surface-dark" aria-labelledby="contact-form-title">
       <div class="contact-panel-inner">
-        <p class="eyebrow">Écrivez-nous</p>
-        <h2 class="contact-panel-title" id="contact-form-title">Parlez-nous de <em>votre projet.</em></h2>
+        <p class="eyebrow">{formOpen ? 'Écrivez-nous' : 'Bientôt'}</p>
+        <h2 class="contact-panel-title" id="contact-form-title">
+          {formOpen ? <Fragment>Parlez-nous de <em>votre projet.</em></Fragment> : <Fragment>Le formulaire ouvre <em>bientôt.</em></Fragment>}
+        </h2>
 
+        {formOpen ? (
         <form
           class="form"
           action="/api/contact"
           method="post"
           data-form
-          data-email={site.email}
+          data-email={launch.mailbox ? site.email : undefined}
           novalidate
           data-success="Merci ! Votre message a bien été envoyé : nous revenons vers vous rapidement, en général sous 48 h ouvrées."
         >
@@ -103,6 +119,19 @@ const { openings } = Astro.locals;
           </div>
           <p class="form-status" role="status" data-form-status></p>
         </form>
+        ) : (
+          <div class="contact-closed">
+            <p>
+              Le formulaire de contact ouvrira en même temps que notre messagerie professionnelle. D'ici là, aucune
+              information n'est collectée sur ce site.
+            </p>
+            {phoneHref && (
+              <a class="btn btn-primary" href={phoneHref}>
+                Appeler le {site.phone} <Icon name="arrow" class="btn-arrow" />
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </section>
 
@@ -111,10 +140,10 @@ const { openings } = Astro.locals;
         <div>
           <dl class="info-list">
             <div><dt>Adresse</dt><dd><a href={site.directions} target="_blank" rel="noopener" data-directions-link>{site.address[0]}<br />{site.address[1]}</a></dd></div>
-            <div><dt>E-mail</dt><dd><a href={`mailto:${site.email}`}>{site.email}</a></dd></div>
+            {launch.mailbox && <div><dt>E-mail</dt><dd><a href={`mailto:${site.email}`}>{site.email}</a></dd></div>}
             {site.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a></dd></div>}
-            <div class="info-hours"><dt>Horaires</dt><dd><OpeningHours /></dd></div>
-            <div><dt>Réponse</dt><dd>En général sous 48 h ouvrées</dd></div>
+            <div class="info-hours"><dt>{launch.commercial ? 'Horaires' : 'Horaires prévus'}</dt><dd><OpeningHours /></dd></div>
+            {launch.commercial && <div><dt>Réponse</dt><dd>En général sous 48 h ouvrées</dd></div>}
           </dl>
 
           {

@@ -1,6 +1,6 @@
 ---
 import Icon from './Icon.astro';
-import { site } from '../data/site';
+import { launch, site } from '../data/site';
 
 interface Props {
   title?: string;
@@ -12,10 +12,14 @@ interface Props {
 
 const {
   title = 'Un projet en tête ?',
-  text = 'Parlez-nous de votre activité : premier rendez-vous et devis gratuits, sans engagement.',
+  // Avant l'ouverture commerciale : pas de devis présenté comme disponible
+  text = launch.commercial
+    ? 'Parlez-nous de votre activité : premier rendez-vous et devis gratuits, sans engagement.'
+    : 'NovaForge Studio est en préparation : les prestations ouvriront bientôt. Une question sur le projet ? Contactez-nous.',
   href = '/contact',
-  label = 'Parlons-en',
-  email = site.email,
+  label = launch.commercial ? 'Parlons-en' : 'Nous contacter',
+  // Adresse affichée seulement quand la messagerie est en service
+  email = launch.mailbox ? site.email : undefined,
 } = Astro.props;
 ---
 
@@ -27,7 +31,7 @@ const {
     </div>
     <div class="cta-actions">
       <a class="btn btn-warm" href={href}>{label} <Icon name="arrow" class="btn-arrow" /></a>
-      <a class="cta-mail" href={`mailto:${email}`}>{email}</a>
+      {email && <a class="cta-mail" href={`mailto:${email}`}>{email}</a>}
     </div>
   </div>
 </section>

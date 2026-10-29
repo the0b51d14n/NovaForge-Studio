@@ -1,10 +1,11 @@
 ---
 import Logo from './Logo.astro';
 import { projects } from '../data/content';
-import { getSite } from '../lib/store';
+import { getSite, visibleOffers } from '../lib/store';
+import { launch } from '../data/site';
 
 const site = getSite(Astro.locals);
-const { openings } = Astro.locals;
+const openings = visibleOffers(Astro.locals);
 ---
 
 <footer class="site-footer surface-dark">
@@ -37,7 +38,7 @@ const { openings } = Astro.locals;
       <p class="footer-title">Nous trouver</p>
       <address>
         <a class="footer-address" href={site.directions} target="_blank" rel="noopener" data-directions-link>{site.address[0]}<br />{site.address[1]}</a>
-        <a href={`mailto:${site.email}`}>{site.email}</a>
+        {launch.mailbox && <a href={`mailto:${site.email}`}>{site.email}</a>}
         {site.phone && <a href={`tel:${site.phone.replace(/\s/g, '')}`}>{site.phone}</a>}
         <span class="footer-hours">{site.hours}</span>
       </address>

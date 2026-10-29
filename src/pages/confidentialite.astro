@@ -4,13 +4,18 @@
 // Toute évolution technique (nouveau service, mesure d'audience…) doit être reportée ici. Suivi : AUDIT-LEGAL.md
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { legal, host } from '../data/site';
+import { legal, host, launch } from '../data/site';
 import { getSite } from '../lib/store';
+import { mailEnabled } from '../lib/forms';
 
 const site = getSite(Astro.locals);
 
-// Responsable du traitement : la société si elle existe, sinon la personne physique qui exploite NovaForge Studio
-const controller = legal.legalName ?? site.founder.name;
+// Responsable du traitement : la société si elle existe, sinon la personne physique porteuse du projet
+const controller = legal.legalName ?? legal.publisher ?? site.founder.name;
+// État réel des formulaires (mêmes conditions que src/pages/contact.astro et src/pages/api/*.ts)
+const contactOpen = launch.mailbox && mailEnabled();
+const applyOpen = contactOpen && launch.recruitment;
+const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
 const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
@@ -26,19 +31,42 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
     <div class="container prose">
       <h2>Responsable du traitement</h2>
       <p>
-        {controller ? `${controller}, qui exploite ${site.name}` : `L'éditeur de ${site.name} (identité à compléter, voir les mentions légales)`},
+        {controller
+          ? `${controller}, porteur du projet ${site.name}${legal.legalName ? '' : ' (projet en préparation, non immatriculé)'}`
+          : `L'éditeur de ${site.name} (identité à compléter, voir les mentions légales)`},
         {' '}{site.address.join(', ')}. Pour toute question sur vos données :
-        {' '}<a href={`mailto:${site.email}`}>{site.email}</a>.
+        {' '}
+        {
+          launch.mailbox ? (
+            <a href={`mailto:${site.email}`}>{site.email}</a>
+          ) : phoneHref ? (
+            <Fragment>
+              par téléphone au <a href={phoneHref}>{site.phone}</a> (une adresse e-mail dédiée sera indiquée ici dès la
+              mise en service de notre messagerie)
+            </Fragment>
+          ) : (
+            'coordonnées à compléter'
+          )
+        }.
       </p>
 
-      <h2>Ce que fait le site</h2>
+      <h2>Ce que fait le site aujourd'hui</h2>
       <p>
-        Le site ne crée pas de compte visiteur, n'utilise ni mesure d'audience ni publicité, et n'enregistre pas les
-        messages envoyés via ses formulaires : ceux-ci sont transmis par e-mail à {site.name}, puis traités depuis sa
-        messagerie.
+        Le site ne crée pas de compte visiteur et n'utilise ni mesure d'audience ni publicité.
+        {
+          contactOpen
+            ? " Les messages envoyés via ses formulaires ne sont pas enregistrés sur le site : ils sont transmis par e-mail, puis traités depuis notre messagerie."
+            : " Ses formulaires sont actuellement fermés : aucune donnée n'est collectée par leur biais. Les sections « Formulaire de contact » et « Candidatures » décrivent les traitements qui s'appliqueront à leur ouverture."
+        }
+      </p>
+      <p>
+        Même sans formulaire, la consultation du site entraîne des traitements techniques : votre navigateur transmet
+        votre adresse IP à l'hébergeur pour afficher les pages (voir « Destinataires et prestataires ») et, sur les pages
+        qui affichent une carte, à OpenStreetMap (voir « Services tiers affichés »). Ces traitements reposent sur notre
+        intérêt légitime à faire fonctionner et à sécuriser le site (RGPD, art. 6.1.f).
       </p>
 
-      <h2>Formulaire de contact</h2>
+      <h2>Formulaire de contact{!contactOpen && ' (fermé pour le moment)'}</h2>
       <ul class="legal-points">
         <li>
           <strong>Données</strong> : nom, e-mail et message (obligatoires, sans eux nous ne pouvons pas vous répondre) ;
@@ -57,7 +85,7 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
         </li>
       </ul>
 
-      <h2>Candidatures</h2>
+      <h2>Candidatures{!applyOpen && ' (aucun recrutement ouvert pour le moment)'}</h2>
       <ul class="legal-points">
         <li>
           <strong>Données</strong> : prénom, nom, e-mail, type de contrat souhaité, lien vers un portfolio ou GitHub, CV
@@ -89,11 +117,12 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
           demandées) selon sa propre politique.
         </li>
         <li>
-          <strong>Resend</strong> (États-Unis), service d'envoi d'e-mails : il achemine le message du formulaire vers
-          notre boîte de réception.
+          <strong>Resend</strong> (États-Unis), service d'envoi d'e-mails : il acheminera le message des formulaires vers
+          notre boîte de réception{contactOpen ? '' : ' (pas encore utilisé : formulaires fermés)'}.
         </li>
         <li>
-          <strong>Notre fournisseur de messagerie</strong>, qui héberge la boîte de réception de {site.email}.
+          <strong>Notre fournisseur de messagerie</strong>, qui hébergera notre boîte de réception
+          {contactOpen ? '' : ' (pas encore en service)'}.
         </li>
       </ul>
       <p>
@@ -134,8 +163,17 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
       <p>
         Vous pouvez accéder à vos données, les rectifier, les effacer, en limiter l'utilisation, vous opposer à un
         traitement fondé sur notre intérêt légitime, retirer à tout moment l'accord donné pour conserver votre
-        candidature, et demander la portabilité des données fournies dans le cadre de mesures précontractuelles. Écrivez
-        à <a href={`mailto:${site.email}`}>{site.email}</a> : nous répondons dans un délai d'un mois. Si vous estimez,
+        candidature, et demander la portabilité des données fournies dans le cadre de mesures précontractuelles.
+        {
+          launch.mailbox ? (
+            <Fragment> Écrivez à <a href={`mailto:${site.email}`}>{site.email}</a></Fragment>
+          ) : phoneHref ? (
+            <Fragment> Contactez-nous par téléphone au <a href={phoneHref}>{site.phone}</a></Fragment>
+          ) : (
+            ' Contactez l\'éditeur (coordonnées dans les mentions légales)'
+          )
+        }
+        {' '}: nous répondons dans un délai d'un mois. Si vous estimez,
         après nous avoir contactés, que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la
         CNIL (<a href="https://www.cnil.fr/fr/plaintes" rel="noopener">cnil.fr/fr/plaintes</a>).
       </p>
