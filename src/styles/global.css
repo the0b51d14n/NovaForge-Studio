@@ -2871,6 +2871,12 @@ textarea.admin-textarea--short { min-height: 80px; }
 .quote-sign-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
 .quote-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 
+/* Portail : comptes de test (identifiants affichés une seule fois) */
+.admin-tests { display: grid; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line); }
+.admin-tests .admin-flash { display: grid; gap: 8px; }
+.admin-credentials { display: grid; gap: 4px; font-size: .92rem; }
+.admin-credentials code { font-family: var(--font-mono); font-size: .88rem; user-select: all; }
+
 /* Portail : attribution d'un devis, rôle et mot de passe d'un compte (formulaires en ligne) */
 .admin-assign { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .admin-assign .input { width: auto; min-width: 9rem; padding-block: 4px 6px; font-size: .92rem; }

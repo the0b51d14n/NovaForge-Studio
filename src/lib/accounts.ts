@@ -30,6 +30,8 @@ export type User = {
   disabled?: boolean;
   /** Client : adresse confirmée par le lien envoyé par e-mail (exigé dès que l'envoi d'e-mails est configuré) */
   emailVerified?: boolean;
+  /** Compte de test (créé depuis le portail) : absent des listes de l'équipe, à supprimer après les essais */
+  test?: boolean;
 };
 /** Compte tel qu'il circule dans les pages : sans l'empreinte du mot de passe */
 export type PublicUser = Omit<User, 'passwordHash'>;
@@ -117,6 +119,7 @@ export async function createUser(input: {
   role: Role;
   password: string;
   emailVerified?: boolean;
+  test?: boolean;
 }): Promise<PublicUser | 'pris'> {
   const email = normalizeEmail(input.email);
   const id = crypto.randomUUID().replace(/-/g, '');
@@ -130,6 +133,7 @@ export async function createUser(input: {
     passwordHash: await hashPassword(input.password),
     createdAt: new Date().toISOString(),
     ...(input.emailVerified !== undefined ? { emailVerified: input.emailVerified } : {}),
+    ...(input.test ? { test: true } : {}),
   };
   await redis([
     ['SET', KEYS.user(id), JSON.stringify(user)],
@@ -177,6 +181,35 @@ export async function deleteUser(id: string): Promise<void> {
     ['DEL', KEYS.email(user.email)],
     ['ZREM', KEYS.index, id],
   ]);
+}
+
+/** Rôles et noms des comptes de test, adresses en .test (domaine réservé, jamais attribué) */
+const TEST_ACCOUNTS: { role: Role; name: string; email: string }[] = [
+  { role: 'admin', name: 'Test Admin', email: 'test-admin@novaforge.test' },
+  { role: 'admin_plus', name: 'Test Admin+', email: 'test-admin-plus@novaforge.test' },
+  { role: 'client', name: 'Test Client', email: 'test-client@novaforge.test' },
+];
+
+/** Supprime tous les comptes de test ; renvoie leur nombre */
+export async function deleteTestAccounts(): Promise<number> {
+  const tests = (await listUsers()).filter((user) => user.test);
+  for (const user of tests) await deleteUser(user.id);
+  return tests.length;
+}
+
+/**
+ * (Re)crée les comptes de test (admin, admin+, client) avec des mots de passe aléatoires, renvoyés une seule fois :
+ * ils ne sont stockés que sous forme d'empreinte.
+ */
+export async function createTestAccounts(): Promise<{ role: Role; email: string; password: string }[]> {
+  await deleteTestAccounts();
+  const created: { role: Role; email: string; password: string }[] = [];
+  for (const account of TEST_ACCOUNTS) {
+    const password = randomBytes(12).toString('base64url');
+    const user = await createUser({ ...account, password, emailVerified: true, test: true });
+    if (user !== 'pris') created.push({ role: account.role, email: account.email, password });
+  }
+  return created;
 }
 
 /** Inscriptions : 5 par heure au plus depuis une même adresse IP (empreinte, voir clientKey) */

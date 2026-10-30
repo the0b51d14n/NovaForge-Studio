@@ -19,7 +19,9 @@ import {
   can,
   changeEmail,
   checkUserPassword,
+  createTestAccounts,
   createUser,
+  deleteTestAccounts,
   hasStaff,
   isRole,
   listUsers,
@@ -81,8 +83,10 @@ const { closures } = settings;
 // Actions réservées : refusées côté serveur même si le formulaire est envoyé à la main
 const DIRIGEANT_ACTIONS = new Set([
   'lock-reason', 'lock', 'unlock', 'address', 'holidays-on', 'holidays-off', 'closure-add', 'closure-delete',
-  'delete', 'account-create', 'account-update',
+  'delete', 'account-create', 'account-update', 'test-create', 'test-delete',
 ]);
+// Identifiants des comptes de test, affichés une seule fois juste après leur création (jamais dans l'adresse)
+let testCredentials: { role: PublicUser['role']; email: string; password: string }[] = [];
 const ADMIN_PLUS_ACTIONS = new Set(['quote-delete', 'quote-assign']);
 
 const validPassword = (password: string, confirm: string) =>
@@ -275,6 +279,13 @@ if (Astro.request.method === 'POST') {
             else return doneAt('e-mail-modifie', 'comptes');
           }
         }
+        if (action === 'test-create') {
+          testCredentials = await createTestAccounts();
+        }
+        if (action === 'test-delete') {
+          await deleteTestAccounts();
+          return doneAt('tests-supprimes', 'comptes');
+        }
         if (action === 'email-change') {
           const email = text(data, 'email', 200);
           if (!(await checkUserPassword(user!.id, String(data.get('current') ?? '').slice(0, 200)))) {
@@ -335,6 +346,7 @@ const flashes: Record<string, string> = {
   'mot-de-passe': 'Votre mot de passe a été changé.',
   'e-mail-modifie': 'Adresse e-mail modifiée : elle sert maintenant à se connecter.',
   'mon-e-mail': 'Votre adresse e-mail a été changée : utilisez-la pour vous connecter.',
+  'tests-supprimes': 'Comptes de test supprimés.',
 };
 const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
 
@@ -351,8 +363,10 @@ if (isAdmin) {
     quotesError = true;
   }
 }
-const assignable = team.filter((u) => u.role === 'admin_plus' && !u.disabled);
-const staffAccounts = team.filter((u) => STAFF_ROLES.includes(u.role));
+// Comptes de test : hors des listes de l'équipe ; un admin+ de test se voit seulement lui-même dans l'attribution
+const assignable = team.filter((u) => u.role === 'admin_plus' && !u.disabled && (!u.test || u.id === user?.id));
+const staffAccounts = team.filter((u) => STAFF_ROLES.includes(u.role) && !u.test);
+const testAccounts = team.filter((u) => u.test);
 const isDirigeant = can.manageSite(user);
 const isAdminPlus = can.assignQuotes(user);
 const QUOTE_STATES: Record<QuoteStatus, [label: string, tone: 'open' | 'locked']> = {
@@ -977,6 +991,43 @@ const formatDate = (iso: string) =>
                     );
                   })}
                 </ul>
+
+                <div class="admin-tests">
+                  <h3 class="admin-job-title">Comptes de test</h3>
+                  <p class="admin-text">
+                    Un Admin, un Admin+ et un Client, pour voir le rendu de chaque rôle. Ils n'apparaissent ni dans la
+                    liste ci-dessus ni dans l'attribution des devis. Ils ont de vrais droits : supprimez-les après les essais.
+                    {testAccounts.length > 0 && ` ${testAccounts.length} compte${testAccounts.length > 1 ? 's' : ''} de test actif${testAccounts.length > 1 ? 's' : ''}.`}
+                  </p>
+                  {testCredentials.length > 0 && (
+                    <div class="admin-flash" role="status">
+                      <p>Comptes de test créés. Notez ces mots de passe : ils ne seront plus affichés.</p>
+                      <ul class="admin-credentials">
+                        {testCredentials.map((c) => (
+                          <li>
+                            <strong>{ROLE_LABELS[c.role]}</strong> · <code>{c.email}</code> · <code>{c.password}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <div class="admin-job-actions">
+                    <form method="post" data-confirm={testAccounts.length ? 'Recréer les comptes de test ? Les anciens seront supprimés.' : undefined}>
+                      <input type="hidden" name="action" value="test-create" />
+                      <button class="btn btn-ghost btn-sm" type="submit">
+                        {testAccounts.length ? 'Recréer les comptes de test' : 'Créer les comptes de test'}
+                      </button>
+                    </form>
+                    {testAccounts.length > 0 && (
+                      <form method="post" data-confirm="Supprimer les comptes de test ?">
+                        <input type="hidden" name="action" value="test-delete" />
+                        <button class="admin-link admin-link--danger" type="submit">
+                          Supprimer les comptes de test
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </div>
               </section>
             )}
 
