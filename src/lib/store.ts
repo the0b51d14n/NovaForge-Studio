@@ -69,6 +69,8 @@ function local([cmd, key, ...args]: string[]): Reply {
     case 'MGET':
       return [key, ...args].map((k) => memory.get(k) ?? null);
     case 'SET':
+      // NX : seulement si la clé n'existe pas encore (réservation d'une adresse e-mail)
+      if (args.includes('NX') && memory.has(key)) return null;
       memory.set(key, args[0]);
       return 'OK';
     case 'DEL':
@@ -83,11 +85,14 @@ function local([cmd, key, ...args]: string[]): Reply {
       return 1;
     case 'ZREM':
       return args.filter((member) => zset.delete(member)).length;
-    case 'ZREVRANGE':
+    case 'ZREVRANGE': {
+      // Fin négative comme dans Redis : -1 = jusqu'au dernier
+      const end = Number(args[1]);
       return [...zset]
         .sort((a, b) => b[1] - a[1])
-        .slice(Number(args[0]), Number(args[1]) + 1)
+        .slice(Number(args[0]), end < 0 ? zset.size + end + 1 : end + 1)
         .map(([member]) => member);
+    }
     default:
       return 'OK';
   }

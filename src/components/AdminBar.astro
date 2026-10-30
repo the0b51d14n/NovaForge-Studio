@@ -1,17 +1,26 @@
 ---
-// En-tête des pages /administration : retour au tableau de bord, accès au site, déconnexion
+// En-tête des pages du portail de l'équipe (/administration) : retour au portail, compte connecté, accès au site,
+// déconnexion
 import Logo from './Logo.astro';
 import Icon from './Icon.astro';
 import { ADMIN_PATH } from '../lib/access';
+import { ROLE_LABELS } from '../lib/accounts';
+
+const { user } = Astro.locals;
 ---
 
 <header class="admin-bar surface-dark">
   <div class="container admin-bar-inner">
-    <a class="admin-brand" href={ADMIN_PATH} aria-label="Tableau de bord de l'administration">
+    <a class="admin-brand" href={ADMIN_PATH} aria-label="Portail de l'équipe">
       <Logo variant="lockup" tone="dark" />
-      <span class="admin-brand-label">Administration</span>
+      <span class="admin-brand-label">Portail de l'équipe</span>
     </a>
     <div class="admin-bar-actions">
+      {user && (
+        <a class="admin-bar-link" href={`${ADMIN_PATH}#mon-compte`}>
+          {user.name} · {ROLE_LABELS[user.role]}
+        </a>
+      )}
       <a class="admin-bar-link" href="/" target="_blank" rel="noopener">Voir le site <Icon name="arrow" /></a>
       <form method="post" action={ADMIN_PATH}>
         <input type="hidden" name="action" value="logout" />

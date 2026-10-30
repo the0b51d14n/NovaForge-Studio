@@ -21,7 +21,9 @@ Les polices sont intégrées au projet : le site fonctionne même sans connexion
 
 ## Administration et verrouillage
 
-`/administration` (mot de passe `SITE_PASSWORD`) permet de :
+`/administration` est le portail de l'équipe : chacun se connecte avec son compte sur `/connexion`, et ne voit
+que ce que son rôle permet (dirigeant, admin+, admin : voir `docs/technique/administration.md`). Les dirigeants
+peuvent :
 
 - **verrouiller ou ouvrir le site** : verrouillé, tout visiteur est redirigé vers `/verrouillage`
   dont le message dépend du motif choisi (maintenance, fermeture complète, mise à jour — textes dans
@@ -32,9 +34,9 @@ Les polices sont intégrées au projet : le site fonctionne même sans connexion
 - **créer, modifier et supprimer les offres d'emploi** de l'onglet Carrières. Sans offre, les mentions
   « On recrute » disparaissent et seule la candidature spontanée reste proposée.
 
-- **Le mot de passe** est la variable d'environnement `SITE_PASSWORD` : fichier `.env` en local
-  (jamais versionné), réglages du projet sur Vercel en ligne. Il n'est écrit nulle part dans le code.
-  Le changer déconnecte toutes les sessions d'administration.
+- **Les comptes** sont créés par les dirigeants dans le portail. Le tout premier compte dirigeant se crée
+  sur `/administration` avec la variable d'environnement `SITE_PASSWORD` (fichier `.env` en local, jamais
+  versionné ; réglages du projet sur Vercel en ligne), qui ne sert plus ensuite.
 - **Les données** (verrou, adresse, offres) sont dans **Upstash Redis** (`src/lib/store.ts`) :
   Vercel → projet → Storage → Upstash for Redis, relié au projet, qui ajoute `KV_REST_API_URL` et
   `KV_REST_API_TOKEN`. Sans base configurée (en local), elles sont gardées en mémoire et perdues au

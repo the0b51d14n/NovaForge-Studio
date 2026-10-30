@@ -1,30 +1,24 @@
-// Accès administrateur : un mot de passe (SITE_PASSWORD), vérifié côté serveur sur /administration.
-// Une fois le mot de passe saisi, le cookie contient une signature HMAC — jamais le mot de passe lui-même.
-// Changer SITE_PASSWORD déconnecte donc toutes les sessions ouvertes.
+// Connexion aux comptes (src/lib/accounts.ts) : le cookie ne contient qu'un jeton de session aléatoire, vérifié
+// côté serveur à chaque requête. SITE_PASSWORD ne sert plus qu'une fois : créer le premier compte dirigeant.
 import type { AstroCookies } from 'astro';
 import { SITE_PASSWORD } from 'astro:env/server';
+import { SESSION_MAX_AGE, createSession, deleteSession, sessionUser, type PublicUser } from './accounts';
 
 /** Page « site fermé » affichée au public quand le site est verrouillé */
 export const LOCK_PATH = '/verrouillage';
-/** Espace d'administration : connexion, verrou, adresse du siège, offres d'emploi */
+/** Portail de l'équipe (admins, admins+, dirigeants) */
 export const ADMIN_PATH = '/administration';
-const ADMIN_COOKIE = 'nf_admin';
-// Aperçu du site verrouillé : sans lui, l'administrateur voit la page fermée comme tout le monde
+/** Connexion de tous les comptes */
+export const LOGIN_PATH = '/connexion';
+const SESSION_COOKIE = 'nf_session';
+// Aperçu du site verrouillé : sans lui, l'équipe voit la page fermée comme tout le monde
 const PREVIEW_COOKIE = 'nf_apercu';
-const ADMIN_DAYS = 30;
 
 const encoder = new TextEncoder();
 
-async function sign(password: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(password),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode('novaforge-studio:admin')));
-  return btoa(String.fromCharCode(...mac)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+async function digest(value: string): Promise<string> {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(`novaforge-studio:${value}`)));
+  return btoa(String.fromCharCode(...hash));
 }
 
 // Comparaison en temps constant : la durée de la vérification ne trahit pas les caractères justes
@@ -35,37 +29,50 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-/** false : aucun mot de passe configuré, personne ne peut se connecter à l'administration */
+/** false : aucun SITE_PASSWORD configuré, le premier compte dirigeant ne peut pas être créé */
 export const isConfigured = (): boolean => Boolean(SITE_PASSWORD);
 
-export async function isAdmin(cookies: AstroCookies): Promise<boolean> {
-  const token = cookies.get(ADMIN_COOKIE)?.value;
-  if (!SITE_PASSWORD || !token) return false;
-  return safeEqual(token, await sign(SITE_PASSWORD));
-}
-
-export async function checkPassword(input: string): Promise<boolean> {
+/** Mot de passe du site, demandé une seule fois pour créer le premier compte dirigeant */
+export async function checkSitePassword(input: string): Promise<boolean> {
   if (!SITE_PASSWORD) return false;
-  return safeEqual(await sign(input), await sign(SITE_PASSWORD));
+  return safeEqual(await digest(input), await digest(SITE_PASSWORD));
 }
 
-export async function logIn(cookies: AstroCookies): Promise<void> {
-  if (!SITE_PASSWORD) return;
-  cookies.set(ADMIN_COOKIE, await sign(SITE_PASSWORD), {
+/** Compte connecté, ou null */
+export async function currentUser(cookies: AstroCookies): Promise<PublicUser | null> {
+  const token = cookies.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    return await sessionUser(token);
+  } catch (error) {
+    // Base injoignable : personne n'est connecté plutôt qu'une page d'erreur
+    console.error(error);
+    return null;
+  }
+}
+
+export async function logIn(cookies: AstroCookies, user: PublicUser): Promise<void> {
+  cookies.set(SESSION_COOKIE, await createSession(user.id), {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
     secure: import.meta.env.PROD,
-    maxAge: 60 * 60 * 24 * ADMIN_DAYS,
+    maxAge: SESSION_MAX_AGE,
   });
 }
 
-export function logOut(cookies: AstroCookies): void {
-  cookies.delete(ADMIN_COOKIE, { path: '/' });
+export async function logOut(cookies: AstroCookies): Promise<void> {
+  const token = cookies.get(SESSION_COOKIE)?.value;
+  if (token) await deleteSession(token).catch(console.error);
+  cookies.delete(SESSION_COOKIE, { path: '/' });
   stopPreview(cookies);
 }
 
-/** true : l'administrateur a choisi de consulter le site malgré le verrou (à combiner avec isAdmin) */
+/** Adresse de retour après connexion : seulement une page du site (jamais un autre domaine) */
+export const safeNext = (value: unknown): string | null =>
+  typeof value === 'string' && /^\/(?!\/)[\w\-/.?=&#%]*$/.test(value) ? value : null;
+
+/** true : un membre de l'équipe a choisi de consulter le site malgré le verrou (à combiner avec isAdmin) */
 export const isPreviewing = (cookies: AstroCookies): boolean => cookies.get(PREVIEW_COOKIE)?.value === '1';
 
 /** Aperçu valable jusqu'à la fermeture du navigateur */

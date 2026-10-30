@@ -6,10 +6,12 @@ import Icon from '../../../components/Icon.astro';
 import AdminBar from '../../../components/AdminBar.astro';
 import type { Opening } from '../../../data/content';
 import { ADMIN_PATH } from '../../../lib/access';
+import { can } from '../../../lib/accounts';
 import { saveOpenings } from '../../../lib/store';
 
-const { isAdmin, settings, openings } = Astro.locals;
-if (!isAdmin) return Astro.redirect(ADMIN_PATH);
+// Offres d'emploi : réservées aux dirigeants
+const { user, settings, openings } = Astro.locals;
+if (!can.manageSite(user)) return Astro.redirect(ADMIN_PATH);
 
 const NEW = 'nouvelle';
 const isNew = Astro.params.slug === NEW;

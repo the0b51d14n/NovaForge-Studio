@@ -53,6 +53,8 @@ export type Quote = QuoteDraft & {
   /** false : créé avant l'ouverture commerciale, ce n'est qu'une simulation (ni rappel ni signature) */
   binding: boolean;
   contact?: Contact;
+  /** Admin+ chargé du devis (lui seul peut fixer les prix), attribué par un admin+ */
+  assignee?: { id: string; name: string; assignedAt: string; by: string };
   /** Devis ferme émis depuis l'administration */
   final?: {
     lines: FinalLine[];
@@ -159,6 +161,16 @@ export async function loadQuote(id: string): Promise<Quote | null> {
   const [quote] = await redis([['GET', KEYS.quote(id)]]);
   const saved = text(quote);
   return saved ? JSON.parse(saved) : null;
+}
+
+/** Fin de validité qui règle la durée de conservation : devis ferme s'il existe, sinon estimation ; null si signé */
+const retentionOf = (quote: Quote) => (quote.signature ? null : (quote.final?.expiresAt ?? quote.expiresAt));
+
+/** Attribue le devis à un admin+ (null : retire l'attribution) ; by : nom de la personne qui attribue */
+export async function assignQuote(quote: Quote, assignee: { id: string; name: string } | null, by: string): Promise<void> {
+  const { assignee: _previous, ...rest } = quote;
+  const next: Quote = assignee ? { ...rest, assignee: { ...assignee, assignedAt: new Date().toISOString(), by } } : rest;
+  await save(next, retentionOf(next));
 }
 
 export async function requestCallback(quote: Quote, contact: Omit<Contact, 'requestedAt'>): Promise<void> {

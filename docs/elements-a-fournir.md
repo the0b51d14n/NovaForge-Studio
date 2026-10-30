@@ -76,7 +76,7 @@ mentions légales affichent « À compléter » tant qu'ils manquent, ainsi que 
 
 | Variable | Rôle |
 |:--|:--|
-| `SITE_PASSWORD` | Mot de passe de `/administration` (verrou, adresse du siège, offres d'emploi) |
+| `SITE_PASSWORD` | Création du premier compte dirigeant du portail `/administration` (ne sert plus ensuite) |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Base Upstash Redis : ajoutées par Vercel → Storage → Upstash for Redis |
 | `RESEND_API_KEY` | Clé du service d'envoi d'e-mails [Resend](https://resend.com) (offre gratuite suffisante) |
 | `MAIL_FROM` | Expéditeur des e-mails, sur le domaine vérifié : `NovaForge Studio <site@novaforge-studio.fr>` |

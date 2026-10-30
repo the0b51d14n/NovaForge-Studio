@@ -1,12 +1,19 @@
 ---
 import Logo from './Logo.astro';
+import AccountIcon from './AccountIcon.astro';
 import { launch, nav } from '../data/site';
 import { visibleOffers } from '../lib/store';
+import { ADMIN_PATH, LOGIN_PATH } from '../lib/access';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 // « On recrute » seulement si le recrutement est ouvert et qu'au moins une offre est publiée
 const hiring = visibleOffers(Astro.locals).length > 0;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
+// Compte : portail pour l'équipe, connexion sinon (l'espace client arrive avec les comptes clients)
+const { user, isAdmin } = Astro.locals;
+const account = isAdmin
+  ? { href: ADMIN_PATH, label: user!.name.split(' ')[0], title: "Portail de l'équipe" }
+  : { href: LOGIN_PATH, label: 'Connexion', title: 'Se connecter' };
 ---
 
 <header class="site-header" data-header>
@@ -45,6 +52,12 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
         <li>
           <a class="nav-cta" href="/contact" aria-current={isActive('/contact') ? 'page' : undefined}>
             Contact
+          </a>
+        </li>
+        <li>
+          <a class="nav-account" href={account.href} title={account.title} aria-current={isActive(account.href) ? 'page' : undefined}>
+            <AccountIcon />
+            <span class="nav-account-label">{account.label}</span>
           </a>
         </li>
       </ul>

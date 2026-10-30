@@ -1,13 +1,33 @@
 ---
-// Administration : connexion (SITE_PASSWORD), puis verrou du site, adresse du siège, fermetures et offres d'emploi.
+// Portail de l'équipe : admins, admins+ et dirigeants (comptes de src/lib/accounts.ts). Chaque section n'est
+// affichée, et chaque action acceptée, que pour les rôles autorisés (voir `can` dans src/lib/accounts.ts) :
+// - dirigeants : état du site, adresse du siège, fermetures, offres d'emploi, comptes de l'équipe ;
+// - tous : liste des devis et personne qui s'en occupe (les dirigeants n'en voient que le résumé et le prix final) ;
+// - admins+ : attribution des devis à un admin+ et suppression ; seul l'admin+ attribué fixe les prix
+//   (/administration/devis/<id>).
+// Sans compte de l'équipe : page de connexion, ou création du premier dirigeant avec SITE_PASSWORD.
 // Chaque action est un formulaire POST traité ici, suivi d'une redirection (pas de double envoi en rechargeant).
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Logo from '../../components/Logo.astro';
 import Icon from '../../components/Icon.astro';
 import AdminBar from '../../components/AdminBar.astro';
-import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
+import { ADMIN_PATH, LOGIN_PATH, checkSitePassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
+import {
+  MIN_PASSWORD,
+  ROLE_LABELS,
+  STAFF_ROLES,
+  can,
+  checkUserPassword,
+  createUser,
+  hasStaff,
+  isRole,
+  listUsers,
+  updateUser,
+  type PublicUser,
+} from '../../lib/accounts';
+import { isEmail } from '../../lib/forms';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
-import { deleteQuote, listQuotes, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
+import { assignQuote, deleteQuote, listQuotes, loadQuote, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
 import { formatEuros, formatRange } from '../../lib/pricing';
 import { site } from '../../data/site';
 import { LOCK_REASONS, isLockReason } from '../../data/lock-reasons';
@@ -26,109 +46,240 @@ import {
   type Closure,
 } from '../../lib/hours';
 
-const { isAdmin, settings, openings } = Astro.locals;
+const { isAdmin, user, settings, openings } = Astro.locals;
 let error = '';
+
+// Premier lancement : aucun compte de l'équipe, le premier dirigeant se crée avec SITE_PASSWORD
+let bootstrap = false;
+if (!isAdmin) {
+  try {
+    bootstrap = !(await hasStaff());
+  } catch (e) {
+    console.error(e);
+  }
+  // Ni compte de l'équipe ni premier lancement : connexion (un client connecté voit un message d'accès réservé)
+  if (!bootstrap && !user) return Astro.redirect(`${LOGIN_PATH}?suite=${ADMIN_PATH}`);
+}
 
 const text = (data: FormData, name: string, max = 120) => String(data.get(name) ?? '').trim().slice(0, max);
 // Après une action sur les fermetures : retour sur le bon onglet, la page défile jusqu'à la carte
 const done = (ok: string, tab?: 'temporaires' | 'feries') =>
   Astro.redirect(`${ADMIN_PATH}?ok=${ok}${tab ? `&onglet=${tab}#fermetures` : ''}`, 303);
+const doneAt = (ok: string, anchor: string) => Astro.redirect(`${ADMIN_PATH}?ok=${ok}#${anchor}`, 303);
 // Identifiant d'une fermeture (dates et heures) pour la supprimer
 const closureKey = (c: Closure) => [c.start, c.end, c.from ?? '', c.to ?? ''].join('|');
 // Saisie conservée si l'ajout d'une fermeture échoue
 let draft: { start: string; end: string; from: string; to: string; reason: string } | null = null;
+// Saisies conservées si la création d'un compte échoue
+const bootDraft = { name: '', email: '' };
+const accountDraft = { name: '', email: '', role: 'admin' };
 const today = parisNow().date;
 // Une fermeture passée reste jusqu'à la fin de sa semaine, puis le middleware la supprime de la base
 const { closures } = settings;
 
+// Actions réservées : refusées côté serveur même si le formulaire est envoyé à la main
+const DIRIGEANT_ACTIONS = new Set([
+  'lock-reason', 'lock', 'unlock', 'address', 'holidays-on', 'holidays-off', 'closure-add', 'closure-delete',
+  'delete', 'account-create', 'account-update',
+]);
+const ADMIN_PLUS_ACTIONS = new Set(['quote-delete', 'quote-assign']);
+
+const validPassword = (password: string, confirm: string) =>
+  password.length < MIN_PASSWORD
+    ? `Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`
+    : password !== confirm
+      ? 'Les deux mots de passe ne correspondent pas.'
+      : '';
+
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
-  const action = data.get('action');
+  const action = String(data.get('action') ?? '');
 
   if (!isAdmin) {
-    if (action === 'login') {
-      if (await checkPassword(String(data.get('password') ?? ''))) {
-        await logIn(Astro.cookies);
-        return Astro.redirect(ADMIN_PATH, 303);
+    if (action === 'logout') {
+      await logOut(Astro.cookies);
+      return Astro.redirect(LOGIN_PATH, 303);
+    }
+    if (bootstrap && action === 'bootstrap') {
+      bootDraft.name = text(data, 'name');
+      bootDraft.email = text(data, 'email', 200);
+      const password = String(data.get('password') ?? '').slice(0, 200);
+      if (!(await checkSitePassword(String(data.get('site-password') ?? '')))) {
+        // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        error = 'Mot de passe du site incorrect.';
+      } else if (bootDraft.name.length < 2 || !isEmail(bootDraft.email)) {
+        error = 'Indiquez votre nom et une adresse e-mail valide.';
+      } else {
+        error = validPassword(password, String(data.get('confirm') ?? ''));
       }
-      // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      error = 'Mot de passe incorrect. Vérifiez-le et réessayez.';
-      Astro.response.status = 401;
+      if (!error) {
+        try {
+          const created = await createUser({ ...bootDraft, role: 'dirigeant', password });
+          if (created === 'pris') {
+            error = 'Un compte existe déjà avec cette adresse e-mail.';
+          } else {
+            await logIn(Astro.cookies, created);
+            return Astro.redirect(`${ADMIN_PATH}?ok=bienvenue`, 303);
+          }
+        } catch (e) {
+          console.error(e);
+          error = "La création du compte a échoué (base de données injoignable). Réessayez dans un instant.";
+        }
+      }
+      Astro.response.status = 422;
     }
   } else {
     try {
       if (action === 'logout') {
-        logOut(Astro.cookies);
-        return Astro.redirect(ADMIN_PATH, 303);
+        await logOut(Astro.cookies);
+        return Astro.redirect(LOGIN_PATH, 303);
       }
-      if (action === 'lock-reason') {
-        const reason = data.get('reason');
-        if (isLockReason(reason)) await saveSettings({ ...settings, lockReason: reason });
-        return done('motif');
-      }
-      if (action === 'lock' || action === 'unlock') {
-        const reason = data.get('reason');
-        await saveSettings({
-          ...settings,
-          locked: action === 'lock',
-          lockReason: action === 'lock' && isLockReason(reason) ? reason : settings.lockReason,
-        });
-        // Verrouiller ferme aussi le site pour l'administrateur : l'aperçu se réactive depuis /verrouillage
-        stopPreview(Astro.cookies);
-        return done(action);
-      }
-      if (action === 'address') {
-        const street = text(data, 'street');
-        const postalCode = text(data, 'postalCode', 5);
-        const city = text(data, 'city');
-        if (!street || !city || !/^\d{5}$/.test(postalCode)) {
-          error = 'Adresse incomplète : rue, code postal à 5 chiffres et ville sont obligatoires.';
-        } else {
-          const geo = await geocode(street, postalCode, city);
-          await saveSettings({ ...settings, street, postalCode, city, geo: geo ?? settings.geo });
-          return done(geo ? 'adresse' : 'adresse-sans-carte');
+      if ((DIRIGEANT_ACTIONS.has(action) && !can.manageSite(user)) || (ADMIN_PLUS_ACTIONS.has(action) && !can.assignQuotes(user))) {
+        error = 'Votre rôle ne permet pas cette action.';
+        Astro.response.status = 403;
+      } else {
+        if (action === 'lock-reason') {
+          const reason = data.get('reason');
+          if (isLockReason(reason)) await saveSettings({ ...settings, lockReason: reason });
+          return done('motif');
         }
-      }
-      if (action === 'holidays-on' || action === 'holidays-off') {
-        await saveSettings({ ...settings, closures, holidays: action === 'holidays-on' });
-        return done(action, 'feries');
-      }
-      if (action === 'closure-add') {
-        const start = text(data, 'start', 10);
-        const end = text(data, 'end', 10) || start;
-        const from = text(data, 'from', 5);
-        const to = text(data, 'to', 5);
-        const reason = text(data, 'reason', 60);
-        draft = { start, end: text(data, 'end', 10), from, to, reason };
-        if (!ISO_DATE.test(start) || !ISO_DATE.test(end) || end < start) {
-          error = 'Dates invalides : la date de fin ne peut pas précéder la date de début.';
-        } else if (end < today) {
-          error = 'Cette période est déjà passée.';
-        } else if (end > addDays(start, 366)) {
-          error = 'Une fermeture ne peut pas dépasser un an.';
-        } else if ((from || to) && !(TIME.test(from) && TIME.test(to) && from < to)) {
-          error = 'Plage horaire invalide : indiquez une heure de début et une heure de fin (après le début), ou laissez les deux vides pour la journée entière.';
-        } else {
-          const closure: Closure = { start, end, reason, ...(from && to ? { from, to } : {}) };
-          const next = [...closures, closure].sort((a, b) => a.start.localeCompare(b.start));
-          await saveSettings({ ...settings, closures: next });
-          return done('fermeture', text(data, 'onglet', 12) === 'feries' ? 'feries' : 'temporaires');
+        if (action === 'lock' || action === 'unlock') {
+          const reason = data.get('reason');
+          await saveSettings({
+            ...settings,
+            locked: action === 'lock',
+            lockReason: action === 'lock' && isLockReason(reason) ? reason : settings.lockReason,
+          });
+          // Verrouiller ferme aussi le site pour l'équipe : l'aperçu se réactive depuis /verrouillage
+          stopPreview(Astro.cookies);
+          return done(action);
         }
-      }
-      if (action === 'closure-delete') {
-        const key = text(data, 'key', 40);
-        await saveSettings({ ...settings, closures: closures.filter((c) => closureKey(c) !== key) });
-        return done('fermeture-supprimee', 'temporaires');
-      }
-      if (action === 'delete') {
-        const slug = text(data, 'slug');
-        await saveOpenings(openings.filter((o) => o.slug !== slug));
-        return done('supprimee');
-      }
-      if (action === 'quote-delete') {
-        await deleteQuote(text(data, 'id', 32));
-        return Astro.redirect(`${ADMIN_PATH}?ok=devis-supprime#devis`, 303);
+        if (action === 'address') {
+          const street = text(data, 'street');
+          const postalCode = text(data, 'postalCode', 5);
+          const city = text(data, 'city');
+          if (!street || !city || !/^\d{5}$/.test(postalCode)) {
+            error = 'Adresse incomplète : rue, code postal à 5 chiffres et ville sont obligatoires.';
+          } else {
+            const geo = await geocode(street, postalCode, city);
+            await saveSettings({ ...settings, street, postalCode, city, geo: geo ?? settings.geo });
+            return done(geo ? 'adresse' : 'adresse-sans-carte');
+          }
+        }
+        if (action === 'holidays-on' || action === 'holidays-off') {
+          await saveSettings({ ...settings, closures, holidays: action === 'holidays-on' });
+          return done(action, 'feries');
+        }
+        if (action === 'closure-add') {
+          const start = text(data, 'start', 10);
+          const end = text(data, 'end', 10) || start;
+          const from = text(data, 'from', 5);
+          const to = text(data, 'to', 5);
+          const reason = text(data, 'reason', 60);
+          draft = { start, end: text(data, 'end', 10), from, to, reason };
+          if (!ISO_DATE.test(start) || !ISO_DATE.test(end) || end < start) {
+            error = 'Dates invalides : la date de fin ne peut pas précéder la date de début.';
+          } else if (end < today) {
+            error = 'Cette période est déjà passée.';
+          } else if (end > addDays(start, 366)) {
+            error = 'Une fermeture ne peut pas dépasser un an.';
+          } else if ((from || to) && !(TIME.test(from) && TIME.test(to) && from < to)) {
+            error = 'Plage horaire invalide : indiquez une heure de début et une heure de fin (après le début), ou laissez les deux vides pour la journée entière.';
+          } else {
+            const closure: Closure = { start, end, reason, ...(from && to ? { from, to } : {}) };
+            const next = [...closures, closure].sort((a, b) => a.start.localeCompare(b.start));
+            await saveSettings({ ...settings, closures: next });
+            return done('fermeture', text(data, 'onglet', 12) === 'feries' ? 'feries' : 'temporaires');
+          }
+        }
+        if (action === 'closure-delete') {
+          const key = text(data, 'key', 40);
+          await saveSettings({ ...settings, closures: closures.filter((c) => closureKey(c) !== key) });
+          return done('fermeture-supprimee', 'temporaires');
+        }
+        if (action === 'delete') {
+          const slug = text(data, 'slug');
+          await saveOpenings(openings.filter((o) => o.slug !== slug));
+          return done('supprimee');
+        }
+        if (action === 'quote-delete') {
+          await deleteQuote(text(data, 'id', 32));
+          return doneAt('devis-supprime', 'devis');
+        }
+        if (action === 'quote-assign') {
+          const quote = await loadQuote(text(data, 'id', 32));
+          const assigneeId = text(data, 'assignee', 32);
+          const assignee = assigneeId
+            ? (await listUsers()).find((u) => u.id === assigneeId && u.role === 'admin_plus' && !u.disabled)
+            : null;
+          if (!quote) error = 'Ce devis n’existe plus.';
+          else if (quote.signature) error = 'Ce devis est déjà signé : son attribution ne change plus.';
+          else if (assigneeId && !assignee) error = 'Un devis ne peut être attribué qu’à un admin+ actif.';
+          else {
+            await assignQuote(quote, assignee ? { id: assignee.id, name: assignee.name } : null, user!.name);
+            return doneAt(assignee ? 'attribue' : 'desattribue', 'devis');
+          }
+        }
+        if (action === 'account-create') {
+          accountDraft.name = text(data, 'name');
+          accountDraft.email = text(data, 'email', 200);
+          accountDraft.role = text(data, 'role', 20);
+          const password = String(data.get('password') ?? '').slice(0, 200);
+          if (accountDraft.name.length < 2 || !isEmail(accountDraft.email)) error = 'Indiquez un nom et une adresse e-mail valide.';
+          else if (!isRole(accountDraft.role) || !STAFF_ROLES.includes(accountDraft.role)) error = 'Choisissez un rôle.';
+          else error = validPassword(password, password);
+          if (!error) {
+            const created = await createUser({
+              name: accountDraft.name,
+              email: accountDraft.email,
+              role: accountDraft.role as PublicUser['role'],
+              password,
+            });
+            if (created === 'pris') error = 'Un compte existe déjà avec cette adresse e-mail.';
+            else return doneAt('compte-cree', 'comptes');
+          }
+        }
+        if (action === 'account-update') {
+          const users = await listUsers();
+          const target = users.find((u) => u.id === text(data, 'id', 32));
+          const op = text(data, 'op', 20);
+          const role = text(data, 'role', 20);
+          // Il reste toujours au moins un dirigeant actif, et l'on ne retire pas ses propres droits
+          const otherDirigeants = users.filter((u) => u.role === 'dirigeant' && !u.disabled && u.id !== target?.id);
+          const losesDirigeant = target?.role === 'dirigeant' && (op === 'disable' || (op === 'role' && role !== 'dirigeant'));
+          if (!target) error = 'Ce compte n’existe plus.';
+          else if (target.id === user!.id && (op === 'disable' || op === 'role')) error = 'Vous ne pouvez pas modifier votre propre rôle ni désactiver votre compte.';
+          else if (losesDirigeant && otherDirigeants.length === 0) error = 'Il doit rester au moins un dirigeant actif.';
+          else if (op === 'role') {
+            if (!isRole(role)) error = 'Rôle inconnu.';
+            else {
+              await updateUser(target.id, { role });
+              return doneAt('role-modifie', 'comptes');
+            }
+          } else if (op === 'disable' || op === 'enable') {
+            await updateUser(target.id, { disabled: op === 'disable' });
+            return doneAt(op === 'disable' ? 'compte-desactive' : 'compte-active', 'comptes');
+          } else if (op === 'password') {
+            const password = String(data.get('password') ?? '').slice(0, 200);
+            error = validPassword(password, password);
+            if (!error) {
+              await updateUser(target.id, { password });
+              return doneAt('mot-de-passe-reinitialise', 'comptes');
+            }
+          }
+        }
+        if (action === 'password-change') {
+          const current = String(data.get('current') ?? '').slice(0, 200);
+          const password = String(data.get('password') ?? '').slice(0, 200);
+          if (!(await checkUserPassword(user!.id, current))) error = 'Mot de passe actuel incorrect.';
+          else error = validPassword(password, String(data.get('confirm') ?? ''));
+          if (!error) {
+            await updateUser(user!.id, { password });
+            return doneAt('mot-de-passe', 'mon-compte');
+          }
+        }
+        if (error) Astro.response.status = 422;
       }
     } catch (e) {
       console.error(e);
@@ -155,20 +306,35 @@ const flashes: Record<string, string> = {
   'holidays-off': 'Les jours fériés ne sont plus indiqués comme fermés.',
   modifiee: 'Offre mise à jour.',
   'devis-supprime': 'Devis supprimé.',
+  attribue: 'Devis attribué.',
+  desattribue: 'Attribution retirée.',
+  bienvenue: 'Compte dirigeant créé : vous pouvez maintenant créer les comptes de l’équipe.',
+  'compte-cree': 'Compte créé : transmettez son mot de passe provisoire à la personne concernée.',
+  'role-modifie': 'Rôle modifié.',
+  'compte-desactive': 'Compte désactivé : il ne peut plus se connecter.',
+  'compte-active': 'Compte réactivé.',
+  'mot-de-passe-reinitialise': 'Mot de passe réinitialisé : transmettez-le à la personne concernée.',
+  'mot-de-passe': 'Votre mot de passe a été changé.',
 };
 const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
 
-// Derniers devis du simulateur (les devis non signés sont supprimés automatiquement après quelques semaines)
+// Derniers devis du simulateur (les devis non signés sont supprimés automatiquement après quelques semaines),
+// et comptes : liste complète pour les dirigeants, admins+ actifs pour l'attribution des devis
 let quotes: Quote[] = [];
+let team: PublicUser[] = [];
 let quotesError = false;
 if (isAdmin) {
   try {
-    quotes = await listQuotes();
+    [quotes, team] = await Promise.all([listQuotes(), listUsers()]);
   } catch (e) {
     console.error(e);
     quotesError = true;
   }
 }
+const assignable = team.filter((u) => u.role === 'admin_plus' && !u.disabled);
+const staffAccounts = team.filter((u) => STAFF_ROLES.includes(u.role));
+const isDirigeant = can.manageSite(user);
+const isAdminPlus = can.assignQuotes(user);
 const QUOTE_STATES: Record<QuoteStatus, [label: string, tone: 'open' | 'locked']> = {
   estimation: ['Estimation', 'locked'],
   rappel: ['À rappeler', 'locked'],
@@ -218,7 +384,7 @@ const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
-<BaseLayout title="Administration" description="Administration du site NovaForge Studio." bare noindex>
+<BaseLayout title="Portail de l'équipe" description="Portail de l'équipe NovaForge Studio." bare noindex>
   {
     !isAdmin ? (
       <section class="hero lock surface-dark" aria-labelledby="admin-title" data-stardust-host>
@@ -226,39 +392,63 @@ const formatDate = (iso: string) =>
         <div class="lock-panel">
           <Logo variant="stacked" tone="dark" />
           <p class="lock-badge">
-            <Icon name="lock" class="lock-badge-icon" /> Administration
+            <Icon name="lock" class="lock-badge-icon" /> Portail de l'équipe
           </p>
-          <h1 id="admin-title">Espace réservé.</h1>
-          {isConfigured() ? (
-            <form class="lock-form" method="post">
-              <input type="hidden" name="action" value="login" />
-              <div class="field">
-                <label for="password">Mot de passe</label>
-                <input
-                  class="input"
-                  id="password"
-                  name="password"
-                  type="password"
-                  autocomplete="current-password"
-                  required
-                  autofocus
-                  aria-invalid={error ? 'true' : undefined}
-                  aria-describedby={error ? 'password-error' : undefined}
-                />
-                {error && (
-                  <p class="field-error" id="password-error" role="alert">
-                    {error}
+          {bootstrap ? (
+            <Fragment>
+              <h1 id="admin-title">Premier compte dirigeant.</h1>
+              {isConfigured() ? (
+                <form class="lock-form" method="post">
+                  <input type="hidden" name="action" value="bootstrap" />
+                  <p class="lock-lead">
+                    Aucun compte de l'équipe n'existe encore. Créez le vôtre avec le mot de passe du site
+                    (SITE_PASSWORD) : il ne servira plus ensuite.
                   </p>
-                )}
-              </div>
-              <button class="btn btn-primary" type="submit">
-                Se connecter <Icon name="arrow" class="btn-arrow" />
-              </button>
-            </form>
+                  <div class="field">
+                    <label for="site-password">Mot de passe du site</label>
+                    <input class="input" id="site-password" name="site-password" type="password" autocomplete="off" required />
+                  </div>
+                  <div class="field">
+                    <label for="b-name">Prénom et nom</label>
+                    <input class="input" id="b-name" name="name" value={bootDraft.name} autocomplete="name" required maxlength="120" />
+                  </div>
+                  <div class="field">
+                    <label for="b-email">E-mail</label>
+                    <input class="input" id="b-email" name="email" type="email" value={bootDraft.email} autocomplete="username" required />
+                  </div>
+                  <div class="field">
+                    <label for="b-password">Mot de passe ({MIN_PASSWORD} caractères au moins)</label>
+                    <input class="input" id="b-password" name="password" type="password" autocomplete="new-password" required minlength={MIN_PASSWORD} />
+                  </div>
+                  <div class="field">
+                    <label for="b-confirm">Confirmation</label>
+                    <input class="input" id="b-confirm" name="confirm" type="password" autocomplete="new-password" required />
+                    {error && (
+                      <p class="field-error" role="alert">
+                        {error}
+                      </p>
+                    )}
+                  </div>
+                  <button class="btn btn-primary" type="submit">
+                    Créer mon compte <Icon name="arrow" class="btn-arrow" />
+                  </button>
+                </form>
+              ) : (
+                <p class="lock-lead" role="status">
+                  Aucun mot de passe du site n'est configuré : ajoutez SITE_PASSWORD aux variables d'environnement pour
+                  créer le premier compte dirigeant.
+                </p>
+              )}
+            </Fragment>
           ) : (
-            <p class="lock-lead" role="status">
-              Aucun mot de passe n'est configuré : ajoutez SITE_PASSWORD aux variables d'environnement.
-            </p>
+            <Fragment>
+              <h1 id="admin-title">Accès réservé.</h1>
+              <p class="lock-lead">Le portail est réservé à l'équipe du studio : votre compte n'y a pas accès.</p>
+              <form method="post">
+                <input type="hidden" name="action" value="logout" />
+                <button class="btn btn-ghost" type="submit">Changer de compte</button>
+              </form>
+            </Fragment>
           )}
         </div>
       </section>
@@ -267,7 +457,13 @@ const formatDate = (iso: string) =>
         <AdminBar />
         <div class="admin surface-light-2">
           <div class="container admin-inner">
-            <h1 class="admin-title">Tableau de bord</h1>
+            <h1 class="admin-title">Portail de l'équipe</h1>
+            <p class="admin-text">
+              Bonjour {user!.name} · {ROLE_LABELS[user!.role]}.
+              {isDirigeant && ' Vous gérez le site, les offres d’emploi et les comptes ; vous suivez les devis.'}
+              {isAdminPlus && ' Vous répartissez les devis et fixez les prix de ceux qui vous sont attribués.'}
+              {user!.role === 'admin' && ' Vous consultez les devis et la personne qui s’en occupe.'}
+            </p>
 
             {!isPersistent() && (
               <p class="admin-alert">
@@ -286,6 +482,8 @@ const formatDate = (iso: string) =>
               </p>
             )}
 
+            {isDirigeant && (
+            <Fragment>
             <section class="admin-card card" aria-labelledby="a-lock">
               <div class="admin-card-head">
                 <h2 class="admin-h2" id="a-lock">État du site</h2>
@@ -516,15 +714,17 @@ const formatDate = (iso: string) =>
                 )}
               </div>
             </section>
+            </Fragment>
+            )}
 
             <section class="admin-card card" id="devis" aria-labelledby="a-quotes">
-              <h2 class="admin-h2" id="a-quotes">Simulateur de devis</h2>
+              <h2 class="admin-h2" id="a-quotes">Devis</h2>
               <p class="admin-text">
-                Les visiteurs composent leur projet sur <a href="/devis" target="_blank" rel="noopener">/devis</a> et
-                obtiennent une estimation adaptée à leur budget, puis demandent à être rappelés. Ouvrez une estimation
-                pour fixer les prix fermes : le client signe ensuite son devis en ligne (une fois le studio ouvert
-                commercialement). Prestations, fourchettes, budgets et réductions se règlent dans
-                src/data/quote-catalog.ts.
+                {isDirigeant
+                  ? 'Suivi des devis du simulateur : la personne qui s’en occupe et le prix final une fois le devis ferme émis.'
+                  : isAdminPlus
+                    ? 'Attribuez chaque devis à un admin+ (vous-même ou un collègue) : seul l’admin+ attribué fixe ses prix. Prestations, fourchettes, budgets et réductions se règlent dans src/data/quote-catalog.ts.'
+                    : 'Consultation des devis du simulateur et de la personne qui s’en occupe. Seul l’admin+ attribué peut fixer les prix.'}
               </p>
               {quotesError ? (
                 <p class="admin-text">Liste des devis momentanément indisponible (base de données injoignable).</p>
@@ -534,33 +734,58 @@ const formatDate = (iso: string) =>
                 <ul class="admin-jobs">
                   {quotes.map((q) => {
                     const [label, tone] = QUOTE_STATES[quoteStatus(q)];
+                    const mine = can.editQuote(user, q.assignee?.id) && !q.signature;
                     return (
                       <li class="admin-job">
                         <div class="admin-job-main">
                           <p class="admin-job-title">
-                            {q.number} · {quoteAmount(q)}
+                            {q.number} · {q.family.title}
+                            {isDirigeant
+                              ? ` · ${q.final ? `prix final ${formatEuros(q.final.totals.oneOff.ttc)}${q.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(q.final.totals.monthly.ttc)} / mois` : ''}` : 'prix final à venir'}`
+                              : ` · ${quoteAmount(q)}`}
                           </p>
                           <p class="admin-job-meta">
-                            {q.family.title} · créé le {formatDate(q.createdAt)}
-                            {q.budget && ` · budget ${q.budget.label}`}
-                            {q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
+                            {q.assignee ? `Attribué à ${q.assignee.name}` : 'Non attribué'} · créé le {formatDate(q.createdAt)}
+                            {!isDirigeant && q.budget && ` · budget ${q.budget.label}`}
+                            {!isDirigeant && q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
                           </p>
                         </div>
                         <div class="admin-job-actions">
                           <span class:list={['admin-state', `admin-state--${tone}`]}>{label}</span>
+                          {isAdminPlus && !q.signature && (
+                            <form class="admin-assign" method="post">
+                              <input type="hidden" name="action" value="quote-assign" />
+                              <input type="hidden" name="id" value={q.id} />
+                              <label class="sr-only" for={`assign-${q.id}`}>Attribuer le devis {q.number}</label>
+                              <select class="input" id={`assign-${q.id}`} name="assignee">
+                                <option value="">Non attribué</option>
+                                {assignable.map((u) => (
+                                  <option value={u.id} selected={q.assignee?.id === u.id}>
+                                    {u.name}
+                                    {u.id === user!.id ? ' (vous)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <button class="admin-link" type="submit">
+                                Attribuer
+                              </button>
+                            </form>
+                          )}
                           <a class="admin-link" href={`${ADMIN_PATH}/devis/${q.id}`}>
-                            {q.signature ? 'Ouvrir' : 'Finaliser'}
+                            {mine ? 'Fixer les prix' : 'Ouvrir'}
                           </a>
                           <a class="admin-link" href={`/devis/${q.id}`} target="_blank" rel="noopener">
                             Page client
                           </a>
-                          <form method="post" data-confirm={`Supprimer le devis ${q.number} ?`}>
-                            <input type="hidden" name="action" value="quote-delete" />
-                            <input type="hidden" name="id" value={q.id} />
-                            <button class="admin-link admin-link--danger" type="submit">
-                              Supprimer
-                            </button>
-                          </form>
+                          {isAdminPlus && (
+                            <form method="post" data-confirm={`Supprimer le devis ${q.number} ?`}>
+                              <input type="hidden" name="action" value="quote-delete" />
+                              <input type="hidden" name="id" value={q.id} />
+                              <button class="admin-link admin-link--danger" type="submit">
+                                Supprimer
+                              </button>
+                            </form>
+                          )}
                         </div>
                       </li>
                     );
@@ -569,6 +794,7 @@ const formatDate = (iso: string) =>
               )}
             </section>
 
+            {isDirigeant && (
             <section class="admin-card card" aria-labelledby="a-jobs">
               <div class="admin-card-head">
                 <h2 class="admin-h2" id="a-jobs">Offres d'emploi</h2>
@@ -610,6 +836,141 @@ const formatDate = (iso: string) =>
                   ))}
                 </ul>
               )}
+            </section>
+            )}
+
+            {isDirigeant && (
+              <section class="admin-card card" id="comptes" aria-labelledby="a-accounts">
+                <h2 class="admin-h2" id="a-accounts">Comptes de l'équipe</h2>
+                <p class="admin-text">
+                  Admin : consulte les devis. Admin+ : répartit les devis et fixe les prix de ceux qui lui sont attribués.
+                  Dirigeant : gère le site, les offres d'emploi et les comptes, et suit les devis. Choisissez un mot de
+                  passe provisoire et transmettez-le à la personne : elle pourra le changer depuis « Mon compte ».
+                </p>
+
+                <details class="admin-add" open={Boolean(accountDraft.email)}>
+                  <summary class="btn btn-primary btn-sm">
+                    <span class="admin-add-open">Nouveau compte</span>
+                    <span class="admin-add-close">Annuler</span>
+                  </summary>
+                  <form class="form admin-form" method="post">
+                    <input type="hidden" name="action" value="account-create" />
+                    <div class="field">
+                      <label for="acc-name">Prénom et nom</label>
+                      <input class="input" id="acc-name" name="name" value={accountDraft.name} required maxlength="120" />
+                    </div>
+                    <div class="field">
+                      <label for="acc-email">E-mail</label>
+                      <input class="input" id="acc-email" name="email" type="email" value={accountDraft.email} required />
+                    </div>
+                    <div class="field">
+                      <label for="acc-role">Rôle</label>
+                      <select class="input" id="acc-role" name="role">
+                        {STAFF_ROLES.map((role) => (
+                          <option value={role} selected={accountDraft.role === role}>
+                            {ROLE_LABELS[role]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div class="field">
+                      <label for="acc-password">Mot de passe provisoire</label>
+                      <input class="input" id="acc-password" name="password" type="text" autocomplete="off" required minlength={MIN_PASSWORD} />
+                    </div>
+                    <div class="form-footer">
+                      <p class="form-note">{MIN_PASSWORD} caractères au moins.</p>
+                      <button class="btn btn-primary" type="submit">Créer le compte</button>
+                    </div>
+                  </form>
+                </details>
+
+                <ul class="admin-jobs">
+                  {staffAccounts.map((u) => {
+                    const self = u.id === user!.id;
+                    return (
+                      <li class:list={['admin-job', { 'is-past': u.disabled }]}>
+                        <div class="admin-job-main">
+                          <p class="admin-job-title">
+                            {u.name}
+                            {self && ' (vous)'}
+                          </p>
+                          <p class="admin-job-meta">
+                            {u.email} · {ROLE_LABELS[u.role]}
+                            {u.disabled && ' · désactivé'}
+                          </p>
+                        </div>
+                        {!self && (
+                          <div class="admin-job-actions">
+                            <form class="admin-assign" method="post">
+                              <input type="hidden" name="action" value="account-update" />
+                              <input type="hidden" name="op" value="role" />
+                              <input type="hidden" name="id" value={u.id} />
+                              <label class="sr-only" for={`role-${u.id}`}>Rôle de {u.name}</label>
+                              <select class="input" id={`role-${u.id}`} name="role">
+                                {STAFF_ROLES.map((role) => (
+                                  <option value={role} selected={u.role === role}>
+                                    {ROLE_LABELS[role]}
+                                  </option>
+                                ))}
+                              </select>
+                              <button class="admin-link" type="submit">
+                                Changer
+                              </button>
+                            </form>
+                            <details class="admin-reset">
+                              <summary class="admin-link">Mot de passe</summary>
+                              <form class="admin-assign" method="post">
+                                <input type="hidden" name="action" value="account-update" />
+                                <input type="hidden" name="op" value="password" />
+                                <input type="hidden" name="id" value={u.id} />
+                                <label class="sr-only" for={`pw-${u.id}`}>Nouveau mot de passe provisoire</label>
+                                <input class="input" id={`pw-${u.id}`} name="password" type="text" autocomplete="off" required minlength={MIN_PASSWORD} placeholder="Nouveau mot de passe" />
+                                <button class="admin-link" type="submit">
+                                  Réinitialiser
+                                </button>
+                              </form>
+                            </details>
+                            <form method="post" data-confirm={u.disabled ? `Réactiver le compte de ${u.name} ?` : `Désactiver le compte de ${u.name} ?`}>
+                              <input type="hidden" name="action" value="account-update" />
+                              <input type="hidden" name="op" value={u.disabled ? 'enable' : 'disable'} />
+                              <input type="hidden" name="id" value={u.id} />
+                              <button class:list={['admin-link', { 'admin-link--danger': !u.disabled }]} type="submit">
+                                {u.disabled ? 'Réactiver' : 'Désactiver'}
+                              </button>
+                            </form>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+
+            <section class="admin-card card" id="mon-compte" aria-labelledby="a-me">
+              <h2 class="admin-h2" id="a-me">Mon compte</h2>
+              <p class="admin-text">
+                {user!.name} · {user!.email} · {ROLE_LABELS[user!.role]}
+              </p>
+              <form class="form admin-form" method="post">
+                <input type="hidden" name="action" value="password-change" />
+                <div class="field field--full">
+                  <label for="me-current">Mot de passe actuel</label>
+                  <input class="input" id="me-current" name="current" type="password" autocomplete="current-password" required />
+                </div>
+                <div class="field">
+                  <label for="me-password">Nouveau mot de passe</label>
+                  <input class="input" id="me-password" name="password" type="password" autocomplete="new-password" required minlength={MIN_PASSWORD} />
+                </div>
+                <div class="field">
+                  <label for="me-confirm">Confirmation</label>
+                  <input class="input" id="me-confirm" name="confirm" type="password" autocomplete="new-password" required />
+                </div>
+                <div class="form-footer">
+                  <p class="form-note">{MIN_PASSWORD} caractères au moins.</p>
+                  <button class="btn btn-primary" type="submit">Changer mon mot de passe</button>
+                </div>
+              </form>
             </section>
           </div>
         </div>

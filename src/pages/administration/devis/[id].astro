@@ -3,6 +3,8 @@
 // fourchette de chaque ligne, saisie des prix fermes HT (lignes retirables, remise facultative), puis émission du
 // devis ferme (signable par le client pendant QUOTE_VALIDITY_DAYS jours).
 // Réémettre un devis non signé remplace ses prix et relance sa période de signature.
+// Droits : seul l'admin+ à qui le devis est attribué le modifie ; les autres admins et admins+ le consultent ;
+// les dirigeants n'en voient que le résumé (personne attribuée et prix final).
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Icon from '../../../components/Icon.astro';
 import AdminBar from '../../../components/AdminBar.astro';
@@ -11,8 +13,10 @@ import { launch } from '../../../data/site';
 import { ADMIN_PATH } from '../../../lib/access';
 import { formatEuros, formatRange, parseEuros } from '../../../lib/pricing';
 import { finalizeQuote, loadQuote, quoteStatus, type Quote } from '../../../lib/quotes';
+import { can } from '../../../lib/accounts';
 
-if (!Astro.locals.isAdmin) return Astro.redirect(ADMIN_PATH);
+const { isAdmin, user } = Astro.locals;
+if (!isAdmin) return Astro.redirect(ADMIN_PATH);
 
 let quote: Quote | null = null;
 try {
@@ -21,6 +25,8 @@ try {
   console.error(e);
 }
 if (!quote) return Astro.redirect(`${ADMIN_PATH}#devis`);
+const canEdit = can.editQuote(user, quote.assignee?.id) && !quote.signature;
+const fullView = can.readQuoteDetails(user);
 
 // 123450 → « 1234,50 », 120000 → « 1200 »
 const toInput = (cents: number) => (cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100)).replace('.', ',');
@@ -39,7 +45,10 @@ let note = quote.final?.note ?? '';
 const invalid: string[] = [];
 let error = '';
 
-if (Astro.request.method === 'POST' && !quote.signature) {
+if (Astro.request.method === 'POST' && !canEdit) {
+  error = 'Seul l’admin+ à qui ce devis est attribué peut fixer ses prix.';
+  Astro.response.status = 403;
+} else if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
   note = String(data.get('note') ?? '').trim().slice(0, 1000);
   removed = data.getAll('remove').map(String);
@@ -99,14 +108,14 @@ const dateTime = (iso: string) =>
 const qtyLabel = (qty: number, unit: Unit) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
 const range = (part: { min: { ttc: number }; max: { ttc: number } }) => formatRange([part.min.ttc, part.max.ttc]);
 const contact = quote.contact;
-const locked = Boolean(quote.signature);
+const locked = !canEdit;
 ---
 
 <BaseLayout title={`Devis ${quote.number}`} description="Finalisation d'un devis." bare noindex>
   <AdminBar />
   <div class="admin surface-light-2">
     <div class="container admin-inner">
-      <a class="admin-back" href={`${ADMIN_PATH}#devis`}><Icon name="arrow" /> Tableau de bord</a>
+      <a class="admin-back" href={`${ADMIN_PATH}#devis`}><Icon name="arrow" /> Portail de l'équipe</a>
       <h1 class="admin-title">Devis {quote.number}</h1>
       <p class="admin-text">
         {STATES[status]} · créé le {dateTime(quote.createdAt)}
@@ -128,7 +137,32 @@ const locked = Boolean(quote.signature);
         <p class="admin-alert">Le studio n'est plus ouvert commercialement (launch.commercial) : la signature est fermée.</p>
       )}
       {error && <p class="admin-alert" role="alert">{error}</p>}
+      <p class="admin-text">
+        {quote.assignee
+          ? `Attribué à ${quote.assignee.name} le ${dateTime(quote.assignee.assignedAt)} (par ${quote.assignee.by}).`
+          : 'Non attribué : un admin+ doit l’attribuer depuis le portail avant que les prix puissent être fixés.'}
+        {fullView && !canEdit && !quote.signature && ' Vous consultez ce devis en lecture seule.'}
+      </p>
 
+      {!fullView ? (
+        <section class="admin-card card" aria-labelledby="q-summary">
+          <h2 class="admin-h2" id="q-summary">Résumé</h2>
+          <dl class="quote-doc-meta">
+            <div><dt>Projet</dt><dd>{quote.family.title} · {quote.base}</dd></div>
+            <div><dt>Attribué à</dt><dd>{quote.assignee?.name ?? 'Personne pour l’instant'}</dd></div>
+            <div>
+              <dt>Prix final</dt>
+              <dd>
+                {quote.final
+                  ? `${formatEuros(quote.final.totals.oneOff.ttc)}${quote.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(quote.final.totals.monthly.ttc)} / mois` : ''}${quote.vatRate > 0 ? ' TTC' : ''}`
+                  : 'Pas encore de devis ferme'}
+              </dd>
+            </div>
+            {quote.signature && <div><dt>Signé le</dt><dd>{dateTime(quote.signature.signedAt)}</dd></div>}
+          </dl>
+        </section>
+      ) : (
+      <Fragment>
       <section class="admin-card card" aria-labelledby="q-contact">
         <h2 class="admin-h2" id="q-contact">Client et projet</h2>
         <dl class="quote-doc-meta">
@@ -174,7 +208,7 @@ const locked = Boolean(quote.signature);
       </section>
 
       <form class="admin-card card" method="post" novalidate aria-labelledby="q-lines">
-        <h2 class="admin-h2" id="q-lines">{locked ? 'Prix signés' : 'Prix fermes'}</h2>
+        <h2 class="admin-h2" id="q-lines">{quote.signature ? 'Prix signés' : canEdit ? 'Prix fermes' : 'Prix (lecture seule)'}</h2>
         <p class="admin-text">
           Prix unitaire HT de chaque ligne, selon la complexité réelle du projet. La fourchette de l'estimation sert de
           repère ; vous pouvez en sortir si le besoin le justifie. Cochez « Retirer » pour enlever une ligne (pour suivre
@@ -253,6 +287,8 @@ const locked = Boolean(quote.signature);
           </div>
         )}
       </form>
+      </Fragment>
+      )}
     </div>
   </div>
 </BaseLayout>

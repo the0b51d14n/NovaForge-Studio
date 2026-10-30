@@ -1,0 +1,80 @@
+---
+// Connexion de tous les comptes (clients et équipe). Après connexion : retour à la page demandée (?suite=…),
+// sinon le portail de l'équipe pour un admin, admin+ ou dirigeant, l'accueil pour un client.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import { ADMIN_PATH, logIn, safeNext } from '../lib/access';
+import { authenticate, isStaff } from '../lib/accounts';
+
+const next = safeNext(Astro.url.searchParams.get('suite'));
+const home = (staff: boolean) => next ?? (staff ? ADMIN_PATH : '/');
+const { user } = Astro.locals;
+if (user && Astro.request.method !== 'POST') return Astro.redirect(home(isStaff(user)));
+
+let error = '';
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  email = String(data.get('email') ?? '').trim().slice(0, 200);
+  try {
+    const result = await authenticate(email, String(data.get('password') ?? '').slice(0, 200));
+    if (result === 'bloque') {
+      error = 'Trop de tentatives sur ce compte : réessayez dans 15 minutes.';
+      Astro.response.status = 429;
+    } else if (!result) {
+      // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      error = 'Adresse e-mail ou mot de passe incorrect.';
+      Astro.response.status = 401;
+    } else {
+      await logIn(Astro.cookies, result);
+      return Astro.redirect(home(isStaff(result)), 303);
+    }
+  } catch (e) {
+    console.error(e);
+    error = 'Connexion momentanément impossible (base de données injoignable). Réessayez dans un instant.';
+    Astro.response.status = 503;
+  }
+}
+---
+
+<BaseLayout title="Connexion" description="Connexion à votre compte NovaForge Studio." bare noindex>
+  <section class="hero lock surface-dark" aria-labelledby="login-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+    <div class="lock-panel">
+      <a href="/" aria-label="Retour à l'accueil"><Logo variant="stacked" tone="dark" /></a>
+      <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Connexion</p>
+      <h1 id="login-title">Votre compte.</h1>
+      <form class="lock-form" method="post">
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input class="input" id="email" name="email" type="email" value={email} autocomplete="username" required autofocus />
+        </div>
+        <div class="field">
+          <label for="password">Mot de passe</label>
+          <input
+            class="input"
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            aria-invalid={error ? 'true' : undefined}
+            aria-describedby={error ? 'login-error' : undefined}
+          />
+          {error && (
+            <p class="field-error" id="login-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+        <button class="btn btn-primary" type="submit">
+          Se connecter <Icon name="arrow" class="btn-arrow" />
+        </button>
+      </form>
+      <p class="lock-lead">Mot de passe oublié ? Demandez à un dirigeant du studio de le réinitialiser.</p>
+    </div>
+  </section>
+</BaseLayout>
