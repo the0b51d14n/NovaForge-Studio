@@ -140,6 +140,24 @@ export async function updateUser(
 }
 
 /**
+ * Change l'adresse e-mail de connexion. La nouvelle adresse est réservée d'abord (comme à la création), puis
+ * l'ancienne est libérée. 'pris' : un autre compte utilise déjà cette adresse.
+ */
+export async function changeEmail(id: string, emailInput: string): Promise<'ok' | 'pris' | 'inconnu'> {
+  const user = await loadUser(id);
+  if (!user) return 'inconnu';
+  const email = normalizeEmail(emailInput);
+  if (email === user.email) return 'ok';
+  const [reserved] = await redis([['SET', KEYS.email(email), id, 'NX']]);
+  if (reserved === null) return 'pris';
+  await redis([
+    ['SET', KEYS.user(id), JSON.stringify({ ...user, email })],
+    ['DEL', KEYS.email(user.email)],
+  ]);
+  return 'ok';
+}
+
+/**
  * Vérifie l'adresse et le mot de passe ; 'bloque' après trop d'échecs récents sur cette adresse.
  * Un compte désactivé est refusé comme un mauvais mot de passe.
  */

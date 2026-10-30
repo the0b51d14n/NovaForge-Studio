@@ -18,8 +18,11 @@ Espace privé de l'équipe, qui pilote le site sans modifier le code. Fichiers :
 | **Client** | Pas d'accès au portail (espace client : étape suivante) |
 
 - Les comptes de l'équipe sont créés par les dirigeants (section « Comptes de l'équipe ») avec un mot de passe
-  provisoire, que chacun change dans « Mon compte ». Un dirigeant peut changer un rôle, désactiver un compte ou
-  réinitialiser un mot de passe. Il reste toujours au moins un dirigeant actif ; on ne modifie pas son propre rôle.
+  provisoire, que chacun change dans « Mon compte ». Un dirigeant peut changer un rôle, une adresse e-mail,
+  désactiver un compte ou réinitialiser un mot de passe. Il reste toujours au moins un dirigeant actif ; on ne
+  modifie pas son propre rôle.
+- **Adresse e-mail** : chacun peut changer la sienne dans « Mon compte » (mot de passe actuel demandé). La nouvelle
+  adresse sert aussitôt à se connecter ; une adresse déjà utilisée par un autre compte est refusée.
 - **Premier lancement** : tant qu'aucun compte de l'équipe n'existe, `/administration` propose de créer le premier
   dirigeant, avec le mot de passe `SITE_PASSWORD`. Ensuite, `SITE_PASSWORD` ne sert plus.
 - **Mot de passe oublié** : un dirigeant le réinitialise (pas d'e-mail tant que la messagerie n'est pas en service).

@@ -17,6 +17,7 @@ import {
   ROLE_LABELS,
   STAFF_ROLES,
   can,
+  changeEmail,
   checkUserPassword,
   createUser,
   hasStaff,
@@ -267,6 +268,23 @@ if (Astro.request.method === 'POST') {
               await updateUser(target.id, { password });
               return doneAt('mot-de-passe-reinitialise', 'comptes');
             }
+          } else if (op === 'email') {
+            const email = text(data, 'email', 200);
+            if (!isEmail(email)) error = 'Adresse e-mail invalide.';
+            else if ((await changeEmail(target.id, email)) === 'pris') error = 'Un autre compte utilise déjà cette adresse e-mail.';
+            else return doneAt('e-mail-modifie', 'comptes');
+          }
+        }
+        if (action === 'email-change') {
+          const email = text(data, 'email', 200);
+          if (!(await checkUserPassword(user!.id, String(data.get('current') ?? '').slice(0, 200)))) {
+            error = 'Mot de passe actuel incorrect.';
+          } else if (!isEmail(email)) {
+            error = 'Adresse e-mail invalide.';
+          } else if ((await changeEmail(user!.id, email)) === 'pris') {
+            error = 'Un autre compte utilise déjà cette adresse e-mail.';
+          } else {
+            return doneAt('mon-e-mail', 'mon-compte');
           }
         }
         if (action === 'password-change') {
@@ -315,6 +333,8 @@ const flashes: Record<string, string> = {
   'compte-active': 'Compte réactivé.',
   'mot-de-passe-reinitialise': 'Mot de passe réinitialisé : transmettez-le à la personne concernée.',
   'mot-de-passe': 'Votre mot de passe a été changé.',
+  'e-mail-modifie': 'Adresse e-mail modifiée : elle sert maintenant à se connecter.',
+  'mon-e-mail': 'Votre adresse e-mail a été changée : utilisez-la pour vous connecter.',
 };
 const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
 
@@ -918,6 +938,19 @@ const formatDate = (iso: string) =>
                               </button>
                             </form>
                             <details class="admin-reset">
+                              <summary class="admin-link">E-mail</summary>
+                              <form class="admin-assign" method="post">
+                                <input type="hidden" name="action" value="account-update" />
+                                <input type="hidden" name="op" value="email" />
+                                <input type="hidden" name="id" value={u.id} />
+                                <label class="sr-only" for={`mail-${u.id}`}>Nouvelle adresse e-mail de {u.name}</label>
+                                <input class="input" id={`mail-${u.id}`} name="email" type="email" required placeholder={u.email} />
+                                <button class="admin-link" type="submit">
+                                  Modifier
+                                </button>
+                              </form>
+                            </details>
+                            <details class="admin-reset">
                               <summary class="admin-link">Mot de passe</summary>
                               <form class="admin-assign" method="post">
                                 <input type="hidden" name="action" value="account-update" />
@@ -952,6 +985,21 @@ const formatDate = (iso: string) =>
               <p class="admin-text">
                 {user!.name} · {user!.email} · {ROLE_LABELS[user!.role]}
               </p>
+              <form class="form admin-form" method="post">
+                <input type="hidden" name="action" value="email-change" />
+                <div class="field">
+                  <label for="me-email">Nouvelle adresse e-mail</label>
+                  <input class="input" id="me-email" name="email" type="email" autocomplete="email" required placeholder={user!.email} />
+                </div>
+                <div class="field">
+                  <label for="me-email-current">Mot de passe actuel</label>
+                  <input class="input" id="me-email-current" name="current" type="password" autocomplete="current-password" required />
+                </div>
+                <div class="form-footer">
+                  <p class="form-note">Elle servira à vous connecter.</p>
+                  <button class="btn btn-ghost" type="submit">Changer mon e-mail</button>
+                </div>
+              </form>
               <form class="form admin-form" method="post">
                 <input type="hidden" name="action" value="password-change" />
                 <div class="field field--full">
