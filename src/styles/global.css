@@ -1646,6 +1646,8 @@ select.input option { background: #fff; color: #06142a; }
 .hours-status { display: inline-flex; align-items: center; gap: 9px; margin-left: 4px; font-weight: 700; }
 .hours-status::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .hours-status.is-open::before { background: #1f9e6e; box-shadow: 0 0 0 4px rgba(31, 158, 110, .16); }
+.hours-status.is-closing-soon::before,
+.hours-status.is-opening-soon::before { background: #d98a1c; box-shadow: 0 0 0 4px rgba(217, 138, 28, .16); }
 .hours-list { display: grid; }
 .hours-day {
   display: grid;

@@ -32,7 +32,7 @@ const days = site.schedule.map((d, i) => {
 ---
 
 <div class="hours">
-  <p class:list={['hours-status', { 'is-open': status.open }]}>{status.label}</p>
+  <p class:list={['hours-status', `is-${status.state}`]}>{status.label}</p>
   <ul class="hours-list">
     {
       days.map(({ name, ranges, closure, partialReason, today }) => (

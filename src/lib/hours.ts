@@ -141,29 +141,27 @@ export function dayOn(iso: string, cal: Calendar): { ranges: Range[]; reason: st
   return { ranges, reason: touched ? label(manual[0]) : null, partial: touched && ranges.length > 0 };
 }
 
-/** État du studio : « Ouvert · ferme à 18 h », « Fermé (Toussaint) · ouvre demain à 9 h »… */
+/** Délai (en minutes) en deçà duquel le studio « ouvre bientôt » ou « ferme bientôt » */
+export const SOON = 60;
+
+export type State = 'open' | 'closing-soon' | 'opening-soon' | 'closed';
+
+const LABELS: Record<State, string> = {
+  open: 'Ouvert',
+  'closing-soon': 'Ferme bientôt',
+  'opening-soon': 'Ouvre bientôt',
+  closed: 'Fermé',
+};
+
+/** État du studio, sans heure affichée : « Ouvert », « Ferme bientôt », « Ouvre bientôt » ou « Fermé » */
 export function getStatus(cal: Calendar, now = new Date()) {
   const { date, minutes } = parisNow(now);
-  const today = dayOn(date, cal);
-  const current = today.ranges.find(([a, b]) => minutes >= a && minutes < b);
-  if (current) {
-    return { date, minutes, open: true, label: `Ouvert · ferme à ${formatTime(current[1])}` };
-  }
-  // Le motif n'est utile que si le studio aurait dû être ouvert à cette heure-ci
-  const usual = cal.slots[weekday(date)];
-  const duringUsualHours = usual !== null && minutes >= usual[0] && minutes < usual[1];
-  const showReason = today.reason && usual && (today.ranges.length === 0 || duringUsualHours);
-  const closed = showReason ? `Fermé (${today.reason})` : 'Fermé';
-  // Prochaine ouverture : plus tard aujourd'hui, ou dans l'année (vacances comprises)
-  for (let k = 0; k <= 366; k++) {
-    const iso = addDays(date, k);
-    const next = (k === 0 ? today : dayOn(iso, cal)).ranges.find(([a]) => k > 0 || a > minutes);
-    if (!next) continue;
-    const when =
-      k === 0 ? '' : k === 1 ? ' demain' : k < 7 ? ` ${formatDay(iso, { weekday: 'long' })}` : ` le ${formatDay(iso)}`;
-    return { date, minutes, open: false, label: `${closed} · ouvre${when} à ${formatTime(next[0])}` };
-  }
-  return { date, minutes, open: false, label: closed };
+  const { ranges } = dayOn(date, cal);
+  const current = ranges.find(([a, b]) => minutes >= a && minutes < b);
+  const state: State = current
+    ? current[1] - minutes <= SOON ? 'closing-soon' : 'open'
+    : ranges.some(([a]) => a > minutes && a - minutes <= SOON) ? 'opening-soon' : 'closed';
+  return { date, minutes, state, label: LABELS[state] };
 }
 
 /** Calendrier du studio : horaires de src/data/site.ts + fermetures enregistrées dans l'administration */
