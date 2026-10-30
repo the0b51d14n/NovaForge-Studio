@@ -1,0 +1,280 @@
+---
+// Devis créé depuis le simulateur : lignes et prix figés à la création, période de signature de
+// QUOTE_VALIDITY_DAYS jours. Adresse secrète (/devis/<id>), non référencée : seul celui qui a le lien y accède.
+// Signature en ligne seulement pour un devis créé après l'ouverture commerciale (voir quoteStatus).
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import Icon from '../../components/Icon.astro';
+import { QUOTE_VALIDITY_DAYS, UNIT_LABELS } from '../../data/quote-catalog';
+import { legal, isRegistered } from '../../data/site';
+import { formatEuros, type QuoteLine } from '../../lib/pricing';
+import { getSite } from '../../lib/store';
+import { isEmail, oneLine } from '../../lib/forms';
+import { RETENTION_DAYS, loadQuote, quoteStatus, signQuote, type Quote } from '../../lib/quotes';
+
+const site = getSite(Astro.locals);
+let quote: Quote | null = null;
+let unavailable = false;
+try {
+  quote = await loadQuote(Astro.params.id ?? '');
+} catch (e) {
+  console.error(e);
+  unavailable = true;
+}
+if (!quote) Astro.response.status = unavailable ? 503 : 404;
+
+const errors: Record<string, string> = {};
+let signer = { name: '', email: '' };
+
+if (quote && Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  signer = {
+    name: oneLine(String(data.get('name') ?? '')).trim().slice(0, 120),
+    email: String(data.get('email') ?? '').trim().slice(0, 200),
+  };
+  if (quoteStatus(quote) !== 'open') {
+    errors.form = 'Ce devis ne peut pas (ou plus) être signé.';
+  } else {
+    if (signer.name.length < 2) errors.name = 'Indiquez vos prénom et nom.';
+    if (!isEmail(signer.email)) errors.email = 'Indiquez une adresse e-mail valide.';
+    if (data.get('accept') !== 'oui') errors.accept = 'Cochez la case pour accepter le devis.';
+    if (Object.keys(errors).length === 0) {
+      try {
+        await signQuote(quote, signer);
+        return Astro.redirect(`/devis/${quote.id}?signe=1`, 303);
+      } catch (e) {
+        console.error(e);
+        errors.form = "La signature n'a pas pu être enregistrée. Réessayez dans un instant.";
+      }
+    }
+  }
+  Astro.response.status = 422;
+}
+
+const status = quote ? quoteStatus(quote) : null;
+const dateFormat = { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' } as const;
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', dateFormat);
+const formatDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('fr-FR', { ...dateFormat, hour: '2-digit', minute: '2-digit' });
+const daysLeft = quote ? Math.max(0, Math.ceil((Date.parse(quote.expiresAt) - Date.now()) / 86_400_000)) : 0;
+
+// Lignes regroupées par service, dans l'ordre du catalogue
+const sections = (monthly: boolean) => {
+  const groups = new Map<string, QuoteLine[]>();
+  for (const line of quote?.lines.filter((l) => l.monthly === monthly) ?? []) {
+    groups.set(line.group, [...(groups.get(line.group) ?? []), line]);
+  }
+  return [...groups];
+};
+const qtyLabel = (line: QuoteLine) => `${line.qty} ${UNIT_LABELS[line.unit][line.qty > 1 ? 1 : 0]}`;
+const issuer = legal.legalName ?? legal.publisher ?? site.name;
+const invalid = (name: string) => (errors[name] ? 'true' : undefined);
+const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined);
+---
+
+<BaseLayout
+  title={quote ? `Devis ${quote.number}` : 'Devis introuvable'}
+  description="Votre devis NovaForge Studio."
+  noindex
+>
+  <PageHero eyebrow={quote ? `Devis ${quote.number}` : 'Devis'} compact>
+    <Fragment slot="title">
+      {
+        status === 'signed' ? (
+          <Fragment>Devis <em>signé.</em></Fragment>
+        ) : status === 'expired' ? (
+          <Fragment>Devis <em>expiré.</em></Fragment>
+        ) : quote ? (
+          <Fragment>Votre <em>devis.</em></Fragment>
+        ) : (
+          <Fragment>Devis <em>introuvable.</em></Fragment>
+        )
+      }
+    </Fragment>
+  </PageHero>
+
+  <section class="section section--tight surface-light-2" aria-label="Détail du devis">
+    <div class="container quote-page">
+      {
+        !quote ? (
+          <div class="quote-empty card">
+            <p>
+              {unavailable
+                ? 'Le devis est momentanément indisponible. Réessayez dans un instant.'
+                : `Ce lien ne correspond à aucun devis. Un devis non signé est supprimé ${RETENTION_DAYS} jours après sa création.`}
+            </p>
+            <a class="btn btn-primary" href="/devis">
+              Faire une simulation <Icon name="arrow" class="btn-arrow" />
+            </a>
+          </div>
+        ) : (
+          <Fragment>
+            {Astro.url.searchParams.has('signe') && status === 'signed' && (
+              <p class="admin-flash" role="status">
+                <Icon name="check" /> Merci ! Votre devis est signé : nous revenons vers vous pour lancer le projet.
+              </p>
+            )}
+            {status === 'simulation' && (
+              <p class="quote-banner">
+                <strong>Simulation non contractuelle.</strong> Ce devis a été établi avant l'ouverture commerciale du
+                studio : il ne peut pas être signé. Ses prix restent indicatifs.
+              </p>
+            )}
+            {status === 'expired' && (
+              <p class="quote-banner">
+                <strong>Ce devis a expiré le {formatDate(quote.expiresAt)}.</strong> Ses prix ne sont plus garantis :
+                refaites une simulation pour obtenir un devis à jour.
+              </p>
+            )}
+
+            <article class="quote-doc card">
+              <header class="quote-doc-head">
+                <div>
+                  <p class="quote-doc-label">Émis par</p>
+                  <p class="quote-doc-strong">{issuer}</p>
+                  <p>{site.address.join(', ')}</p>
+                  {legal.siret && <p>SIRET {legal.siret}</p>}
+                  {legal.vat && <p>TVA intracommunautaire {legal.vat}</p>}
+                  {!isRegistered && <p class="quote-doc-muted">Projet en préparation, non immatriculé</p>}
+                </div>
+                <dl class="quote-doc-meta">
+                  <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                  <div><dt>Date</dt><dd>{formatDate(quote.createdAt)}</dd></div>
+                  <div>
+                    <dt>Valable jusqu'au</dt>
+                    <dd>
+                      {formatDate(quote.expiresAt)}
+                      {status === 'open' && ` (encore ${daysLeft} jour${daysLeft > 1 ? 's' : ''})`}
+                    </dd>
+                  </div>
+                </dl>
+              </header>
+
+              {[false, true].map((monthly) => {
+                const groups = sections(monthly);
+                const totals = monthly ? quote!.totals.monthly : quote!.totals.oneOff;
+                return (
+                  groups.length > 0 && (
+                    <div class="quote-table-wrap">
+                      <table class="quote-table">
+                        <caption>{monthly ? 'Abonnement mensuel' : 'Prestations'}</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Désignation</th>
+                            <th scope="col">Quantité</th>
+                            <th scope="col">Prix unitaire HT</th>
+                            <th scope="col">Total HT</th>
+                          </tr>
+                        </thead>
+                        {groups.map(([group, lines]) => (
+                          <tbody>
+                            <tr class="quote-table-group">
+                              <th scope="rowgroup" colspan="4">{group}</th>
+                            </tr>
+                            {lines.map((line) => (
+                              <tr>
+                                <td>
+                                  {line.label}
+                                  {line.detail && <span class="quote-item-detail">{line.detail}</span>}
+                                </td>
+                                <td>{qtyLabel(line)}</td>
+                                <td>{formatEuros(line.unitPrice)}</td>
+                                <td>{formatEuros(line.total)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        ))}
+                      </table>
+                      <dl class="quote-totals">
+                        <div><dt>Total HT{monthly && ' par mois'}</dt><dd>{formatEuros(totals.ht)}</dd></div>
+                        {quote!.vatRate > 0 && (
+                          <div><dt>TVA {quote!.vatRate} %</dt><dd>{formatEuros(totals.vat)}</dd></div>
+                        )}
+                        <div class="quote-totals-main">
+                          <dt>Total {quote!.vatRate > 0 ? 'TTC' : 'à payer'}{monthly && ' par mois'}</dt>
+                          <dd>{formatEuros(totals.ttc)}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  )
+                );
+              })}
+
+              <ul class="quote-doc-notes">
+                {quote.vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
+                <li>
+                  Prix fermes pendant {QUOTE_VALIDITY_DAYS} jours à compter de la date du devis, soit jusqu'au
+                  {' '}{formatDate(quote.expiresAt)}.
+                </li>
+                {quote.totals.monthly.ht > 0 && <li>L'abonnement mensuel démarre à la mise en ligne.</li>}
+                <li>Devis établi à partir de vos choix dans le simulateur ; le contenu exact est confirmé avec vous au lancement du projet.</li>
+              </ul>
+
+              {quote.signature && (
+                <p class="quote-signed">
+                  <Icon name="check" /> Bon pour accord : signé par <strong>{quote.signature.name}</strong> le
+                  {' '}{formatDateTime(quote.signature.signedAt)}.
+                </p>
+              )}
+            </article>
+
+            {status === 'open' && (
+              <form class="form form--card card quote-sign" method="post" novalidate>
+                <h2 class="quote-sign-title field--full">Signer ce devis</h2>
+                {errors.form && (
+                  <p class="field-error field--full" role="alert">
+                    {errors.form}
+                  </p>
+                )}
+                <div class="field">
+                  <label for="sign-name">Prénom et nom <span class="req">*</span></label>
+                  <input class="input" id="sign-name" name="name" value={signer.name} required maxlength="120" autocomplete="name" aria-invalid={invalid('name')} aria-describedby={describedBy('name')} />
+                  {errors.name && <p class="field-error" id="name-err">{errors.name}</p>}
+                </div>
+                <div class="field">
+                  <label for="sign-email">E-mail <span class="req">*</span></label>
+                  <input class="input" id="sign-email" name="email" type="email" value={signer.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
+                  {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
+                </div>
+                <div class="field field--full">
+                  <label class="check">
+                    <input type="checkbox" name="accept" value="oui" required aria-invalid={invalid('accept')} aria-describedby={describedBy('accept')} />
+                    <span>
+                      J'ai lu le détail de ce devis et les conditions générales de vente, et je les accepte : bon pour
+                      accord pour un montant de {formatEuros(quote.totals.oneOff.ttc)}
+                      {quote.totals.monthly.ttc > 0 && `, puis ${formatEuros(quote.totals.monthly.ttc)} par mois`}.
+                    </span>
+                  </label>
+                  {errors.accept && <p class="field-error" id="accept-err">{errors.accept}</p>}
+                </div>
+                <p class="form-privacy field--full">
+                  Vous disposez d'un délai de 14 jours à compter de la signature pour vous rétracter, sans avoir à vous
+                  justifier (code de la consommation, art. L221-18). Vos nom et e-mail servent à établir le contrat et
+                  à vous recontacter : <a href="/confidentialite">politique de confidentialité</a>.
+                </p>
+                <div class="form-footer">
+                  <p class="form-note">Valable jusqu'au {formatDate(quote.expiresAt)}</p>
+                  <button class="btn btn-primary" type="submit">
+                    Signer le devis <Icon name="arrow" class="btn-arrow" />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div class="quote-actions">
+              <button class="btn btn-ghost" type="button" data-print>Imprimer ou enregistrer en PDF</button>
+              <a class="btn btn-ghost" href="/devis">Nouvelle simulation</a>
+              {status !== 'signed' && (
+                <p class="form-note">Gardez le lien de cette page : c'est la seule façon de retrouver votre devis.</p>
+              )}
+            </div>
+          </Fragment>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+</script>

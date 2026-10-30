@@ -1,12 +1,14 @@
 ---
 // Politique de confidentialité (RGPD, art. 13) : décrit le fonctionnement réel du site, vérifié dans le code
-// (src/pages/api/*.ts, src/lib/forms.ts, src/lib/access.ts, src/scripts/live.ts, src/components/OfficeMap.astro).
+// (src/pages/api/*.ts, src/lib/forms.ts, src/lib/access.ts, src/lib/quotes.ts, src/scripts/live.ts,
+// src/components/OfficeMap.astro).
 // Toute évolution technique (nouveau service, mesure d'audience…) doit être reportée ici. Suivi : AUDIT-LEGAL.md
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
-import { legal, host, launch } from '../data/site';
+import { legal, host, launch, storage } from '../data/site';
 import { getSite } from '../lib/store';
 import { mailEnabled } from '../lib/forms';
+import { RETENTION_DAYS } from '../lib/quotes';
 
 const site = getSite(Astro.locals);
 
@@ -16,7 +18,7 @@ const controller = legal.legalName ?? legal.publisher ?? site.founder.name;
 const contactOpen = launch.mailbox && mailEnabled();
 const applyOpen = contactOpen && launch.recruitment;
 const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
-const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 ---
 
 <BaseLayout
@@ -85,6 +87,30 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
         </li>
       </ul>
 
+      <h2>Simulateur de devis</h2>
+      <ul class="legal-points">
+        <li>
+          <strong>Données</strong> : les prestations choisies et leurs prix. Aucune donnée personnelle n'est demandée
+          pour créer un devis. Pour limiter les abus, une empreinte de votre adresse IP (qui ne permet pas de la
+          retrouver directement) est gardée une heure.
+        </li>
+        <li>
+          <strong>Finalité</strong> : vous remettre un devis consultable à son adresse, connue de vous seul, et
+          {launch.commercial ? ' vous permettre de le signer en ligne.' : ' nous permettre de suivre les demandes.'}
+        </li>
+        <li>
+          <strong>Durée</strong> : un devis non signé est supprimé automatiquement {RETENTION_DAYS} jours après sa
+          création.
+        </li>
+        {launch.commercial && (
+          <li>
+            <strong>Signature</strong> : vos prénom, nom et e-mail, et la date de signature, pour établir le contrat
+            (RGPD, art. 6.1.b). Un devis signé est conservé pendant la durée du contrat, puis 5 ans (délai de
+            prescription, code civil, art. 2224), ou plus longtemps si une obligation légale l'impose.
+          </li>
+        )}
+      </ul>
+
       <h2>Candidatures{!applyOpen && ' (aucun recrutement ouvert pour le moment)'}</h2>
       <ul class="legal-points">
         <li>
@@ -115,6 +141,10 @@ const updated = new Date('2026-10-28').toLocaleDateString('fr-FR', { day: 'numer
           <strong>{host.name}</strong> (États-Unis), hébergeur : il reçoit les requêtes envoyées au site, dont le
           contenu des formulaires au moment de l'envoi, et conserve des journaux techniques (adresse IP, pages
           demandées) selon sa propre politique.
+        </li>
+        <li>
+          <strong>{storage.name}</strong>, base de données : elle conserve les devis du simulateur et les réglages du
+          site.
         </li>
         <li>
           <strong>Resend</strong> (États-Unis), service d'envoi d'e-mails : il acheminera le message des formulaires vers

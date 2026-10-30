@@ -7,6 +7,8 @@ import Icon from '../../components/Icon.astro';
 import AdminBar from '../../components/AdminBar.astro';
 import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
+import { deleteQuote, listQuotes, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
+import { formatEuros } from '../../lib/pricing';
 import { site } from '../../data/site';
 import { LOCK_REASONS, isLockReason } from '../../data/lock-reasons';
 import {
@@ -124,6 +126,10 @@ if (Astro.request.method === 'POST') {
         await saveOpenings(openings.filter((o) => o.slug !== slug));
         return done('supprimee');
       }
+      if (action === 'quote-delete') {
+        await deleteQuote(text(data, 'id', 32));
+        return Astro.redirect(`${ADMIN_PATH}?ok=devis-supprime#devis`, 303);
+      }
     } catch (e) {
       console.error(e);
       error = "L'enregistrement a échoué (base de données injoignable). Réessayez dans un instant.";
@@ -148,8 +154,27 @@ const flashes: Record<string, string> = {
   'holidays-on': 'Les jours fériés sont maintenant indiqués comme fermés.',
   'holidays-off': 'Les jours fériés ne sont plus indiqués comme fermés.',
   modifiee: 'Offre mise à jour.',
+  'devis-supprime': 'Devis supprimé.',
 };
 const flash = flashes[Astro.url.searchParams.get('ok') ?? ''];
+
+// Derniers devis du simulateur (les devis non signés sont supprimés automatiquement après quelques semaines)
+let quotes: Quote[] = [];
+let quotesError = false;
+if (isAdmin) {
+  try {
+    quotes = await listQuotes();
+  } catch (e) {
+    console.error(e);
+    quotesError = true;
+  }
+}
+const QUOTE_STATES: Record<QuoteStatus, [label: string, tone: 'open' | 'locked']> = {
+  simulation: ['Simulation', 'locked'],
+  open: ['En attente de signature', 'open'],
+  expired: ['Expiré', 'locked'],
+  signed: ['Signé', 'open'],
+};
 
 // Dates de l'administration : jour et mois seulement (« 11 nov. »)
 const cal = buildCalendar(site.schedule, { ...settings, closures });
@@ -484,6 +509,58 @@ const formatDate = (iso: string) =>
                   </ul>
                 )}
               </div>
+            </section>
+
+            <section class="admin-card card" id="devis" aria-labelledby="a-quotes">
+              <div class="admin-card-head">
+                <h2 class="admin-h2" id="a-quotes">Simulateur de devis</h2>
+                <a class="btn btn-primary btn-sm" href={`${ADMIN_PATH}/tarifs`}>
+                  Modifier les tarifs <Icon name="arrow" class="btn-arrow" />
+                </a>
+              </div>
+              <p class="admin-text">
+                Les visiteurs composent leur projet sur <a href="/devis" target="_blank" rel="noopener">/devis</a> et
+                obtiennent un devis aux prix figés, signable pendant 30 jours une fois le studio ouvert commercialement.
+                Seuls les éléments qui ont un prix sont proposés.
+              </p>
+              {quotesError ? (
+                <p class="admin-text">Liste des devis momentanément indisponible (base de données injoignable).</p>
+              ) : quotes.length === 0 ? (
+                <p class="admin-text">Aucun devis créé pour le moment.</p>
+              ) : (
+                <ul class="admin-jobs">
+                  {quotes.map((q) => {
+                    const [label, tone] = QUOTE_STATES[quoteStatus(q)];
+                    return (
+                      <li class="admin-job">
+                        <div class="admin-job-main">
+                          <p class="admin-job-title">
+                            {q.number} · {formatEuros(q.totals.oneOff.ttc)}
+                            {q.totals.monthly.ttc > 0 && ` + ${formatEuros(q.totals.monthly.ttc)} / mois`}
+                          </p>
+                          <p class="admin-job-meta">
+                            Créé le {formatDate(q.createdAt)} · {q.lines.length} ligne{q.lines.length > 1 ? 's' : ''}
+                            {q.signature && ` · signé par ${q.signature.name} (${q.signature.email})`}
+                          </p>
+                        </div>
+                        <div class="admin-job-actions">
+                          <span class:list={['admin-state', `admin-state--${tone}`]}>{label}</span>
+                          <a class="admin-link" href={`/devis/${q.id}`} target="_blank" rel="noopener">
+                            Voir
+                          </a>
+                          <form method="post" data-confirm={`Supprimer le devis ${q.number} ?`}>
+                            <input type="hidden" name="action" value="quote-delete" />
+                            <input type="hidden" name="id" value={q.id} />
+                            <button class="admin-link admin-link--danger" type="submit">
+                              Supprimer
+                            </button>
+                          </form>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
 
             <section class="admin-card card" aria-labelledby="a-jobs">

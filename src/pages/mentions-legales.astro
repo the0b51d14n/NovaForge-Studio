@@ -94,11 +94,12 @@ const incomplete =
         <div><dt>Site</dt><dd><a href={host.url} rel="noopener">{host.url.replace('https://', '')}</a></dd></div>
       </dl>
 
-      <h2>Stockage des réglages du site</h2>
+      <h2>Stockage des données du site</h2>
       <p>
         Les réglages modifiables depuis l'espace d'administration (ouverture du site, adresse, horaires, offres
-        d'emploi) sont enregistrés chez {storage.name}, {storage.address ?? 'adresse à compléter'}. Aucune donnée
-        saisie par les visiteurs n'y est conservée.
+        d'emploi, tarifs) et les devis créés avec le simulateur sont enregistrés chez {storage.name},
+        {' '}{storage.address ?? 'adresse à compléter'}. Le détail des données concernées figure dans la
+        {' '}<a href="/confidentialite">politique de confidentialité</a>.
       </p>
 
       <h2>Propriété intellectuelle</h2>

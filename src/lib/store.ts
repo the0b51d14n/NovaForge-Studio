@@ -1,5 +1,6 @@
-// Données modifiables depuis /administration : verrou du site, adresse du siège, fermetures, offres d'emploi.
-// Stockées dans Upstash Redis (Vercel → Storage → Upstash) via son API REST.
+// Données modifiables depuis /administration : verrou du site, adresse du siège, fermetures, offres d'emploi,
+// tarifs du simulateur de devis. Stockées dans Upstash Redis (Vercel → Storage → Upstash) via son API REST.
+// Les devis eux-mêmes sont gérés dans src/lib/quotes.ts, avec la même base.
 // Sans Redis configuré (développement local), elles vivent en mémoire et sont perdues au redémarrage.
 // Tant que rien n'a été enregistré, les valeurs de src/data/site.ts et src/data/content.ts servent de départ.
 import {
@@ -11,6 +12,7 @@ import {
 import { launch, site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
 import { parisNow, startOfWeek, type Closure } from './hours';
+import { defaultPricing, type Pricing } from './pricing';
 import type { LockReason } from '../data/lock-reasons';
 
 export type Settings = {
@@ -29,7 +31,7 @@ export type Settings = {
 };
 
 // nf:version : tampon changé à chaque enregistrement, surveillé par les pages ouvertes (src/scripts/live.ts)
-const KEYS = { settings: 'nf:settings', openings: 'nf:openings', version: 'nf:version' } as const;
+const KEYS = { settings: 'nf:settings', openings: 'nf:openings', pricing: 'nf:pricing', version: 'nf:version' } as const;
 const stamp = () => Date.now().toString(36);
 
 const defaults = (): { settings: Settings; openings: Opening[] } => ({
@@ -52,22 +54,55 @@ const redisToken = KV_REST_API_TOKEN ?? UPSTASH_REDIS_REST_TOKEN;
 /** false : pas de base configurée, les modifications ne survivent pas à un redémarrage */
 export const isPersistent = (): boolean => Boolean(redisUrl && redisToken);
 
-const memory = new Map<string, string>();
+export type Reply = string | number | null | (string | null)[];
+/** Réponse texte (GET), ou null */
+export const text = (reply: Reply): string | null => (typeof reply === 'string' ? reply : null);
 
-async function redis(commands: string[][]): Promise<(string | null)[]> {
-  if (!isPersistent()) {
-    return commands.map(([cmd, key, value]) => {
-      if (cmd === 'SET') memory.set(key, value);
-      return cmd === 'GET' ? memory.get(key) ?? null : 'OK';
-    });
+const memory = new Map<string, string>();
+const sorted = new Map<string, Map<string, number>>();
+
+// Sans Redis : les seules commandes utilisées par le site, en mémoire (les durées d'expiration sont ignorées)
+function local([cmd, key, ...args]: string[]): Reply {
+  const zset = sorted.get(key) ?? new Map<string, number>();
+  switch (cmd) {
+    case 'GET':
+      return memory.get(key) ?? null;
+    case 'MGET':
+      return [key, ...args].map((k) => memory.get(k) ?? null);
+    case 'SET':
+      memory.set(key, args[0]);
+      return 'OK';
+    case 'DEL':
+      return Number(memory.delete(key));
+    case 'INCR': {
+      const n = Number(memory.get(key) ?? 0) + 1;
+      memory.set(key, String(n));
+      return n;
+    }
+    case 'ZADD':
+      sorted.set(key, zset.set(args[1], Number(args[0])));
+      return 1;
+    case 'ZREM':
+      return args.filter((member) => zset.delete(member)).length;
+    case 'ZREVRANGE':
+      return [...zset]
+        .sort((a, b) => b[1] - a[1])
+        .slice(Number(args[0]), Number(args[1]) + 1)
+        .map(([member]) => member);
+    default:
+      return 'OK';
   }
+}
+
+export async function redis(commands: string[][]): Promise<Reply[]> {
+  if (!isPersistent()) return commands.map(local);
   const res = await fetch(`${redisUrl}/pipeline`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(commands),
   });
   if (!res.ok) throw new Error(`Redis : HTTP ${res.status}`);
-  const replies = (await res.json()) as { result?: string | null; error?: string }[];
+  const replies = (await res.json()) as { result?: Reply; error?: string }[];
   return replies.map((reply) => {
     if (reply.error) throw new Error(`Redis : ${reply.error}`);
     return reply.result ?? null;
@@ -77,11 +112,13 @@ async function redis(commands: string[][]): Promise<(string | null)[]> {
 export async function loadData(): Promise<{ settings: Settings; openings: Opening[]; version: string }> {
   const base = defaults();
   try {
-    const [settings, openings, version] = await redis([
-      ['GET', KEYS.settings],
-      ['GET', KEYS.openings],
-      ['GET', KEYS.version],
-    ]);
+    const [settings, openings, version] = (
+      await redis([
+        ['GET', KEYS.settings],
+        ['GET', KEYS.openings],
+        ['GET', KEYS.version],
+      ])
+    ).map(text);
     return {
       settings: settings ? { ...base.settings, ...JSON.parse(settings) } : base.settings,
       openings: openings ? JSON.parse(openings) : base.openings,
@@ -97,7 +134,7 @@ export async function loadData(): Promise<{ settings: Settings; openings: Openin
 /** Tampon de la dernière modification : une seule lecture, pour les vérifications fréquentes */
 export async function readVersion(): Promise<string> {
   const [version] = await redis([['GET', KEYS.version]]);
-  return version ?? '0';
+  return text(version) ?? '0';
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -129,6 +166,21 @@ export async function purgeExpiredClosures(settings: Settings): Promise<Settings
 export async function saveOpenings(openings: Opening[]): Promise<void> {
   await redis([
     ['SET', KEYS.openings, JSON.stringify(openings)],
+    ['SET', KEYS.version, stamp()],
+  ]);
+}
+
+/** Tarifs du simulateur de devis : lus seulement par les pages qui en ont besoin (pas à chaque requête) */
+export async function loadPricing(): Promise<Pricing> {
+  const [pricing] = await redis([['GET', KEYS.pricing]]);
+  const saved = text(pricing);
+  return saved ? { ...defaultPricing(), ...JSON.parse(saved) } : defaultPricing();
+}
+
+/** Les devis déjà créés gardent leurs prix : seuls les nouveaux devis utilisent ces tarifs */
+export async function savePricing(pricing: Pricing): Promise<void> {
+  await redis([
+    ['SET', KEYS.pricing, JSON.stringify(pricing)],
     ['SET', KEYS.version, stamp()],
   ]);
 }

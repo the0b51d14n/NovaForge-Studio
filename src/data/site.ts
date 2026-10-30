@@ -111,8 +111,8 @@ export const host = {
 };
 
 /**
- * Prestataire stockant les réglages du site modifiés depuis l'administration (LCEN, art. 1-1, I, 5° :
- * nom et adresse). Aucune donnée de visiteur n'y est enregistrée. Adresse à vérifier (voir AUDIT-LEGAL.md).
+ * Prestataire stockant les réglages du site modifiés depuis l'administration et les devis du simulateur
+ * (LCEN, art. 1-1, I, 5° : nom et adresse). Adresse à vérifier (voir AUDIT-LEGAL.md).
  */
 export const storage = {
   name: 'Upstash, Inc. (base de données Upstash Redis, souscrite via Vercel)',
@@ -126,6 +126,7 @@ export type NavItem = { href: string; label: string; badge?: string };
 export const nav: NavItem[] = [
   { href: '/agence', label: "L'agence" },
   { href: '/services', label: 'Services' },
+  { href: '/devis', label: 'Devis' },
   { href: '/realisations', label: 'Réalisations' },
   { href: '/carrieres', label: 'Carrières', badge: 'On recrute' },
 ].filter((item) => item.href !== '/realisations' || projects.length > 0);

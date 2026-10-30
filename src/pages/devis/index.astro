@@ -1,0 +1,310 @@
+---
+// Simulateur de devis : le visiteur compose son projet (formule par service, options, quantités), voit le total
+// en direct, puis crée son devis. Les prix sont recalculés ici, côté serveur, et figés dans le devis enregistré.
+// Fonctionne sans JavaScript (le total s'affiche alors sur le devis créé).
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import Icon from '../../components/Icon.astro';
+import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
+import { launch } from '../../data/site';
+import {
+  VAT_RATES,
+  availableCatalog,
+  computeTotals,
+  defaultPricing,
+  formatEuros,
+  priceLines,
+  readSelection,
+  type Selection,
+} from '../../lib/pricing';
+import { loadPricing } from '../../lib/store';
+import { clientKey, createQuote } from '../../lib/quotes';
+
+let pricing = defaultPricing();
+let unavailable = false;
+try {
+  pricing = await loadPricing();
+} catch (e) {
+  console.error(e);
+  unavailable = true;
+}
+const groups = availableCatalog(pricing);
+const vatRate = VAT_RATES[pricing.vat];
+let selection: Selection = { bases: {}, options: [], quantities: {} };
+let error = '';
+
+if (Astro.request.method === 'POST' && !unavailable) {
+  const data = await Astro.request.formData();
+  // Champ piège rempli : un robot, on fait comme si de rien n'était
+  if (data.get('site_web')) return Astro.redirect('/devis', 303);
+  selection = readSelection(data);
+  const lines = priceLines(selection, pricing);
+  if (lines.length === 0) {
+    error = 'Choisissez au moins une prestation pour créer votre devis.';
+    Astro.response.status = 422;
+  } else {
+    try {
+      const quote = await createQuote(lines, pricing, await clientKey(Astro.request, () => Astro.clientAddress));
+      if (quote !== 'limite') return Astro.redirect(`/devis/${quote.id}`, 303);
+      error = 'Vous avez créé beaucoup de devis en peu de temps : réessayez dans une heure.';
+      Astro.response.status = 429;
+    } catch (e) {
+      console.error(e);
+      error = "Le devis n'a pas pu être enregistré. Réessayez dans un instant.";
+      Astro.response.status = 500;
+    }
+  }
+}
+
+// Prix affiché au visiteur : TTC (HT et TTC sont égaux en franchise de TVA)
+const shown = (cents: number) => formatEuros(computeTotals(cents, vatRate).ttc);
+function priceTag(item: CatalogItem) {
+  const price = shown(pricing.prices[item.id]);
+  if (item.kind === 'quantity') return `${price} / ${UNIT_LABELS[item.unit][0]}${item.monthly ? ', par mois' : ''}`;
+  return item.monthly ? `${price} / mois` : price;
+}
+const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non applicable, art. 293 B du CGI.';
+---
+
+<BaseLayout
+  title="Simulateur de devis"
+  description="Composez votre projet (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et obtenez immédiatement un devis détaillé."
+>
+  <PageHero
+    eyebrow="Simulateur de devis"
+    lead={
+      launch.commercial
+        ? `Choisissez vos prestations : votre devis détaillé est créé immédiatement, ses prix sont garantis ${QUOTE_VALIDITY_DAYS} jours et vous pouvez le signer en ligne.`
+        : "Choisissez vos prestations pour obtenir un devis détaillé. Le studio est en préparation : le devis obtenu est une simulation, non contractuelle."
+    }
+  >
+    <Fragment slot="title">Composez votre projet, <em>voyez le prix.</em></Fragment>
+  </PageHero>
+
+  <section class="section section--tight surface-light-2" aria-label="Simulateur">
+    <div class="container">
+      {
+        unavailable || groups.length === 0 ? (
+          <div class="quote-empty card">
+            <h2 class="quote-empty-title">Le simulateur arrive bientôt.</h2>
+            <p>
+              {unavailable
+                ? 'Le simulateur est momentanément indisponible. Réessayez dans un instant.'
+                : 'Nos tarifs sont en cours de finalisation : le simulateur ouvrira dès qu’ils seront prêts.'}
+            </p>
+            <a class="btn btn-primary" href="/contact">
+              Nous contacter <Icon name="arrow" class="btn-arrow" />
+            </a>
+          </div>
+        ) : (
+          <form class="quote-layout" method="post" data-quote-form data-vat-rate={vatRate}>
+            <div class="hp" aria-hidden="true">
+              <label>
+                Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" />
+              </label>
+            </div>
+
+            <div class="quote-groups">
+              {groups.map((group) => {
+                const bases = group.items.filter((item) => item.kind === 'base');
+                const extras = group.items.filter((item) => item.kind !== 'base');
+                const chosen = selection.bases[group.id] ?? '';
+                return (
+                  <fieldset class="quote-group card" data-group data-needs-base={bases.length > 0 ? 'true' : undefined}>
+                    <legend class="quote-group-title">{group.title}</legend>
+                    <p class="quote-group-intro">{group.intro}</p>
+
+                    {bases.length > 0 && (
+                      <div class="quote-items" role="radiogroup" aria-label={`Formule : ${group.title}`}>
+                        <label class="quote-item">
+                          <input type="radio" name={`base:${group.id}`} value="" checked={!chosen} />
+                          <span class="quote-item-text">
+                            <span class="quote-item-label">Pas pour l'instant</span>
+                          </span>
+                        </label>
+                        {bases.map((item) => (
+                          <label class="quote-item">
+                            <input
+                              type="radio"
+                              name={`base:${group.id}`}
+                              value={item.id}
+                              checked={chosen === item.id}
+                              data-price={pricing.prices[item.id]}
+                              data-monthly={item.monthly ? 'true' : undefined}
+                              data-label={item.label}
+                            />
+                            <span class="quote-item-text">
+                              <span class="quote-item-label">{item.label}</span>
+                              {item.detail && <span class="quote-item-detail">{item.detail}</span>}
+                            </span>
+                            <span class="quote-item-price">{priceTag(item)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {extras.length > 0 && (
+                      <div class="quote-extras" data-extras>
+                        {bases.length > 0 && <p class="quote-extras-title">Options</p>}
+                        <div class="quote-items">
+                          {extras.map((item) =>
+                            item.kind === 'quantity' ? (
+                              <div class="quote-item quote-item--qty">
+                                <span class="quote-item-text">
+                                  <label class="quote-item-label" for={`qty-${item.id}`}>
+                                    {item.label}
+                                  </label>
+                                  {item.detail && <span class="quote-item-detail">{item.detail}</span>}
+                                  <span class="quote-item-price">{priceTag(item)}</span>
+                                </span>
+                                <input
+                                  class="input quote-qty"
+                                  id={`qty-${item.id}`}
+                                  name={`qty:${item.id}`}
+                                  type="number"
+                                  min="0"
+                                  max={item.max ?? 99}
+                                  step="1"
+                                  inputmode="numeric"
+                                  value={selection.quantities[item.id] || 0}
+                                  data-price={pricing.prices[item.id]}
+                                  data-monthly={item.monthly ? 'true' : undefined}
+                                  data-label={item.label}
+                                  data-unit={UNIT_LABELS[item.unit].join('|')}
+                                />
+                              </div>
+                            ) : (
+                              <label class="quote-item">
+                                <input
+                                  type="checkbox"
+                                  name="option"
+                                  value={item.id}
+                                  checked={selection.options.includes(item.id)}
+                                  data-price={pricing.prices[item.id]}
+                                  data-monthly={item.monthly ? 'true' : undefined}
+                                  data-label={item.label}
+                                />
+                                <span class="quote-item-text">
+                                  <span class="quote-item-label">{item.label}</span>
+                                  {item.detail && <span class="quote-item-detail">{item.detail}</span>}
+                                </span>
+                                <span class="quote-item-price">{priceTag(item)}</span>
+                              </label>
+                            ),
+                          )}
+                        </div>
+                        {bases.length > 0 && (
+                          <p class="quote-extras-hint">Choisissez d'abord une formule pour ajouter des options.</p>
+                        )}
+                      </div>
+                    )}
+                  </fieldset>
+                );
+              })}
+            </div>
+
+            <aside class="quote-summary card surface-dark" aria-labelledby="quote-summary-title">
+              <h2 class="quote-summary-title" id="quote-summary-title">Votre devis</h2>
+              <ul class="quote-summary-lines" data-summary-lines>
+                <li class="quote-summary-empty">Aucune prestation choisie pour l'instant.</li>
+              </ul>
+              <dl class="quote-summary-totals" aria-live="polite">
+                <div>
+                  <dt>Total{vatRate ? ' TTC' : ''}</dt>
+                  <dd data-total-once>{formatEuros(0)}</dd>
+                </div>
+                <div data-monthly-row hidden>
+                  <dt>Puis chaque mois</dt>
+                  <dd data-total-monthly>{formatEuros(0)}</dd>
+                </div>
+              </dl>
+              <p class="quote-summary-note">{taxNote}</p>
+              {error && (
+                <p class="field-error" role="alert">
+                  {error}
+                </p>
+              )}
+              <button class="btn btn-warm" type="submit">
+                Créer mon devis <Icon name="arrow" class="btn-arrow" />
+              </button>
+              <p class="quote-summary-note">
+                {launch.commercial
+                  ? `Prix garantis ${QUOTE_VALIDITY_DAYS} jours, signature en ligne. Aucune donnée personnelle demandée pour créer le devis.`
+                  : 'Simulation non contractuelle. Aucune donnée personnelle demandée.'}
+              </p>
+            </aside>
+          </form>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Total en direct et activation des options d'un service une fois sa formule choisie
+  import { computeTotals, formatEuros } from '../../lib/pricing';
+
+  const form = document.querySelector<HTMLFormElement>('[data-quote-form]');
+  if (form) {
+    const rate = Number(form.dataset.vatRate) || 0;
+    const list = form.querySelector<HTMLUListElement>('[data-summary-lines]')!;
+    const once = form.querySelector<HTMLElement>('[data-total-once]')!;
+    const monthly = form.querySelector<HTMLElement>('[data-total-monthly]')!;
+    const monthlyRow = form.querySelector<HTMLElement>('[data-monthly-row]')!;
+    const empty = list.firstElementChild!;
+
+    const update = () => {
+      let oneOffHt = 0;
+      let monthlyHt = 0;
+      const picked: { label: string; amount: number; monthly: boolean }[] = [];
+
+      form.querySelectorAll<HTMLFieldSetElement>('[data-group]').forEach((group) => {
+        const needsBase = group.dataset.needsBase === 'true';
+        const enabled = !needsBase || Boolean(group.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value);
+        const extras = group.querySelector<HTMLElement>('[data-extras]');
+        extras?.classList.toggle('is-disabled', !enabled);
+        extras?.querySelectorAll('input').forEach((input) => (input.disabled = !enabled));
+
+        group.querySelectorAll<HTMLInputElement>('input[data-price]').forEach((input) => {
+          if (input.disabled) return;
+          const max = Number(input.max) || 99;
+          const qty =
+            input.type === 'number'
+              ? Math.min(Math.max(Math.floor(Number(input.value)) || 0, 0), max)
+              : input.checked
+                ? 1
+                : 0;
+          if (!qty) return;
+          const amount = Number(input.dataset.price) * qty;
+          const isMonthly = input.dataset.monthly === 'true';
+          if (isMonthly) monthlyHt += amount;
+          else oneOffHt += amount;
+          const [one, many] = (input.dataset.unit ?? '').split('|');
+          const label = input.type === 'number' ? `${input.dataset.label} (${qty} ${qty > 1 ? many : one})` : input.dataset.label!;
+          picked.push({ label, amount, monthly: isMonthly });
+        });
+      });
+
+      list.replaceChildren(
+        ...(picked.length
+          ? picked.map(({ label, amount, monthly: isMonthly }) => {
+              const li = document.createElement('li');
+              const name = document.createElement('span');
+              const price = document.createElement('span');
+              name.textContent = label;
+              price.textContent = `${formatEuros(computeTotals(amount, rate).ttc)}${isMonthly ? ' / mois' : ''}`;
+              li.append(name, price);
+              return li;
+            })
+          : [empty]),
+      );
+      once.textContent = formatEuros(computeTotals(oneOffHt, rate).ttc);
+      monthly.textContent = `${formatEuros(computeTotals(monthlyHt, rate).ttc)} / mois`;
+      monthlyRow.hidden = monthlyHt === 0;
+    };
+
+    form.addEventListener('input', update);
+    form.addEventListener('change', update);
+    update();
+  }
+</script>

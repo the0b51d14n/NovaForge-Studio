@@ -2732,6 +2732,144 @@ textarea.admin-textarea--short { min-height: 80px; }
 }
 @keyframes live-in { from { opacity: 0; translate: -50% 12px; } }
 
+/* ---------- 28 bis. Simulateur de devis (/devis) et devis (/devis/<id>) ---------- */
+.quote-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: clamp(24px, 3vw, 40px); align-items: start; }
+.quote-groups { display: grid; gap: 20px; }
+.quote-group { display: grid; gap: 16px; min-width: 0; margin: 0; padding: clamp(22px, 3vw, 32px); }
+.quote-group-title { float: left; width: 100%; padding: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
+.quote-group-title + * { clear: both; }
+.quote-group-intro { margin-top: -10px; color: var(--muted); }
+.quote-items { display: grid; gap: 8px; }
+.quote-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color .2s, background-color .2s;
+}
+.quote-item:hover { border-color: var(--line-strong); }
+.quote-item:has(input:checked) { border-color: var(--blue-2); background: rgba(11, 127, 192, .07); }
+.quote-item input[type="radio"],
+.quote-item input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.quote-item--qty { grid-template-columns: minmax(0, 1fr) 6.5rem; cursor: default; }
+.quote-item-text { display: grid; gap: 2px; min-width: 0; }
+.quote-item-label { font-weight: 700; cursor: inherit; }
+.quote-item-detail { display: block; font-size: .88rem; color: var(--muted); }
+.quote-item-price { font-weight: 700; font-size: .95rem; white-space: nowrap; }
+.quote-item--qty .quote-item-price { font-size: .88rem; color: var(--accent); }
+.quote-qty { padding-block: 6px; text-align: right; }
+.quote-extras { display: grid; gap: 10px; }
+.quote-extras-title { font-family: var(--font-mono); font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.quote-extras-hint { display: none; font-size: .88rem; color: var(--muted); }
+.quote-extras.is-disabled .quote-items { opacity: .45; pointer-events: none; }
+.quote-extras.is-disabled .quote-extras-hint { display: block; }
+
+.quote-summary { position: sticky; top: calc(var(--header-h) + 20px); display: grid; gap: 16px; padding: clamp(24px, 3vw, 32px); }
+.is-prelaunch .quote-summary { top: calc(var(--header-h) + 56px); }
+.quote-summary-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
+.quote-summary-lines { display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; font-size: .92rem; }
+.quote-summary-lines li { display: flex; justify-content: space-between; gap: 12px; }
+.quote-summary-lines li > :last-child { flex: none; font-weight: 700; }
+.quote-summary-empty { color: var(--muted); }
+.quote-summary-totals { display: grid; gap: 6px; padding-top: 16px; border-top: 1px solid var(--line); }
+.quote-summary-totals > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.quote-summary-totals dt { color: var(--muted); }
+.quote-summary-totals > div:first-child dd { font-family: var(--font-display); font-weight: 700; font-size: 1.8rem; letter-spacing: -.03em; }
+.quote-summary-totals dd { font-weight: 700; }
+.quote-summary-note { font-size: .84rem; color: var(--muted); }
+.quote-summary .btn { justify-content: center; }
+/* Sans JavaScript, pas de total en direct : il s'affiche sur le devis créé */
+html:not(.js) .quote-summary-lines,
+html:not(.js) .quote-summary-totals { display: none; }
+
+.quote-empty { display: grid; justify-items: start; gap: 16px; max-width: 40rem; padding: clamp(28px, 4vw, 48px); }
+.quote-empty-title { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: -.02em; }
+
+.quote-page { display: grid; gap: 24px; max-width: 980px; }
+.quote-banner { padding: 16px 20px; border-left: 3px solid var(--amber); border-radius: 0 12px 12px 0; background: rgba(224, 161, 90, .14); }
+.quote-doc { display: grid; gap: 28px; padding: clamp(24px, 4vw, 48px); }
+.quote-doc-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 24px; font-size: .95rem; }
+.quote-doc-label { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.quote-doc-strong { font-weight: 700; font-size: 1.1rem; }
+.quote-doc-muted { color: var(--muted); }
+.quote-doc-meta { display: grid; gap: 4px; }
+.quote-doc-meta > div { display: flex; gap: 12px; }
+.quote-doc-meta dt { min-width: 8.5rem; color: var(--muted); }
+.quote-doc-meta dd { font-weight: 700; }
+.quote-table-wrap { display: grid; gap: 14px; overflow-x: auto; }
+.quote-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.quote-table caption { padding-bottom: 10px; font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; text-align: left; }
+.quote-table th,
+.quote-table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.quote-table thead th { font-family: var(--font-mono); font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.quote-table td:nth-child(n + 2),
+.quote-table thead th:nth-child(n + 2) { text-align: right; white-space: nowrap; }
+.quote-table-group th { padding-top: 16px; font-weight: 700; color: var(--accent); }
+.quote-totals { display: grid; gap: 4px; justify-self: end; min-width: min(100%, 320px); }
+.quote-totals > div { display: flex; justify-content: space-between; gap: 24px; }
+.quote-totals dt { color: var(--muted); }
+.quote-totals dd { font-weight: 700; }
+.quote-totals-main { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line-strong); font-size: 1.15rem; }
+.quote-totals-main dt { color: var(--fg); font-weight: 700; }
+.quote-doc-notes { display: grid; gap: 4px; padding-left: 1.1em; font-size: .88rem; color: var(--muted); list-style: disc; }
+.quote-signed { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 12px; background: rgba(11, 127, 192, .1); }
+.quote-signed .icon { flex: none; width: 1.2em; height: 1.2em; color: var(--blue-2); }
+.quote-sign-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
+.quote-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+
+/* Administration des tarifs */
+.admin-pricing { display: grid; gap: 24px; }
+.admin-prices { display: grid; border-top: 1px solid var(--line); }
+.admin-price { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 24px; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.admin-price-text { display: grid; gap: 2px; min-width: 0; cursor: pointer; }
+.admin-price-input { display: inline-flex; align-items: center; gap: 10px; }
+.admin-price-input .input { width: 7.5rem; padding-block: 6px; text-align: right; }
+.admin-price-unit { min-width: 7.5rem; font-size: .85rem; color: var(--muted); }
+.admin-pricing-save {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+@media (max-width: 960px) {
+  .quote-layout { grid-template-columns: 1fr; }
+  .quote-summary { position: static; }
+}
+@media (max-width: 640px) {
+  .quote-item { grid-template-columns: auto minmax(0, 1fr); }
+  .quote-item > .quote-item-price { grid-column: 2; }
+  .quote-item--qty { grid-template-columns: minmax(0, 1fr) 5.5rem; }
+  .admin-price { grid-template-columns: 1fr; }
+}
+
+/* Impression du devis (« Imprimer ou enregistrer en PDF ») : seulement le document */
+@media print {
+  .site-header,
+  .site-footer,
+  .page-hero,
+  .quote-actions,
+  .quote-sign,
+  .live-notice,
+  .admin-preview,
+  .skip-link { display: none !important; }
+  body,
+  .surface-light-2 { background: #fff; }
+  .section { padding: 0; }
+  .quote-doc { border: 0; padding: 0; }
+  .quote-banner { border: 1px solid #999; background: none; }
+  .quote-table tr { break-inside: avoid; }
+}
+
 /* ---------- 29. Mouvement réduit ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
