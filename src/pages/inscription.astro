@@ -1,0 +1,140 @@
+---
+// Inscription des clients (lien « Créer un compte » de l'onglet Client de /connexion). Le rôle est toujours
+// « client », imposé ici : les comptes de l'équipe sont créés par les dirigeants dans le portail.
+// Envoi d'e-mails configuré : un lien de confirmation part, le compte s'active en le suivant.
+// Sinon : le compte est actif tout de suite (il devra confirmer son adresse dès que l'envoi sera en place).
+// Accessible même site verrouillé (src/lib/middleware.ts).
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import { ADMIN_PATH, LOGIN_PATH, logIn } from '../lib/access';
+import { MIN_PASSWORD, allowSignup, createUser, isStaff, sendConfirmation } from '../lib/accounts';
+import { isEmail, mailEnabled, oneLine } from '../lib/forms';
+import { clientKey } from '../lib/quotes';
+
+const { user } = Astro.locals;
+if (user) return Astro.redirect(isStaff(user) ? ADMIN_PATH : '/espace');
+
+const form = { name: '', email: '' };
+const errors: Record<string, string> = {};
+let sent: string | null = null;
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  // Champ piège rempli : un robot, on fait comme si de rien n'était
+  if (data.get('site_web')) return Astro.redirect(LOGIN_PATH, 303);
+  form.name = oneLine(String(data.get('name') ?? '')).trim().slice(0, 120);
+  form.email = String(data.get('email') ?? '').trim().slice(0, 200);
+  const password = String(data.get('password') ?? '').slice(0, 200);
+
+  if (form.name.length < 2) errors.name = 'Indiquez vos prénom et nom.';
+  if (!isEmail(form.email)) errors.email = 'Indiquez une adresse e-mail valide.';
+  if (password.length < MIN_PASSWORD) errors.password = `Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`;
+  else if (password !== String(data.get('confirm') ?? '')) errors.confirm = 'Les deux mots de passe ne correspondent pas.';
+  if (data.get('privacy') !== 'oui') errors.privacy = 'Cochez la case pour créer votre compte.';
+
+  if (Object.keys(errors).length === 0) {
+    try {
+      if (!(await allowSignup(await clientKey(Astro.request, () => Astro.clientAddress)))) {
+        errors.form = 'Trop d’inscriptions depuis cette connexion : réessayez dans une heure.';
+      } else {
+        const created = await createUser({ ...form, role: 'client', password, emailVerified: false });
+        if (created === 'pris') {
+          errors.email = 'Un compte existe déjà avec cette adresse : connectez-vous.';
+        } else if (mailEnabled()) {
+          sent = (await sendConfirmation(created, Astro.url.origin)) ? created.email : '';
+        } else {
+          await logIn(Astro.cookies, created);
+          return Astro.redirect('/espace?ok=bienvenue', 303);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errors.form = "L'inscription a échoué (base de données injoignable). Réessayez dans un instant.";
+    }
+  }
+  if (sent === null) Astro.response.status = 422;
+}
+
+const invalid = (name: string) => (errors[name] ? 'true' : undefined);
+const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined);
+---
+
+<BaseLayout title="Créer un compte" description="Créer votre compte client NovaForge Studio." bare noindex>
+  <section class="hero lock surface-dark" aria-labelledby="signup-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+    <div class="lock-panel">
+      <a href="/" aria-label="Retour à l'accueil"><Logo variant="stacked" tone="dark" /></a>
+      <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Compte client</p>
+      <h1 id="signup-title">{sent === null ? 'Créer un compte.' : 'Vérifiez vos e-mails.'}</h1>
+
+      {
+        sent !== null ? (
+          <div class="login-card card">
+            <p class="lock-lead">
+              {sent
+                ? `Un lien de confirmation vient d'être envoyé à ${sent}. Ouvrez-le (il est valable 48 heures) pour activer votre compte.`
+                : "Votre compte est créé, mais l'e-mail de confirmation n'a pas pu partir. Connectez-vous : un nouveau lien vous sera proposé."}
+            </p>
+            <a class="btn btn-warm" href={`${LOGIN_PATH}?espace=client`}>
+              Aller à la connexion <Icon name="arrow" class="btn-arrow" />
+            </a>
+          </div>
+        ) : (
+          <form class="login-card card login-form" method="post" novalidate>
+            <div class="hp" aria-hidden="true">
+              <label>
+                Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" />
+              </label>
+            </div>
+            <p class="lock-lead">
+              Pour retrouver vos devis et vos candidatures.
+              {mailEnabled() && ' Un e-mail vous permettra de confirmer votre adresse.'}
+            </p>
+            {errors.form && (
+              <p class="field-error" role="alert">
+                {errors.form}
+              </p>
+            )}
+            <div class="field">
+              <label for="su-name">Prénom et nom</label>
+              <input class="input" id="su-name" name="name" value={form.name} required maxlength="120" autocomplete="name" aria-invalid={invalid('name')} aria-describedby={describedBy('name')} />
+              {errors.name && <p class="field-error" id="name-err">{errors.name}</p>}
+            </div>
+            <div class="field">
+              <label for="su-email">E-mail</label>
+              <input class="input" id="su-email" name="email" type="email" value={form.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
+              {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
+            </div>
+            <div class="field">
+              <label for="su-password">Mot de passe ({MIN_PASSWORD} caractères au moins)</label>
+              <input class="input" id="su-password" name="password" type="password" required minlength={MIN_PASSWORD} autocomplete="new-password" aria-invalid={invalid('password')} aria-describedby={describedBy('password')} />
+              {errors.password && <p class="field-error" id="password-err">{errors.password}</p>}
+            </div>
+            <div class="field">
+              <label for="su-confirm">Confirmation du mot de passe</label>
+              <input class="input" id="su-confirm" name="confirm" type="password" required autocomplete="new-password" aria-invalid={invalid('confirm')} aria-describedby={describedBy('confirm')} />
+              {errors.confirm && <p class="field-error" id="confirm-err">{errors.confirm}</p>}
+            </div>
+            <div class="field">
+              <label class="check">
+                <input type="checkbox" name="privacy" value="oui" required aria-invalid={invalid('privacy')} aria-describedby={describedBy('privacy')} />
+                <span>
+                  J'ai lu la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a> :
+                  mes nom et e-mail servent à gérer mon compte, mes devis et mes candidatures.
+                </span>
+              </label>
+              {errors.privacy && <p class="field-error" id="privacy-err">{errors.privacy}</p>}
+            </div>
+            <button class="btn btn-warm" type="submit">
+              Créer mon compte <Icon name="arrow" class="btn-arrow" />
+            </button>
+            <p class="lock-note">
+              Déjà un compte ? <a href={`${LOGIN_PATH}?espace=client`}>Se connecter</a>
+            </p>
+          </form>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>

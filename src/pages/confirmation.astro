@@ -1,0 +1,42 @@
+---
+// Lien de confirmation d'adresse e-mail (envoyé à l'inscription ou au changement d'adresse d'un client) :
+// confirme l'adresse, ouvre la session et mène à l'espace client. Accessible même site verrouillé.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+import { LOGIN_PATH, logIn } from '../lib/access';
+import { confirmEmail } from '../lib/accounts';
+
+let failed = false;
+try {
+  const user = await confirmEmail(Astro.url.searchParams.get('jeton') ?? '');
+  if (user) {
+    await logIn(Astro.cookies, user);
+    return Astro.redirect('/espace?ok=confirme', 303);
+  }
+  failed = true;
+} catch (e) {
+  console.error(e);
+  failed = true;
+}
+if (failed) Astro.response.status = 400;
+---
+
+<BaseLayout title="Confirmation" description="Confirmation de votre adresse e-mail." bare noindex>
+  <section class="hero lock surface-dark" aria-labelledby="confirm-title" data-stardust-host>
+    <canvas class="stardust" data-stardust aria-hidden="true"></canvas>
+    <div class="lock-panel">
+      <a href="/" aria-label="Retour à l'accueil"><Logo variant="stacked" tone="dark" /></a>
+      <h1 id="confirm-title">Lien expiré.</h1>
+      <p class="lock-lead">
+        Ce lien de confirmation est invalide ou a expiré (il est valable 48 heures). Connectez-vous : un nouveau lien vous
+        sera proposé.
+      </p>
+      <p class="lock-form">
+        <a class="btn btn-warm" href={`${LOGIN_PATH}?espace=client`}>
+          Aller à la connexion <Icon name="arrow" class="btn-arrow" />
+        </a>
+      </p>
+    </div>
+  </section>
+</BaseLayout>

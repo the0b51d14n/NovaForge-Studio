@@ -26,6 +26,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const alwaysOpen =
     pathname === LOCK_PATH ||
     pathname === LOGIN_PATH ||
+    // Comptes clients : inscription, confirmation d'adresse et espace restent ouverts, même site verrouillé
+    ['/inscription', '/confirmation', '/espace'].includes(pathname.replace(/\/$/, '')) ||
     pathname === ADMIN_PATH ||
     pathname.startsWith(`${ADMIN_PATH}/`) ||
     LEGAL_PATHS.includes(pathname.replace(/\/$/, ''));

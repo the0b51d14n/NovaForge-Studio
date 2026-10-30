@@ -9,11 +9,13 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 // « On recrute » seulement si le recrutement est ouvert et qu'au moins une offre est publiée
 const hiring = visibleOffers(Astro.locals).length > 0;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
-// Compte : portail pour l'équipe, connexion sinon (l'espace client arrive avec les comptes clients)
+// Compte : portail pour l'équipe, espace client pour un client connecté, connexion sinon
 const { user, isAdmin } = Astro.locals;
 const account = isAdmin
   ? { href: ADMIN_PATH, label: `Portail de l'équipe (${user!.name})`, title: `Portail de l'équipe · ${user!.name}` }
-  : { href: LOGIN_PATH, label: 'Connexion', title: 'Connexion' };
+  : user
+    ? { href: '/espace', label: `Mon espace (${user.name})`, title: `Mon espace · ${user.name}` }
+    : { href: LOGIN_PATH, label: 'Connexion', title: 'Connexion' };
 ---
 
 <header class="site-header" data-header>

@@ -3,16 +3,17 @@
 // Les onglets sont des liens (?espace=client|equipe) : ils marchent sans JavaScript. Chaque formulaire n'accepte
 // que les comptes de son espace (vérifié côté serveur).
 // Après connexion : retour à la page demandée (?suite=…), sinon le portail de l'équipe pour un employé,
-// l'accueil pour un client.
+// l'espace client pour un client. Un client dont l'adresse n'est pas confirmée (envoi d'e-mails configuré) n'est
+// pas connecté : un nouveau lien de confirmation lui est envoyé.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
 import { ADMIN_PATH, logIn, safeNext } from '../lib/access';
-import { authenticate, isStaff } from '../lib/accounts';
+import { authenticate, isStaff, needsConfirmation, resendConfirmation } from '../lib/accounts';
 
 type Space = 'client' | 'equipe';
 const next = safeNext(Astro.url.searchParams.get('suite'));
-const home = (staff: boolean) => next ?? (staff ? ADMIN_PATH : '/');
+const home = (staff: boolean) => next ?? (staff ? ADMIN_PATH : '/espace');
 const { user } = Astro.locals;
 if (user && Astro.request.method !== 'POST') return Astro.redirect(home(isStaff(user)));
 
@@ -43,6 +44,15 @@ if (Astro.request.method === 'POST') {
     } else if (space === 'client' && isStaff(result)) {
       errors.client = 'Ce compte appartient à l’équipe : utilisez le formulaire « Employé ».';
       Astro.response.status = 403;
+    } else if (needsConfirmation(result)) {
+      const sent = await resendConfirmation(result, Astro.url.origin);
+      errors.client =
+        sent === 'recent'
+          ? `Votre adresse n'est pas encore confirmée : ouvrez le lien envoyé à ${result.email} il y a quelques minutes (pensez aux indésirables).`
+          : sent
+            ? `Votre adresse n'est pas encore confirmée : un nouveau lien vient d'être envoyé à ${result.email}.`
+            : "Votre adresse n'est pas encore confirmée, et l'e-mail de confirmation n'a pas pu partir. Réessayez dans un instant.";
+      Astro.response.status = 403;
     } else {
       await logIn(Astro.cookies, result);
       return Astro.redirect(home(isStaff(result)), 303);
@@ -59,7 +69,7 @@ const spaces: { id: Space; title: string; lead: string; note: string }[] = [
     id: 'client',
     title: 'Client',
     lead: 'Retrouvez vos devis et vos candidatures.',
-    note: 'Pas encore de compte ? La création de compte client ouvrira avec le lancement du studio.',
+    note: 'Pas encore de compte ?',
   },
   {
     id: 'equipe',
@@ -117,7 +127,14 @@ const tabHref = (id: Space) => `?${new URLSearchParams({ espace: id, ...(next ? 
           <button class:list={['btn', current.id === 'equipe' ? 'btn-primary' : 'btn-warm']} type="submit">
             Se connecter <Icon name="arrow" class="btn-arrow" />
           </button>
-          <p class="lock-note">{current.note}</p>
+          <p class="lock-note">
+            {current.note}
+            {current.id === 'client' && (
+              <Fragment>
+                {' '}<a href="/inscription">Créer un compte</a>
+              </Fragment>
+            )}
+          </p>
         </form>
       </div>
     </div>

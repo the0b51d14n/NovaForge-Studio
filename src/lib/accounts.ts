@@ -5,6 +5,7 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { redis, text } from './store';
+import { mailEnabled, sendMail } from './forms';
 
 const scrypt = promisify(scryptCallback) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -27,12 +28,13 @@ export type User = {
   createdAt: string;
   /** Compte désactivé : plus de connexion possible, ses sessions sont refusées */
   disabled?: boolean;
+  /** Client : adresse confirmée par le lien envoyé par e-mail (exigé dès que l'envoi d'e-mails est configuré) */
+  emailVerified?: boolean;
 };
 /** Compte tel qu'il circule dans les pages : sans l'empreinte du mot de passe */
 export type PublicUser = Omit<User, 'passwordHash'>;
 
-export const isStaff = (user: PublicUser | null | undefined): user is PublicUser =>
-  Boolean(user && STAFF_ROLES.includes(user.role));
+export const isStaff = (user: PublicUser | null | undefined): boolean => Boolean(user && STAFF_ROLES.includes(user.role));
 
 /** Ce que chaque rôle peut faire dans le portail de l'équipe (/administration) */
 export const can = {
@@ -59,6 +61,8 @@ const KEYS = {
   email: (email: string) => `nf:user-email:${email}`,
   index: 'nf:users',
   session: (token: string) => `nf:session:${token}`,
+  verify: (token: string) => `nf:verify:${token}`,
+  signupRate: (client: string) => `nf:signup-rate:${client}`,
   failures: (email: string) => `nf:login-fail:${createHash('sha256').update(email).digest('hex').slice(0, 24)}`,
 };
 
@@ -107,7 +111,13 @@ export async function hasStaff(): Promise<boolean> {
 }
 
 /** Crée le compte, ou renvoie 'pris' si l'adresse e-mail a déjà un compte */
-export async function createUser(input: { email: string; name: string; role: Role; password: string }): Promise<PublicUser | 'pris'> {
+export async function createUser(input: {
+  email: string;
+  name: string;
+  role: Role;
+  password: string;
+  emailVerified?: boolean;
+}): Promise<PublicUser | 'pris'> {
   const email = normalizeEmail(input.email);
   const id = crypto.randomUUID().replace(/-/g, '');
   const [reserved] = await redis([['SET', KEYS.email(email), id, 'NX']]);
@@ -119,6 +129,7 @@ export async function createUser(input: { email: string; name: string; role: Rol
     role: input.role,
     passwordHash: await hashPassword(input.password),
     createdAt: new Date().toISOString(),
+    ...(input.emailVerified !== undefined ? { emailVerified: input.emailVerified } : {}),
   };
   await redis([
     ['SET', KEYS.user(id), JSON.stringify(user)],
@@ -130,7 +141,7 @@ export async function createUser(input: { email: string; name: string; role: Rol
 /** Modifie le rôle, le nom, l'état ou le mot de passe (en clair, il est aussitôt remplacé par son empreinte) */
 export async function updateUser(
   id: string,
-  changes: Partial<Pick<User, 'name' | 'role' | 'disabled'>> & { password?: string },
+  changes: Partial<Pick<User, 'name' | 'role' | 'disabled' | 'emailVerified'>> & { password?: string },
 ): Promise<void> {
   const user = await loadUser(id);
   if (!user) return;
@@ -156,6 +167,74 @@ export async function changeEmail(id: string, emailInput: string): Promise<'ok' 
   ]);
   return 'ok';
 }
+
+/** Supprime le compte (à la demande du client) : il ne peut plus se connecter, son adresse redevient libre */
+export async function deleteUser(id: string): Promise<void> {
+  const user = await loadUser(id);
+  if (!user) return;
+  await redis([
+    ['DEL', KEYS.user(id)],
+    ['DEL', KEYS.email(user.email)],
+    ['ZREM', KEYS.index, id],
+  ]);
+}
+
+/** Inscriptions : 5 par heure au plus depuis une même adresse IP (empreinte, voir clientKey) */
+export async function allowSignup(client: string): Promise<boolean> {
+  const [count] = await redis([
+    ['INCR', KEYS.signupRate(client)],
+    ['EXPIRE', KEYS.signupRate(client), '3600'],
+  ]);
+  return Number(count) <= 5;
+}
+
+/**
+ * Envoie le lien de confirmation de l'adresse e-mail (valable 48 h). false : envoi d'e-mails non configuré ou refusé.
+ * origin : adresse du site (Astro.url.origin), pour construire le lien.
+ */
+export async function sendConfirmation(user: PublicUser, origin: string): Promise<boolean> {
+  if (!mailEnabled()) return false;
+  const token = randomBytes(32).toString('base64url');
+  await redis([['SET', KEYS.verify(token), JSON.stringify({ id: user.id, email: user.email }), 'EX', String(48 * 3600)]]);
+  return sendMail({
+    to: user.email,
+    subject: 'Confirmez votre adresse e-mail · NovaForge Studio',
+    text: [
+      `Bonjour ${user.name},`,
+      '',
+      'Pour activer votre compte NovaForge Studio, confirmez votre adresse e-mail en ouvrant ce lien (valable 48 heures) :',
+      `${origin}/confirmation?jeton=${token}`,
+      '',
+      "Si vous n'êtes pas à l'origine de cette demande, ignorez simplement ce message.",
+    ].join('\n'),
+  });
+}
+
+/** Renvoie le lien de confirmation, une fois toutes les 10 minutes au plus par compte ('recent' sinon) */
+export async function resendConfirmation(user: PublicUser, origin: string): Promise<boolean | 'recent'> {
+  const [fresh] = await redis([['SET', `nf:verify-sent:${user.id}`, '1', 'EX', '600', 'NX']]);
+  if (fresh === null) return 'recent';
+  return sendConfirmation(user, origin);
+}
+
+/** Confirme l'adresse du lien ; null si le lien est inconnu, expiré, ou si l'adresse du compte a changé depuis */
+export async function confirmEmail(token: string): Promise<PublicUser | null> {
+  if (!/^[A-Za-z0-9_-]{40,60}$/.test(token)) return null;
+  const [raw] = await redis([['GET', KEYS.verify(token)]]);
+  const saved = text(raw);
+  if (!saved) return null;
+  const { id, email } = JSON.parse(saved) as { id: string; email: string };
+  const user = await loadUser(id);
+  if (!user || user.email !== email) return null;
+  await redis([
+    ['SET', KEYS.user(id), JSON.stringify({ ...user, emailVerified: true })],
+    ['DEL', KEYS.verify(token)],
+  ]);
+  return strip({ ...user, emailVerified: true });
+}
+
+/** Client dont l'adresse doit encore être confirmée avant de se connecter (seulement si l'envoi d'e-mails marche) */
+export const needsConfirmation = (user: PublicUser) => user.role === 'client' && !user.emailVerified && mailEnabled();
 
 /**
  * Vérifie l'adresse et le mot de passe ; 'bloque' après trop d'échecs récents sur cette adresse.

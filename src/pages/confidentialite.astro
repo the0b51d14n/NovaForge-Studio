@@ -54,7 +54,8 @@ const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numer
 
       <h2>Ce que fait le site aujourd'hui</h2>
       <p>
-        Le site ne crée pas de compte visiteur et n'utilise ni mesure d'audience ni publicité.
+        Le site n'utilise ni mesure d'audience ni publicité. Créer un compte client est facultatif (voir « Compte
+        client »).
         {
           contactOpen
             ? " Les messages envoyés via ses formulaires ne sont pas enregistrés sur le site : ils sont transmis par e-mail, puis traités depuis notre messagerie."
@@ -84,6 +85,27 @@ const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numer
         <li>
           <strong>Durée</strong> : le temps de traiter votre demande, puis 3 ans au plus après notre dernier échange. Si
           un contrat est conclu, les documents utiles sont conservés pendant la durée légale applicable.
+        </li>
+      </ul>
+
+      <h2>Compte client</h2>
+      <ul class="legal-points">
+        <li>
+          <strong>Données</strong> : prénom, nom, adresse e-mail, mot de passe (conservé uniquement sous forme d'empreinte
+          chiffrée, jamais lisible), date de création du compte. Pour limiter les abus, une empreinte de votre adresse IP
+          est gardée une heure lors de l'inscription.
+        </li>
+        <li>
+          <strong>Finalité</strong> : vous permettre de vous connecter et de retrouver vos devis et vos candidatures ;
+          vérifier votre adresse e-mail par un lien de confirmation.
+        </li>
+        <li>
+          <strong>Base légale</strong> : l'exécution du service que vous demandez en créant votre compte (RGPD,
+          art. 6.1.b).
+        </li>
+        <li>
+          <strong>Durée</strong> : jusqu'à la suppression de votre compte, que vous pouvez faire à tout moment depuis
+          « Mon espace » ; elle est immédiate et définitive.
         </li>
       </ul>
 
@@ -167,9 +189,10 @@ const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numer
       <h2>Cookies et stockage dans votre navigateur</h2>
       <ul class="legal-points">
         <li>
-          <strong>Aucun cookie</strong> n'est déposé chez les visiteurs du site. Seul l'espace d'administration, réservé
-          à l'équipe, utilise deux cookies nécessaires : l'un maintient la connexion (30 jours), l'autre retient le
-          choix de prévisualiser le site lorsqu'il est fermé (jusqu'à la fermeture du navigateur).
+          <strong>Aucun cookie</strong> n'est déposé chez les visiteurs qui ne se connectent pas. Quand vous vous
+          connectez à votre compte, un cookie nécessaire maintient la connexion (30 jours, ou jusqu'à la déconnexion).
+          L'équipe du studio utilise en plus un cookie qui retient le choix de prévisualiser le site lorsqu'il est fermé
+          (jusqu'à la fermeture du navigateur).
         </li>
         <li>
           <strong>Stockage de session</strong> : pour recharger les pages ouvertes quand le site est mis à jour, sans

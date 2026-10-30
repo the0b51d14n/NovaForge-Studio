@@ -1,0 +1,190 @@
+---
+// Espace client (« Mon espace ») : informations du compte, changement d'adresse e-mail et de mot de passe,
+// déconnexion, suppression du compte. Les devis et candidatures du client viendront s'y ajouter.
+// Réservé aux clients connectés ; l'équipe est renvoyée vers son portail. Accessible même site verrouillé.
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHero from '../components/PageHero.astro';
+import Icon from '../components/Icon.astro';
+import { ADMIN_PATH, LOGIN_PATH, logOut } from '../lib/access';
+import {
+  MIN_PASSWORD,
+  changeEmail,
+  checkUserPassword,
+  deleteUser,
+  isStaff,
+  sendConfirmation,
+  updateUser,
+} from '../lib/accounts';
+import { isEmail, mailEnabled } from '../lib/forms';
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect(`${LOGIN_PATH}?espace=client&suite=/espace`);
+if (isStaff(user)) return Astro.redirect(ADMIN_PATH);
+
+const errors: Record<string, string> = {};
+const done = (ok: string) => Astro.redirect(`/espace?ok=${ok}`, 303);
+
+if (Astro.request.method === 'POST') {
+  const data = await Astro.request.formData();
+  const action = data.get('action');
+  const current = String(data.get('current') ?? '').slice(0, 200);
+  try {
+    if (action === 'logout') {
+      await logOut(Astro.cookies);
+      return Astro.redirect('/', 303);
+    }
+    if (action === 'email' || action === 'password' || action === 'delete') {
+      if (!(await checkUserPassword(user.id, current))) {
+        errors[action] = 'Mot de passe actuel incorrect.';
+      } else if (action === 'email') {
+        const email = String(data.get('email') ?? '').trim().slice(0, 200);
+        if (!isEmail(email)) errors.email = 'Adresse e-mail invalide.';
+        else if (email.toLowerCase() === user.email) errors.email = 'C’est déjà votre adresse actuelle.';
+        else if ((await changeEmail(user.id, email)) === 'pris') errors.email = 'Un autre compte utilise déjà cette adresse.';
+        else if (mailEnabled()) {
+          // Nouvelle adresse à confirmer : la session en cours continue, la prochaine connexion attendra le lien
+          await updateUser(user.id, { emailVerified: false });
+          await sendConfirmation({ ...user, email: email.toLowerCase() }, Astro.url.origin);
+          return done('e-mail-a-confirmer');
+        } else return done('e-mail');
+      } else if (action === 'password') {
+        const password = String(data.get('password') ?? '').slice(0, 200);
+        if (password.length < MIN_PASSWORD) errors.password = `Le mot de passe doit faire au moins ${MIN_PASSWORD} caractères.`;
+        else if (password !== String(data.get('confirm') ?? '')) errors.password = 'Les deux mots de passe ne correspondent pas.';
+        else {
+          await updateUser(user.id, { password });
+          return done('mot-de-passe');
+        }
+      } else {
+        await deleteUser(user.id);
+        await logOut(Astro.cookies);
+        return Astro.redirect('/?compte=supprime', 303);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    errors.form = "L'enregistrement a échoué (base de données injoignable). Réessayez dans un instant.";
+  }
+  Astro.response.status = 422;
+}
+
+const FLASHES: Record<string, string> = {
+  bienvenue: 'Bienvenue ! Votre compte est créé.',
+  confirme: 'Adresse e-mail confirmée : votre compte est actif.',
+  'e-mail': 'Adresse e-mail changée : utilisez-la pour vous connecter.',
+  'e-mail-a-confirmer': 'Adresse changée : ouvrez le lien envoyé à votre nouvelle adresse pour la confirmer.',
+  'mot-de-passe': 'Mot de passe changé.',
+};
+const flash = FLASHES[Astro.url.searchParams.get('ok') ?? ''];
+const since = new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+---
+
+<BaseLayout title="Mon espace" description="Votre espace client NovaForge Studio." noindex>
+  <PageHero eyebrow="Mon espace" compact>
+    <Fragment slot="title">Bonjour, <em>{user.name.split(' ')[0]}.</em></Fragment>
+  </PageHero>
+
+  <section class="section section--tight surface-light-2" aria-label="Votre compte">
+    <div class="container admin-inner">
+      {flash && (
+        <p class="admin-flash" role="status">
+          <Icon name="check" /> {flash}
+        </p>
+      )}
+      {errors.form && <p class="admin-alert" role="alert">{errors.form}</p>}
+
+      <section class="admin-card card" aria-labelledby="e-account">
+        <div class="admin-card-head">
+          <h2 class="admin-h2" id="e-account">Mon compte</h2>
+          <form method="post">
+            <input type="hidden" name="action" value="logout" />
+            <button class="btn btn-ghost btn-sm" type="submit"><Icon name="lock" /> Déconnexion</button>
+          </form>
+        </div>
+        <dl class="quote-doc-meta">
+          <div><dt>Nom</dt><dd>{user.name}</dd></div>
+          <div><dt>E-mail</dt><dd>{user.email}{mailEnabled() && !user.emailVerified && ' (à confirmer)'}</dd></div>
+          <div><dt>Client depuis le</dt><dd>{since}</dd></div>
+        </dl>
+      </section>
+
+      <section class="admin-card card" aria-labelledby="e-projects">
+        <h2 class="admin-h2" id="e-projects">Mes devis et candidatures</h2>
+        <p class="admin-text">
+          Vos devis et vos candidatures apparaîtront ici. En attendant, le <a href="/devis">simulateur de devis</a> vous
+          donne une première estimation.
+        </p>
+      </section>
+
+      <section class="admin-card card" aria-labelledby="e-email">
+        <h2 class="admin-h2" id="e-email">Changer d'adresse e-mail</h2>
+        <form class="form admin-form" method="post">
+          <input type="hidden" name="action" value="email" />
+          <div class="field">
+            <label for="e-new-email">Nouvelle adresse</label>
+            <input class="input" id="e-new-email" name="email" type="email" required autocomplete="email" placeholder={user.email} />
+          </div>
+          <div class="field">
+            <label for="e-email-current">Mot de passe actuel</label>
+            <input class="input" id="e-email-current" name="current" type="password" required autocomplete="current-password" />
+          </div>
+          {errors.email && <p class="field-error field--full" role="alert">{errors.email}</p>}
+          <div class="form-footer">
+            <p class="form-note">{mailEnabled() ? 'Un lien de confirmation sera envoyé à la nouvelle adresse.' : 'Elle servira à vous connecter.'}</p>
+            <button class="btn btn-ghost" type="submit">Changer mon e-mail</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-card card" aria-labelledby="e-password">
+        <h2 class="admin-h2" id="e-password">Changer de mot de passe</h2>
+        <form class="form admin-form" method="post">
+          <input type="hidden" name="action" value="password" />
+          <div class="field field--full">
+            <label for="e-current">Mot de passe actuel</label>
+            <input class="input" id="e-current" name="current" type="password" required autocomplete="current-password" />
+          </div>
+          <div class="field">
+            <label for="e-password-new">Nouveau mot de passe</label>
+            <input class="input" id="e-password-new" name="password" type="password" required minlength={MIN_PASSWORD} autocomplete="new-password" />
+          </div>
+          <div class="field">
+            <label for="e-confirm">Confirmation</label>
+            <input class="input" id="e-confirm" name="confirm" type="password" required autocomplete="new-password" />
+          </div>
+          {errors.password && <p class="field-error field--full" role="alert">{errors.password}</p>}
+          <div class="form-footer">
+            <p class="form-note">{MIN_PASSWORD} caractères au moins.</p>
+            <button class="btn btn-primary" type="submit">Changer mon mot de passe</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-card card" aria-labelledby="e-delete">
+        <h2 class="admin-h2" id="e-delete">Supprimer mon compte</h2>
+        <p class="admin-text">Votre compte et vos informations sont supprimés définitivement.</p>
+        <form class="form admin-form" method="post" data-confirm="Supprimer définitivement votre compte ?">
+          <input type="hidden" name="action" value="delete" />
+          <div class="field">
+            <label for="e-delete-current">Mot de passe actuel</label>
+            <input class="input" id="e-delete-current" name="current" type="password" required autocomplete="current-password" />
+          </div>
+          {errors.delete && <p class="field-error field--full" role="alert">{errors.delete}</p>}
+          <div class="form-footer">
+            <span></span>
+            <button class="btn btn-ghost admin-link--danger" type="submit">Supprimer mon compte</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  // Confirmation avant la suppression du compte
+  document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!confirm(form.dataset.confirm)) event.preventDefault();
+    });
+  });
+</script>
