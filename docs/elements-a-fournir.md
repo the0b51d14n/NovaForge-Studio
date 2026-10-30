@@ -33,7 +33,7 @@ mentions légales affichent « À compléter » tant qu'ils manquent, ainsi que 
 | Adresse | ⚠️ Incohérence : 44 rue des Montagnards, 59800 Lille enregistrée dans l'administration, 6 rue Blaise Pascal, 59960 Neuville-en-Ferrain dans `site.ts` et l'offre. Domicile ou local ? À trancher |
 | E-mails | ⚠️ `contact@` et `recrutement@novaforge-studio.fr` : le nom de domaine est-il acheté ? |
 | Téléphone | ✅ 06 95 96 17 49 (Contact, pied de page, mentions légales) |
-| Horaires | ⚠️ « Lun. – Ven. · 9 h – 18 h » à confirmer |
+| Horaires | ✅ « Lun. – Ven. · 8 h – 18 h » en continu : couvre les trois formules de travail (matinale dès 8 h, décalée jusqu'à 18 h) |
 | Nom du fondateur | À fournir (page L'agence) |
 | Réseaux professionnels | À fournir si existants (LinkedIn, GitHub…) : `socials`, affichés dans le pied de page |
 

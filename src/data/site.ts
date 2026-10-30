@@ -17,19 +17,22 @@ export const site = {
   address: ['6 rue Blaise Pascal', '59960 Neuville-en-Ferrain'],
   // Coordonnées OpenStreetMap du 6 rue Blaise Pascal (carte interactive)
   geo: { lat: 50.749605, lng: 3.156248 },
-  // À CONFIRMER : e-mails (nom de domaine), téléphone et horaires
+  // À CONFIRMER : e-mails (nom de domaine) et téléphone
   email: 'contact@novaforge-studio.fr',
   jobsEmail: 'recrutement@novaforge-studio.fr',
   phone: '06 95 96 17 49' as string | null,
   /** Résumé des horaires (pied de page, carte) : à garder cohérent avec `schedule` */
-  hours: 'Lun. – Ven. · 9 h – 18 h',
-  /** Horaires détaillés, du lundi au dimanche (page Contact) : `null` = fermé */
+  hours: 'Lun. – Ven. · 8 h – 18 h',
+  /**
+   * Horaires détaillés, du lundi au dimanche (page Contact) : `null` = fermé.
+   * Couvrent les trois formules de travail (workSchedules) : de la matinale (8 h) à la décalée (18 h).
+   */
   schedule: [
-    { day: 'Lundi', hours: ['09:00', '18:00'] },
-    { day: 'Mardi', hours: ['09:00', '18:00'] },
-    { day: 'Mercredi', hours: ['09:00', '18:00'] },
-    { day: 'Jeudi', hours: ['09:00', '18:00'] },
-    { day: 'Vendredi', hours: ['09:00', '18:00'] },
+    { day: 'Lundi', hours: ['08:00', '18:00'] },
+    { day: 'Mardi', hours: ['08:00', '18:00'] },
+    { day: 'Mercredi', hours: ['08:00', '18:00'] },
+    { day: 'Jeudi', hours: ['08:00', '18:00'] },
+    { day: 'Vendredi', hours: ['08:00', '18:00'] },
     { day: 'Samedi', hours: null },
     { day: 'Dimanche', hours: null },
   ] as { day: string; hours: [string, string] | null }[],
