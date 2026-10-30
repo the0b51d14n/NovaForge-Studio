@@ -15,7 +15,14 @@ Espace privé de l'équipe, qui pilote le site sans modifier le code. Fichiers :
 | **Dirigeant** | État du site, adresse du siège, fermetures, offres d'emploi, comptes de l'équipe ; devis : résumé seulement (personne attribuée, prix final) |
 | **Admin+** | Devis : attribution à un admin+ (lui-même ou un collègue), suppression ; prix fermes **seulement pour les devis qui lui sont attribués** |
 | **Admin** | Devis : consultation (détail en lecture seule, personne qui s'en occupe) |
-| **Client** | Pas d'accès au portail (espace client : étape suivante) |
+| **Client** | Pas d'accès au portail. S'inscrit seul sur `/inscription` (rôle client imposé), gère son compte sur `/espace` (e-mail, mot de passe, suppression) |
+
+**Comptes clients** : inscription limitée à 5 par heure et par adresse IP, champ piège anti-robots, case « politique
+de confidentialité ». Si l'envoi d'e-mails est configuré (`RESEND_API_KEY`, `MAIL_FROM`), un lien de confirmation
+(48 h, `nf:verify:<jeton>`) est exigé avant la première connexion et à chaque changement d'adresse ; un nouveau lien
+est renvoyé à la connexion, au plus toutes les 10 minutes. Sans envoi d'e-mails, le compte est actif tout de suite et
+devra confirmer son adresse dès que l'envoi sera configuré. `/inscription`, `/confirmation` et `/espace` restent
+accessibles quand le site est verrouillé.
 
 - Les comptes de l'équipe sont créés par les dirigeants (section « Comptes de l'équipe ») avec un mot de passe
   provisoire, que chacun change dans « Mon compte ». Un dirigeant peut changer un rôle, une adresse e-mail,
