@@ -2,46 +2,62 @@
 
 Page publique : `/devis` (menu « Devis », bouton « Simuler un devis » sur la page Services).
 
-## Les étapes
+## Le parcours
 
-1. **Estimation** : le visiteur choisit, pour chaque service, une formule (une seule), puis des options et des
-   quantités (pages, produits, jours…). Il voit une fourchette de prix en direct, puis crée son estimation, à une
-   adresse secrète (`/devis/<identifiant>`) avec un numéro (`D-2026-0001`…). Les fourchettes y sont copiées et
-   figées pendant 30 jours. Aucune donnée personnelle n'est demandée.
-2. **Demande de rappel** : sur son estimation, le visiteur laisse ses nom, e-mail (et s'il le souhaite son
-   téléphone et des précisions) pour être recontacté.
-3. **Devis ferme** : un développeur ouvre l'estimation dans l'administration (« Finaliser »), échange avec le
-   client, fixe le prix unitaire HT de chaque ligne selon la complexité réelle, ajoute une note si besoin, puis
-   émet le devis ferme. Il s'affiche sur la même page que l'estimation.
-4. **Signature** : le client signe le devis ferme en ligne dans les 30 jours suivant son émission. Réémettre un
-   devis non signé remplace ses prix et relance ces 30 jours.
+1. **Famille** : site vitrine, boutique en ligne, identité visuelle, application ou maintenance (une par estimation).
+2. **Type** : une formule de cette famille.
+3. **Options** : celles de la famille, plus celles de l'accompagnement (formation, photos, nom de domaine…).
+4. **Budget envisagé** : une tranche (`BUDGETS`, ou `MONTHLY_BUDGETS` pour la maintenance), ou « Je ne sais pas encore ».
+
+**Aucun prix n'est affiché pendant ces étapes**, ni envoyé au navigateur. Le visiteur obtient ensuite son
+**estimation**, à une adresse secrète (`/devis/<identifiant>`) avec un numéro (`D-2026-0001`…) :
+
+- ses choix, sans prix ligne par ligne, et un **total approximatif** en fourchette (réductions déjà déduites) ;
+- la **comparaison avec son budget** : couvert, dans la fourchette, ou en dessous ;
+- si le budget est en dessous : une **version ajustée** (options les plus chères retirées, puis formule moins chère
+  de la même famille), ou à défaut l'annonce d'une solution par étapes proposée par le conseiller ;
+- un formulaire **« Être rappelé par un conseiller »** : nom et téléphone obligatoires, e-mail et précisions
+  facultatifs.
+
+L'estimation est figée et valable 30 jours.
+
+## Le devis ferme
+
+Dans l'administration (« Simulateur de devis » → « Finaliser »), le conseiller voit les coordonnées du client, son
+budget, la version ajustée éventuelle et la fourchette de chaque ligne. Il :
+
+- fixe le prix unitaire HT de chaque ligne (il peut sortir de la fourchette) ;
+- retire des lignes si besoin (pour suivre la version ajustée, par exemple) ;
+- accorde une remise facultative, en montant ou en pourcentage, avec un libellé ;
+- ajoute une note, puis émet le devis ferme.
+
+Le devis ferme s'affiche sur la même page que l'estimation, avec le détail des prix, et se signe en ligne dans les
+30 jours. Réémettre un devis non signé remplace ses prix et relance ces 30 jours.
 
 Un devis non signé est supprimé automatiquement 30 jours après la fin de sa validité. Un devis signé est conservé.
 Une empreinte de l'adresse IP est gardée une heure pour limiter les abus (20 estimations par heure au plus).
 
-Le navigateur n'envoie que les choix du client : les fourchettes et les prix sont toujours recalculés par le
-serveur. Modifier la page avec les outils du navigateur (F12) ne change que l'affichage chez le client.
+## Où modifier quoi : `src/data/quote-catalog.ts`
 
-## Où modifier quoi
-
-| Quoi | Où |
+| Quoi | Dans le fichier |
 |:--|:--|
-| Prestations, fourchettes de prix, régime de TVA | `src/data/quote-catalog.ts` |
-| Durée de validité (30 jours) | `QUOTE_VALIDITY_DAYS`, même fichier |
-| Liste des devis, finalisation (prix fermes), suppression | Administration → « Simulateur de devis » |
+| Prestations et fourchettes de prix | `catalog`, champ `price` de chaque prestation |
+| Régime de TVA | `VAT_REGIME` |
+| Tranches de budget | `BUDGETS`, `MONTHLY_BUDGETS` |
+| Réductions automatiques | `discounts` (vide pour l'instant) |
+| Options proposées avec toutes les familles | `ADDON_GROUP` |
+| Durée de validité | `QUOTE_VALIDITY_DAYS` |
 
-Dans `src/data/quote-catalog.ts`, chaque prestation a un champ `price`, en euros HT :
+`price`, en euros HT : `1200` (prix fixe), `[1200, 2500]` (fourchette) ou `null` (prestation masquée). Pour une
+quantité, c'est le prix d'une unité ; pour un élément mensuel, le prix par mois. Une famille reste masquée tant
+qu'aucune de ses formules n'a de prix. Ne pas changer l'`id` d'une prestation déjà utilisée dans des devis.
 
-- `price: 1200` : prix fixe ;
-- `price: [1200, 2500]` : fourchette, affichée « 1 200 € – 2 500 € » ;
-- `price: null` : pas encore de prix, la prestation est masquée.
+**Réductions** `[À DÉFINIR]` : chaque réduction a un libellé, un pourcentage (`percent`) ou un montant HT
+(`amount`), et des conditions facultatives, toutes obligatoires si indiquées : total minimum (`minTotal`), familles
+(`families`), prestations requises (`requires`), date limite (`until`). Elles portent sur ce qui est payé une
+fois, pas sur l'abonnement mensuel. Des exemples commentés sont dans le fichier.
 
-Pour une quantité, c'est le prix d'une unité ; pour un élément mensuel, le prix par mois. Un service qui a des
-formules reste masqué tant qu'aucune n'a de prix. Ne pas changer l'`id` d'une prestation déjà utilisée dans des
-devis. Après modification du fichier : commit, puis déploiement.
-
-`VAT_REGIME` : `'franchise'` (mention « TVA non applicable, art. 293 B du CGI ») ou `'normal'` (TVA à 20 %).
-Les prix sont saisis HT ; le visiteur voit les prix TTC.
+Après modification du fichier : commit, puis déploiement.
 
 ## Avant l'ouverture commerciale
 
@@ -51,7 +67,8 @@ pendant le pré-lancement ne devient jamais signable, même après le lancement.
 
 Avant de passer `launch.commercial` à `true` `[À CONFIRMER AVANT LANCEMENT]` :
 
-- [ ] Fourchettes de prix remplies dans `src/data/quote-catalog.ts` et régime de TVA choisi.
+- [ ] Fourchettes de prix vérifiées (les montants actuels sont des propositions à confirmer) et régime de TVA choisi.
+- [ ] Conditions des réductions décidées, ou liste laissée vide.
 - [ ] Immatriculation (SIREN/SIRET dans `legal`, affichés sur le devis).
 - [ ] Conditions générales de vente rédigées, validées et publiées : la case de signature y fait
       référence. Ajouter le lien vers la page des CGV dans `src/pages/devis/[id].astro`.

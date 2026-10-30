@@ -1,13 +1,15 @@
 ---
 // Estimation puis devis ferme, à la même adresse secrète (/devis/<id>), non référencée : seul celui qui a le lien
 // y accède. Voir src/lib/quotes.ts pour les étapes (estimation → demande de rappel → devis ferme → signature).
+// L'estimation ne montre qu'un total approximatif (fourchette), comparé au budget envisagé ; le détail ligne par ligne
+// n'apparaît que dans le devis ferme établi par le conseiller.
 // Demande de rappel et signature en ligne seulement après l'ouverture commerciale (canRequestCallback, canSign).
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
-import { QUOTE_VALIDITY_DAYS, UNIT_LABELS } from '../../data/quote-catalog';
+import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type Unit } from '../../data/quote-catalog';
 import { legal, isRegistered } from '../../data/site';
-import { formatEuros, formatRange, type Totals } from '../../lib/pricing';
+import { formatEuros, formatRange, type Estimate, type FinalLine } from '../../lib/pricing';
 import { getSite } from '../../lib/store';
 import { isEmail, oneLine } from '../../lib/forms';
 import {
@@ -47,8 +49,13 @@ if (quote && Astro.request.method === 'POST') {
     errors.form = 'Cette action n’est pas (ou plus) possible pour ce devis.';
   } else {
     if (form.name.length < 2) errors.name = 'Indiquez vos prénom et nom.';
-    if (!isEmail(form.email)) errors.email = 'Indiquez une adresse e-mail valide.';
-    if (action === 'sign' && data.get('accept') !== 'oui') errors.accept = 'Cochez la case pour accepter le devis.';
+    if (action === 'callback') {
+      if (form.phone.replace(/\D/g, '').length < 9) errors.phone = 'Indiquez un numéro de téléphone pour être rappelé.';
+      if (form.email && !isEmail(form.email)) errors.email = 'Cette adresse e-mail ne semble pas valide.';
+    } else {
+      if (!isEmail(form.email)) errors.email = 'Indiquez une adresse e-mail valide.';
+      if (data.get('accept') !== 'oui') errors.accept = 'Cochez la case pour accepter le devis.';
+    }
     if (Object.keys(errors).length === 0) {
       try {
         if (action === 'callback') {
@@ -74,50 +81,64 @@ const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { ...dateFormat, hour: '2-digit', minute: '2-digit' });
 const validUntil = final?.expiresAt ?? quote?.expiresAt ?? '';
 const daysLeft = Math.max(0, Math.ceil((Date.parse(validUntil) - Date.now()) / 86_400_000));
+const vatRate = quote?.vatRate ?? 0;
+const ttcLabel = vatRate > 0 ? 'TTC' : '';
 
-// Tableau affiché : devis ferme s'il existe, sinon estimation en fourchette ; lignes regroupées par service
-type Row = { label: string; detail?: string; qty: string; unitPrice: string; total: string };
-const qtyLabel = (qty: number, unit: keyof typeof UNIT_LABELS) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
-const rows = (monthly: boolean) => {
-  const groups = new Map<string, Row[]>();
-  const lines = final
-    ? final.lines.map((l) => ({ ...l, unitPrice: formatEuros(l.unitPrice), total: formatEuros(l.total) }))
-    : (quote?.lines ?? []).map((l) => ({ ...l, unitPrice: formatRange(l.unitPrice), total: formatRange(l.total) }));
-  for (const line of lines.filter((l) => l.monthly === monthly)) {
-    const row = { label: line.label, detail: line.detail, qty: qtyLabel(line.qty, line.unit), unitPrice: line.unitPrice, total: line.total };
-    groups.set(line.group, [...(groups.get(line.group) ?? []), row]);
+const qtyLabel = (qty: number, unit: Unit) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
+// Choix du visiteur, sans prix : « Site vitrine · Site essentiel », puis les options
+const choices = (lines: { label: string; qty: number; unit: Unit }[]) =>
+  lines.map((l) => (l.qty > 1 || (l.unit !== 'forfait' && l.unit !== 'mois') ? `${l.label} (${qtyLabel(l.qty, l.unit)})` : l.label));
+const options = quote?.lines.filter((l) => l.label !== quote!.base) ?? [];
+const totalOf = (estimate: Pick<Estimate, 'totals'>, monthly: boolean) => {
+  const part = monthly ? estimate.totals.monthly : estimate.totals.oneOff;
+  return formatRange([part.min.ttc, part.max.ttc]);
+};
+
+// Devis ferme : lignes regroupées par service, avec leurs prix
+const finalGroups = (monthly: boolean) => {
+  const groups = new Map<string, FinalLine[]>();
+  for (const line of final?.lines.filter((l) => l.monthly === monthly) ?? []) {
+    groups.set(line.group, [...(groups.get(line.group) ?? []), line]);
   }
   return [...groups];
 };
-const vatRate = quote?.vatRate ?? 0;
-const totalRows = (monthly: boolean): [string, string, boolean][] => {
-  if (!quote) return [];
+const finalRows = (monthly: boolean): [string, string, boolean][] => {
+  if (!final) return [];
+  const totals = monthly ? final.totals.monthly : final.totals.oneOff;
   const per = monthly ? ' par mois' : '';
-  const fmt = (pick: (t: Totals) => number) =>
-    final
-      ? formatEuros(pick(monthly ? final.totals.monthly : final.totals.oneOff))
-      : formatRange(
-          [quote!.totals[monthly ? 'monthly' : 'oneOff'].min, quote!.totals[monthly ? 'monthly' : 'oneOff'].max].map(pick) as [number, number],
-        );
+  const discount = !monthly && final.discount;
   return [
-    [`Total HT${per}`, fmt((t) => t.ht), false],
-    ...(vatRate > 0 ? [[`TVA ${vatRate} %`, fmt((t) => t.vat), false] as [string, string, boolean]] : []),
-    [`Total ${vatRate > 0 ? 'TTC' : 'à payer'}${per}`, fmt((t) => t.ttc), true],
+    ...(discount
+      ? ([
+          ['Sous-total HT', formatEuros(totals.ht + discount.amount), false],
+          [discount.label || 'Remise', `− ${formatEuros(discount.amount)}`, false],
+        ] as [string, string, boolean][])
+      : []),
+    [`Total HT${per}`, formatEuros(totals.ht), false],
+    ...(vatRate > 0 ? ([[`TVA ${vatRate} %`, formatEuros(totals.vat), false]] as [string, string, boolean][]) : []),
+    [`Total ${vatRate > 0 ? 'TTC' : 'à payer'}${per}`, formatEuros(totals.ttc), true],
   ];
 };
 const amount = final
   ? `${formatEuros(final.totals.oneOff.ttc)}${final.totals.monthly.ttc > 0 ? `, puis ${formatEuros(final.totals.monthly.ttc)} par mois` : ''}`
   : '';
+
+const FIT_TEXT = {
+  couvert: 'Votre budget couvre cette estimation.',
+  dans: 'Votre budget se situe dans la fourchette estimée : le conseiller ajustera le contenu avec vous pour le respecter.',
+  sous: 'Votre budget est en dessous de cette estimation.',
+};
 const issuer = legal.legalName ?? legal.publisher ?? site.name;
 const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
 const ok = Astro.url.searchParams.get('ok');
 const invalid = (name: string) => (errors[name] ? 'true' : undefined);
 const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined);
 const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', ferme: 'Votre devis.', expire: 'Devis expiré.', signe: 'Devis signé.' };
+const kind = final ? 'Devis' : 'Estimation';
 ---
 
-<BaseLayout title={quote ? `${final ? 'Devis' : 'Estimation'} ${quote.number}` : 'Devis introuvable'} description="Votre devis NovaForge Studio." noindex>
-  <PageHero eyebrow={quote ? `${final ? 'Devis' : 'Estimation'} ${quote.number}` : 'Devis'} compact>
+<BaseLayout title={quote ? `${kind} ${quote.number}` : 'Devis introuvable'} description="Votre devis NovaForge Studio." noindex>
+  <PageHero eyebrow={quote ? `${kind} ${quote.number}` : 'Devis'} compact>
     <Fragment slot="title">
       {status ? <em>{titles[status]}</em> : <Fragment>Devis <em>introuvable.</em></Fragment>}
     </Fragment>
@@ -131,7 +152,7 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
             <p>
               {unavailable
                 ? 'Le devis est momentanément indisponible. Réessayez dans un instant.'
-                : `Ce lien ne correspond à aucun devis. Un devis non signé est supprimé ${RETENTION_DAYS} jours après sa création.`}
+                : `Ce lien ne correspond à aucun devis. Une estimation non suivie est supprimée ${RETENTION_DAYS} jours après sa création.`}
             </p>
             <a class="btn btn-primary" href="/devis">
               Faire une simulation <Icon name="arrow" class="btn-arrow" />
@@ -141,7 +162,7 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
           <Fragment>
             {ok === 'rappel' && status === 'rappel' && (
               <p class="admin-flash" role="status">
-                <Icon name="check" /> Demande envoyée : un développeur vous recontacte pour établir votre devis ferme.
+                <Icon name="check" /> C'est noté : un conseiller vous rappelle pour établir votre devis.
               </p>
             )}
             {ok === 'signe' && status === 'signe' && (
@@ -155,12 +176,6 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
                 un ordre de prix : elle ne peut être ni finalisée en ligne ni signée.
               </p>
             )}
-            {quote.binding && !final && status !== 'expire' && (
-              <p class="quote-banner">
-                <strong>Estimation indicative.</strong> Les prix exacts dépendent de la complexité réelle de votre projet :
-                un développeur les fixe avec vous dans un devis ferme, que vous pourrez signer ici.
-              </p>
-            )}
             {status === 'expire' && (
               <p class="quote-banner">
                 <strong>Ce {final ? 'devis' : 'cette estimation'} a expiré le {formatDate(validUntil)}.</strong> Ses prix ne
@@ -168,102 +183,176 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
               </p>
             )}
 
-            <article class="quote-doc card">
-              <header class="quote-doc-head">
-                <div>
-                  <p class="quote-doc-label">Émis par</p>
-                  <p class="quote-doc-strong">{issuer}</p>
-                  <p>{site.address.join(', ')}</p>
-                  {legal.siret && <p>SIRET {legal.siret}</p>}
-                  {legal.vat && <p>TVA intracommunautaire {legal.vat}</p>}
-                  {!isRegistered && <p class="quote-doc-muted">Projet en préparation, non immatriculé</p>}
-                </div>
-                <dl class="quote-doc-meta">
-                  <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
-                  <div><dt>{final ? 'Devis du' : 'Estimation du'}</dt><dd>{formatDate(final?.issuedAt ?? quote.createdAt)}</dd></div>
+            {!final ? (
+              <article class="quote-doc card">
+                <header class="quote-doc-head">
                   <div>
-                    <dt>Valable jusqu'au</dt>
-                    <dd>
-                      {formatDate(validUntil)}
-                      {(status === 'estimation' || status === 'rappel' || status === 'ferme') &&
-                        ` (encore ${daysLeft} jour${daysLeft > 1 ? 's' : ''})`}
-                    </dd>
+                    <p class="quote-doc-label">Votre projet</p>
+                    <p class="quote-doc-strong">
+                      {quote.family.title} · {quote.base}
+                    </p>
                   </div>
-                </dl>
-              </header>
+                  <dl class="quote-doc-meta">
+                    <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                    <div><dt>Estimation du</dt><dd>{formatDate(quote.createdAt)}</dd></div>
+                    <div><dt>Valable jusqu'au</dt><dd>{formatDate(quote.expiresAt)}</dd></div>
+                  </dl>
+                </header>
 
-              {[false, true].map((monthly) => {
-                const groups = rows(monthly);
-                return (
-                  groups.length > 0 && (
-                    <div class="quote-table-wrap">
-                      <table class="quote-table">
-                        <caption>
-                          {monthly ? 'Abonnement mensuel' : 'Prestations'}
-                          {!final && ' · estimation'}
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Désignation</th>
-                            <th scope="col">Quantité</th>
-                            <th scope="col">Prix unitaire HT</th>
-                            <th scope="col">Total HT</th>
-                          </tr>
-                        </thead>
-                        {groups.map(([group, lines]) => (
-                          <tbody>
-                            <tr class="quote-table-group">
-                              <th scope="rowgroup" colspan="4">{group}</th>
-                            </tr>
-                            {lines.map((line) => (
-                              <tr>
-                                <td>
-                                  {line.label}
-                                  {line.detail && <span class="quote-item-detail">{line.detail}</span>}
-                                </td>
-                                <td>{line.qty}</td>
-                                <td>{line.unitPrice}</td>
-                                <td>{line.total}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        ))}
-                      </table>
-                      <dl class="quote-totals">
-                        {totalRows(monthly).map(([label, value, main]) => (
-                          <div class:list={{ 'quote-totals-main': main }}>
-                            <dt>{label}</dt>
-                            <dd>{value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </div>
-                  )
-                );
-              })}
-
-              {final?.note && <p class="quote-doc-note">{final.note}</p>}
-
-              <ul class="quote-doc-notes">
-                {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
-                {final ? (
-                  <li>Prix fermes jusqu'au {formatDate(final.expiresAt)}, date limite de signature.</li>
-                ) : (
-                  <li>
-                    Fourchettes garanties {QUOTE_VALIDITY_DAYS} jours, jusqu'au {formatDate(quote.expiresAt)}. Le prix ferme
-                    est fixé dans le devis établi par un développeur.
-                  </li>
+                {options.length > 0 && (
+                  <div>
+                    <p class="quote-doc-label">Options choisies</p>
+                    <ul class="quote-choices">
+                      {choices(options).map((choice) => (
+                        <li>
+                          <Icon name="check" /> {choice}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-                {quote.totals.monthly.max.ht > 0 && <li>L'abonnement mensuel démarre à la mise en ligne.</li>}
-              </ul>
 
-              {quote.signature && (
-                <p class="quote-signed">
-                  <Icon name="check" /> Bon pour accord : signé par <strong>{quote.signature.name}</strong> le
-                  {' '}{formatDateTime(quote.signature.signedAt)}.
-                </p>
-              )}
-            </article>
+                <div class="quote-estimate">
+                  <p class="quote-doc-label">Estimation approximative {ttcLabel}</p>
+                  {quote.totals.oneOff.max.ttc > 0 && <p class="quote-estimate-value">{totalOf(quote, false)}</p>}
+                  {quote.totals.monthly.max.ttc > 0 && (
+                    <p class:list={['quote-estimate-value', { 'quote-estimate-value--sub': quote.totals.oneOff.max.ttc > 0 }]}>
+                      {quote.totals.oneOff.max.ttc > 0 && 'puis '}
+                      {totalOf(quote, true)} / mois
+                    </p>
+                  )}
+                  {quote.discounts.map((d) => (
+                    <p class="quote-estimate-discount">
+                      <Icon name="star" /> {d.label} : déjà déduite ({formatRange(d.amount)} HT)
+                    </p>
+                  ))}
+                  <p class="form-note">
+                    Le prix exact dépend de la complexité réelle de votre projet : il est fixé avec vous par un conseiller
+                    dans votre devis.
+                  </p>
+                </div>
+
+                {quote.budget && (
+                  <div class:list={['quote-budget', `quote-budget--${quote.budget.fit}`]}>
+                    <p class="quote-doc-label">Votre budget : {quote.budget.label}</p>
+                    <p>{FIT_TEXT[quote.budget.fit]}</p>
+                    {quote.budget.fit === 'sous' &&
+                      (quote.suggestion ? (
+                        <div class="quote-suggestion">
+                          <p class="quote-doc-strong">Une version ajustée à votre budget</p>
+                          <p>
+                            {quote.suggestion.base !== quote.base && <Fragment>Formule « {quote.suggestion.base} »</Fragment>}
+                            {quote.suggestion.base !== quote.base && quote.suggestion.removed.length > 0 && ', '}
+                            {quote.suggestion.removed.length > 0 && <Fragment>sans : {quote.suggestion.removed.join(', ')}</Fragment>}.
+                          </p>
+                          <p class="quote-estimate-value quote-estimate-value--sub">
+                            {quote.budget.monthly
+                              ? `${totalOf(quote.suggestion, true)} / mois`
+                              : totalOf(quote.suggestion, false)}
+                          </p>
+                          <p class="form-note">Le conseiller vous présentera les deux possibilités.</p>
+                        </div>
+                      ) : (
+                        <p>
+                          Aucune formule de ce type ne rentre dans ce budget : le conseiller vous proposera une solution
+                          par étapes ou une alternative.
+                        </p>
+                      ))}
+                  </div>
+                )}
+
+                <ul class="quote-doc-notes">
+                  {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
+                  <li>Estimation garantie {QUOTE_VALIDITY_DAYS} jours, jusqu'au {formatDate(quote.expiresAt)}.</li>
+                </ul>
+              </article>
+            ) : (
+              <article class="quote-doc card">
+                <header class="quote-doc-head">
+                  <div>
+                    <p class="quote-doc-label">Émis par</p>
+                    <p class="quote-doc-strong">{issuer}</p>
+                    <p>{site.address.join(', ')}</p>
+                    {legal.siret && <p>SIRET {legal.siret}</p>}
+                    {legal.vat && <p>TVA intracommunautaire {legal.vat}</p>}
+                    {!isRegistered && <p class="quote-doc-muted">Projet en préparation, non immatriculé</p>}
+                  </div>
+                  <dl class="quote-doc-meta">
+                    <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                    <div><dt>Devis du</dt><dd>{formatDate(final.issuedAt)}</dd></div>
+                    <div>
+                      <dt>Valable jusqu'au</dt>
+                      <dd>
+                        {formatDate(final.expiresAt)}
+                        {status === 'ferme' && ` (encore ${daysLeft} jour${daysLeft > 1 ? 's' : ''})`}
+                      </dd>
+                    </div>
+                  </dl>
+                </header>
+
+                {[false, true].map((monthly) => {
+                  const groups = finalGroups(monthly);
+                  return (
+                    groups.length > 0 && (
+                      <div class="quote-table-wrap">
+                        <table class="quote-table">
+                          <caption>{monthly ? 'Abonnement mensuel' : 'Prestations'}</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Désignation</th>
+                              <th scope="col">Quantité</th>
+                              <th scope="col">Prix unitaire HT</th>
+                              <th scope="col">Total HT</th>
+                            </tr>
+                          </thead>
+                          {groups.map(([group, lines]) => (
+                            <tbody>
+                              <tr class="quote-table-group">
+                                <th scope="rowgroup" colspan="4">{group}</th>
+                              </tr>
+                              {lines.map((line) => (
+                                <tr>
+                                  <td>
+                                    {line.label}
+                                    {line.detail && <span class="quote-item-detail">{line.detail}</span>}
+                                  </td>
+                                  <td>{qtyLabel(line.qty, line.unit)}</td>
+                                  <td>{formatEuros(line.unitPrice)}</td>
+                                  <td>{formatEuros(line.total)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          ))}
+                        </table>
+                        <dl class="quote-totals">
+                          {finalRows(monthly).map(([label, value, main]) => (
+                            <div class:list={{ 'quote-totals-main': main }}>
+                              <dt>{label}</dt>
+                              <dd>{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )
+                  );
+                })}
+
+                {final.note && <p class="quote-doc-note">{final.note}</p>}
+
+                <ul class="quote-doc-notes">
+                  {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
+                  <li>Prix fermes jusqu'au {formatDate(final.expiresAt)}, date limite de signature.</li>
+                  {final.totals.monthly.ht > 0 && <li>L'abonnement mensuel démarre à la mise en ligne.</li>}
+                </ul>
+
+                {quote.signature && (
+                  <p class="quote-signed">
+                    <Icon name="check" /> Bon pour accord : signé par <strong>{quote.signature.name}</strong> le
+                    {' '}{formatDateTime(quote.signature.signedAt)}.
+                  </p>
+                )}
+              </article>
+            )}
 
             {errors.form && (
               <p class="admin-alert" role="alert">
@@ -273,18 +362,18 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
 
             {status === 'rappel' && quote.contact && (
               <p class="quote-banner">
-                <strong>Demande de rappel reçue le {formatDate(quote.contact.requestedAt)}.</strong> Un développeur étudie
-                votre projet et vous recontacte ; votre devis ferme apparaîtra sur cette page.
+                <strong>Demande de rappel reçue le {formatDate(quote.contact.requestedAt)}.</strong> Un conseiller étudie
+                votre projet et vous rappelle ; votre devis apparaîtra sur cette page.
               </p>
             )}
 
             {canRequestCallback(quote) && (
               <form class="form form--card card quote-sign" method="post" novalidate>
                 <input type="hidden" name="action" value="callback" />
-                <h2 class="quote-sign-title field--full">Être recontacté pour finaliser</h2>
+                <h2 class="quote-sign-title field--full">Être rappelé par un conseiller</h2>
                 <p class="form-note field--full">
-                  Un développeur étudie votre estimation, vous recontacte pour préciser votre besoin, puis établit votre
-                  devis aux prix fermes.
+                  Il fait le point avec vous sur votre projet et votre budget, puis vous envoie votre devis aux prix
+                  fermes, sur cette page.
                 </p>
                 <div class="field">
                   <label for="cb-name">Prénom et nom <span class="req">*</span></label>
@@ -292,26 +381,27 @@ const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', f
                   {errors.name && <p class="field-error" id="name-err">{errors.name}</p>}
                 </div>
                 <div class="field">
-                  <label for="cb-email">E-mail <span class="req">*</span></label>
-                  <input class="input" id="cb-email" name="email" type="email" value={form.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
-                  {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
+                  <label for="cb-phone">Téléphone <span class="req">*</span></label>
+                  <input class="input" id="cb-phone" name="phone" type="tel" value={form.phone} required maxlength="30" autocomplete="tel" aria-invalid={invalid('phone')} aria-describedby={describedBy('phone')} />
+                  {errors.phone && <p class="field-error" id="phone-err">{errors.phone}</p>}
                 </div>
                 <div class="field">
-                  <label for="cb-phone">Téléphone</label>
-                  <input class="input" id="cb-phone" name="phone" type="tel" value={form.phone} maxlength="30" autocomplete="tel" />
+                  <label for="cb-email">E-mail</label>
+                  <input class="input" id="cb-email" name="email" type="email" value={form.email} maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
+                  {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
                 </div>
                 <div class="field field--full">
                   <label for="cb-message">Précisions sur votre projet</label>
-                  <textarea class="input" id="cb-message" name="message" rows="4" maxlength="2000" placeholder="Votre activité, vos délais, ce qui vous paraît particulier…">{form.message}</textarea>
+                  <textarea class="input" id="cb-message" name="message" rows="4" maxlength="2000" placeholder="Votre activité, vos délais, le meilleur moment pour vous appeler…">{form.message}</textarea>
                 </div>
                 <p class="form-privacy field--full">
-                  Vos coordonnées servent uniquement à vous recontacter au sujet de ce devis. Elles sont supprimées avec
-                  lui s'il n'est pas signé : <a href="/confidentialite">politique de confidentialité</a>.
+                  Vos coordonnées servent uniquement à vous rappeler au sujet de ce devis. Elles sont supprimées avec lui
+                  s'il n'est pas signé : <a href="/confidentialite">politique de confidentialité</a>.
                 </p>
                 <div class="form-footer">
                   <p class="form-note"><span aria-hidden="true">*</span> Champs obligatoires</p>
                   <button class="btn btn-primary" type="submit">
-                    Demander à être recontacté <Icon name="arrow" class="btn-arrow" />
+                    Être rappelé <Icon name="arrow" class="btn-arrow" />
                   </button>
                 </div>
               </form>

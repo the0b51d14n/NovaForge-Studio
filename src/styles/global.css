@@ -2733,12 +2733,43 @@ textarea.admin-textarea--short { min-height: 80px; }
 @keyframes live-in { from { opacity: 0; translate: -50% 12px; } }
 
 /* ---------- 28 bis. Simulateur de devis (/devis) et devis (/devis/<id>) ---------- */
-.quote-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: clamp(24px, 3vw, 40px); align-items: start; }
-.quote-groups { display: grid; gap: 20px; }
-.quote-group { display: grid; gap: 16px; min-width: 0; margin: 0; padding: clamp(22px, 3vw, 32px); }
-.quote-group-title { float: left; width: 100%; padding: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
-.quote-group-title + * { clear: both; }
-.quote-group-intro { margin-top: -10px; color: var(--muted); }
+/* Parcours en étapes (sans JavaScript, les étapes s'affichent l'une sous l'autre) */
+.wizard { display: grid; gap: 28px; max-width: 920px; margin-inline: auto; padding: clamp(24px, 4vw, 48px); }
+.wizard [hidden] { display: none !important; }
+.wizard-progress { display: flex; flex-wrap: wrap; gap: 10px 22px; padding-bottom: 20px; border-bottom: 1px solid var(--line); font-size: .9rem; color: var(--muted); }
+.wizard:not(.is-wizard) .wizard-progress { display: none; }
+.wizard-progress li { display: inline-flex; align-items: center; gap: 8px; }
+.wizard-progress-num { display: inline-grid; place-items: center; width: 26px; height: 26px; border: 1.5px solid var(--line-strong); border-radius: 50%; font-size: .8rem; font-weight: 700; }
+.wizard-progress li[aria-current] { color: var(--fg); font-weight: 700; }
+.wizard-progress li[aria-current] .wizard-progress-num { border-color: transparent; background: var(--grad); color: #fff; }
+.wizard-progress li.is-done .wizard-progress-num { border-color: var(--blue-2); color: var(--blue-2); }
+.wizard-step { display: grid; gap: 18px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.wizard-title { float: left; width: 100%; padding: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(1.4rem, 2.4vw, 1.9rem); letter-spacing: -.02em; }
+.wizard-title + * { clear: both; }
+.wizard-hint { color: var(--muted); }
+.wizard-panel-title { font-family: var(--font-mono); font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.wizard-recap { padding: 12px 16px; border-radius: 12px; background: var(--hover); font-size: .95rem; }
+.wizard-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding-top: 20px; border-top: 1px solid var(--line); }
+.wizard-nav [data-next],
+.wizard-nav [data-submit] { margin-left: auto; }
+.family-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.family-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 20px;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: border-color .2s, background-color .2s;
+}
+.family-card input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.family-card:hover { border-color: var(--line-strong); }
+.family-card:has(input:checked) { border-color: var(--blue-2); background: rgba(11, 127, 192, .07); }
+.family-card:has(input:focus-visible) { outline: 2px solid var(--blue-2); outline-offset: 3px; }
+.family-card-title { font-weight: 700; font-size: 1.1rem; }
+.family-card-text { font-size: .9rem; color: var(--muted); }
 .quote-items { display: grid; gap: 8px; }
 .quote-item {
   display: grid;
@@ -2755,36 +2786,25 @@ textarea.admin-textarea--short { min-height: 80px; }
 .quote-item:has(input:checked) { border-color: var(--blue-2); background: rgba(11, 127, 192, .07); }
 .quote-item input[type="radio"],
 .quote-item input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+.quote-item--plain { grid-template-columns: auto minmax(0, 1fr); }
 .quote-item--qty { grid-template-columns: minmax(0, 1fr) 6.5rem; cursor: default; }
 .quote-item-text { display: grid; gap: 2px; min-width: 0; }
 .quote-item-label { font-weight: 700; cursor: inherit; }
 .quote-item-detail { display: block; font-size: .88rem; color: var(--muted); }
-.quote-item-price { font-weight: 700; font-size: .95rem; white-space: nowrap; }
-.quote-item--qty .quote-item-price { font-size: .88rem; color: var(--accent); }
 .quote-qty { padding-block: 6px; text-align: right; }
-.quote-extras { display: grid; gap: 10px; }
-.quote-extras-title { font-family: var(--font-mono); font-size: .72rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.quote-extras-hint { display: none; font-size: .88rem; color: var(--muted); }
-.quote-extras.is-disabled .quote-items { opacity: .45; pointer-events: none; }
-.quote-extras.is-disabled .quote-extras-hint { display: block; }
 
-.quote-summary { position: sticky; top: calc(var(--header-h) + 20px); display: grid; gap: 16px; padding: clamp(24px, 3vw, 32px); }
-.is-prelaunch .quote-summary { top: calc(var(--header-h) + 56px); }
-.quote-summary-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
-.quote-summary-lines { display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; font-size: .92rem; }
-.quote-summary-lines li { display: flex; justify-content: space-between; gap: 12px; }
-.quote-summary-lines li > :last-child { flex: none; max-width: 55%; font-weight: 700; text-align: right; }
-.quote-summary-empty { color: var(--muted); }
-.quote-summary-totals { display: grid; gap: 6px; padding-top: 16px; border-top: 1px solid var(--line); }
-.quote-summary-totals > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.quote-summary-totals dt { color: var(--muted); }
-.quote-summary-totals > div:first-child dd { font-family: var(--font-display); font-weight: 700; font-size: 1.8rem; letter-spacing: -.03em; }
-.quote-summary-totals dd { font-weight: 700; }
-.quote-summary-note { font-size: .84rem; color: var(--muted); }
-.quote-summary .btn { justify-content: center; }
-/* Sans JavaScript, pas de total en direct : il s'affiche sur le devis créé */
-html:not(.js) .quote-summary-lines,
-html:not(.js) .quote-summary-totals { display: none; }
+/* Estimation : choix, total approximatif, comparaison au budget */
+.quote-choices { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 8px; }
+.quote-choices li { display: inline-flex; align-items: center; gap: 6px; }
+.quote-choices .icon { width: 1em; height: 1em; color: var(--blue-2); }
+.quote-estimate { display: grid; gap: 6px; padding: 20px 24px; border-radius: 16px; background: var(--hover); }
+.quote-estimate-value { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -.03em; line-height: 1.1; }
+.quote-estimate-value--sub { font-size: 1.3rem; }
+.quote-estimate-discount { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--blue-2); }
+.quote-estimate-discount .icon { width: .9em; height: .9em; }
+.quote-budget { display: grid; gap: 8px; padding: 18px 22px; border-left: 3px solid var(--blue-2); border-radius: 0 14px 14px 0; background: rgba(11, 127, 192, .07); }
+.quote-budget--sous { border-color: var(--amber); background: rgba(224, 161, 90, .12); }
+.quote-suggestion { display: grid; gap: 6px; margin-top: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
 
 .quote-empty { display: grid; justify-items: start; gap: 16px; max-width: 40rem; padding: clamp(28px, 4vw, 48px); }
 .quote-empty-title { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; letter-spacing: -.02em; }
@@ -2842,13 +2862,7 @@ html:not(.js) .quote-summary-totals { display: none; }
   background: var(--bg);
 }
 
-@media (max-width: 960px) {
-  .quote-layout { grid-template-columns: 1fr; }
-  .quote-summary { position: static; }
-}
 @media (max-width: 640px) {
-  .quote-item { grid-template-columns: auto minmax(0, 1fr); }
-  .quote-item > .quote-item-price { grid-column: 2; }
   .quote-item--qty { grid-template-columns: minmax(0, 1fr) 5.5rem; }
   .admin-price { grid-template-columns: 1fr; }
 }

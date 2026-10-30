@@ -521,9 +521,10 @@ const formatDate = (iso: string) =>
               <h2 class="admin-h2" id="a-quotes">Simulateur de devis</h2>
               <p class="admin-text">
                 Les visiteurs composent leur projet sur <a href="/devis" target="_blank" rel="noopener">/devis</a> et
-                obtiennent une estimation en fourchette, puis demandent à être recontactés. Ouvrez une estimation pour
-                fixer les prix fermes : le client signe ensuite son devis en ligne (une fois le studio ouvert
-                commercialement). Les prestations et leurs fourchettes se règlent dans src/data/quote-catalog.ts.
+                obtiennent une estimation adaptée à leur budget, puis demandent à être rappelés. Ouvrez une estimation
+                pour fixer les prix fermes : le client signe ensuite son devis en ligne (une fois le studio ouvert
+                commercialement). Prestations, fourchettes, budgets et réductions se règlent dans
+                src/data/quote-catalog.ts.
               </p>
               {quotesError ? (
                 <p class="admin-text">Liste des devis momentanément indisponible (base de données injoignable).</p>
@@ -540,8 +541,9 @@ const formatDate = (iso: string) =>
                             {q.number} · {quoteAmount(q)}
                           </p>
                           <p class="admin-job-meta">
-                            Créé le {formatDate(q.createdAt)} · {q.lines.length} ligne{q.lines.length > 1 ? 's' : ''}
-                            {q.contact && ` · ${q.contact.name}`}
+                            {q.family.title} · créé le {formatDate(q.createdAt)}
+                            {q.budget && ` · budget ${q.budget.label}`}
+                            {q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
                           </p>
                         </div>
                         <div class="admin-job-actions">

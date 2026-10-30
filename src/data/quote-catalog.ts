@@ -8,8 +8,11 @@
 // Pour une quantité (kind 'quantity'), le prix est celui d'une unité (une page, un produit, un jour…).
 // Pour un élément mensuel (monthly), c'est le prix par mois.
 //
-// Le simulateur donne une estimation : un développeur fixe ensuite les prix fermes depuis l'administration,
-// selon la complexité réelle de la demande. Un service qui a des formules reste masqué tant qu'aucune n'a de prix.
+// Parcours du simulateur : famille (un groupe qui a des formules), type (une formule), options (celles de la
+// famille + celles du groupe ADDON_GROUP), puis budget envisagé (BUDGETS). Aucun prix n'est montré pendant les
+// choix : le visiteur obtient ensuite une estimation approximative (total en fourchette), comparée à son budget,
+// et un conseiller le rappelle pour établir le devis ferme depuis l'administration.
+// Une famille reste masquée tant qu'aucune de ses formules n'a de prix.
 import type { VatRegime } from '../lib/pricing';
 
 /** franchise : aucune TVA facturée (« TVA non applicable, art. 293 B du CGI ») ; normal : TVA à 20 % */
@@ -63,6 +66,59 @@ export const UNIT_LABELS: Record<Unit, [singulier: string, pluriel: string]> = {
  * puis du devis ferme à compter de son émission (période de signature)
  */
 export const QUOTE_VALIDITY_DAYS = 30;
+
+/** Groupe dont les options sont proposées avec toutes les familles (étape « Options ») */
+export const ADDON_GROUP = 'accompagnement';
+
+/** Tranche de budget envisagé, en euros TTC : [minimum, maximum] (maximum null = sans plafond) */
+export type Budget = { id: string; label: string; range: [min: number, max: number | null] };
+
+/** Budgets proposés pour un projet payé une fois */
+export const BUDGETS: Budget[] = [
+  { id: 'moins-1000', label: 'Moins de 1 000 €', range: [0, 1000] },
+  { id: '1000-2500', label: '1 000 – 2 500 €', range: [1000, 2500] },
+  { id: '2500-5000', label: '2 500 – 5 000 €', range: [2500, 5000] },
+  { id: '5000-10000', label: '5 000 – 10 000 €', range: [5000, 10000] },
+  { id: '10000-20000', label: '10 000 – 20 000 €', range: [10000, 20000] },
+  { id: 'plus-20000', label: 'Plus de 20 000 €', range: [20000, null] },
+];
+
+/** Budgets proposés pour une famille facturée au mois (maintenance) */
+export const MONTHLY_BUDGETS: Budget[] = [
+  { id: 'moins-80', label: 'Moins de 80 € / mois', range: [0, 80] },
+  { id: '80-150', label: '80 – 150 € / mois', range: [80, 150] },
+  { id: '150-300', label: '150 – 300 € / mois', range: [150, 300] },
+  { id: 'plus-300', label: 'Plus de 300 € / mois', range: [300, null] },
+];
+
+/**
+ * Réduction appliquée automatiquement à l'estimation quand toutes ses conditions sont remplies.
+ * Conditions à définir : laisser la liste vide tant qu'aucune n'est décidée. Une réduction porte sur ce qui est payé
+ * une fois (pas sur l'abonnement mensuel). Le conseiller peut aussi accorder une remise en établissant le devis ferme.
+ */
+export type Discount = {
+  /** Affiché sur l'estimation, ex. « Offre de lancement » */
+  label: string;
+  /** Pourcentage du total HT… */
+  percent?: number;
+  /** …ou montant HT en euros */
+  amount?: number;
+  /** Condition : total HT minimum de l'estimation (prix bas de la fourchette), en euros */
+  minTotal?: number;
+  /** Condition : familles concernées (id des groupes) ; toutes si absent */
+  families?: string[];
+  /** Condition : prestations qui doivent toutes être choisies (id) */
+  requires?: string[];
+  /** Condition : valable jusqu'à cette date incluse (AAAA-MM-JJ) */
+  until?: string;
+};
+
+export const discounts: Discount[] = [
+  // Exemples, à activer une fois les conditions décidées :
+  // { label: 'Offre de lancement', percent: 10, until: '2027-03-31' },
+  // { label: 'Remise grand projet', percent: 5, minTotal: 5000 },
+  // { label: 'Boutique avec mise en ligne des produits', amount: 150, requires: ['boutique-saisie'] },
+];
 
 export const catalog: CatalogGroup[] = [
   {

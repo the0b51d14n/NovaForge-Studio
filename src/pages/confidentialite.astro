@@ -90,15 +90,15 @@ const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numer
       <h2>Simulateur de devis</h2>
       <ul class="legal-points">
         <li>
-          <strong>Estimation</strong> : les prestations choisies et leurs fourchettes de prix. Aucune donnée
-          personnelle n'est demandée pour créer une estimation. Pour limiter les abus, une empreinte de votre adresse IP
+          <strong>Estimation</strong> : les prestations choisies, la tranche de budget envisagée et l'estimation
+          calculée. Aucune donnée personnelle n'est demandée pour créer une estimation. Pour limiter les abus, une empreinte de votre adresse IP
           (qui ne permet pas de la retrouver directement) est gardée une heure.
         </li>
         {launch.commercial && (
           <li>
-            <strong>Demande de rappel</strong> : si vous demandez à être recontacté, vos prénom, nom et e-mail
-            (obligatoires), téléphone et précisions sur votre projet (facultatifs), pour vous recontacter et établir
-            votre devis ferme (mesures précontractuelles prises à votre demande, RGPD, art. 6.1.b).
+            <strong>Demande de rappel</strong> : si vous demandez à être rappelé par un conseiller, vos prénom, nom et
+            téléphone (obligatoires), e-mail et précisions sur votre projet (facultatifs), pour vous rappeler et établir
+            votre devis (mesures précontractuelles prises à votre demande, RGPD, art. 6.1.b).
           </li>
         )}
         {launch.commercial && (

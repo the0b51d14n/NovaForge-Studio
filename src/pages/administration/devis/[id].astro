@@ -1,11 +1,12 @@
 ---
-// Finalisation d'une estimation par un développeur : coordonnées du client, fourchette de chaque ligne,
-// saisie des prix fermes HT puis émission du devis ferme (signable par le client pendant QUOTE_VALIDITY_DAYS jours).
+// Finalisation d'une estimation par un conseiller : coordonnées et budget du client, version ajustée éventuelle,
+// fourchette de chaque ligne, saisie des prix fermes HT (lignes retirables, remise facultative), puis émission du
+// devis ferme (signable par le client pendant QUOTE_VALIDITY_DAYS jours).
 // Réémettre un devis non signé remplace ses prix et relance sa période de signature.
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import Icon from '../../../components/Icon.astro';
 import AdminBar from '../../../components/AdminBar.astro';
-import { QUOTE_VALIDITY_DAYS, UNIT_LABELS } from '../../../data/quote-catalog';
+import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type Unit } from '../../../data/quote-catalog';
 import { launch } from '../../../data/site';
 import { ADMIN_PATH } from '../../../lib/access';
 import { formatEuros, formatRange, parseEuros } from '../../../lib/pricing';
@@ -23,12 +24,17 @@ if (!quote) return Astro.redirect(`${ADMIN_PATH}#devis`);
 
 // 123450 → « 1234,50 », 120000 → « 1200 »
 const toInput = (cents: number) => (cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100)).replace('.', ',');
+const finalLine = (id: string) => quote!.final?.lines.find((l) => l.id === id);
 const values: Record<string, string> = Object.fromEntries(
   quote.lines.map((line) => {
-    const fixed = quote!.final?.lines.find((l) => l.id === line.id)?.unitPrice;
+    const fixed = finalLine(line.id)?.unitPrice;
     return [line.id, fixed === undefined ? '' : toInput(fixed)];
   }),
 );
+let removed = quote.final ? quote.lines.filter((l) => !finalLine(l.id)).map((l) => l.id) : [];
+let discountLabel = quote.final?.discount?.label ?? '';
+let discountAmount = quote.final?.discount ? toInput(quote.final.discount.amount) : '';
+let discountPercent = '';
 let note = quote.final?.note ?? '';
 const invalid: string[] = [];
 let error = '';
@@ -36,20 +42,40 @@ let error = '';
 if (Astro.request.method === 'POST' && !quote.signature) {
   const data = await Astro.request.formData();
   note = String(data.get('note') ?? '').trim().slice(0, 1000);
+  removed = data.getAll('remove').map(String);
+  discountLabel = String(data.get('discount-label') ?? '').trim().slice(0, 80);
+  discountAmount = String(data.get('discount-amount') ?? '').trim().slice(0, 20);
+  discountPercent = String(data.get('discount-percent') ?? '').trim().slice(0, 5);
+
   const prices: Record<string, number> = {};
   for (const line of quote.lines) {
     const raw = String(data.get(`price:${line.id}`) ?? '').trim().slice(0, 20);
     values[line.id] = raw;
+    if (removed.includes(line.id)) continue;
     const cents = parseEuros(raw);
     if (cents === null) invalid.push(line.id);
     else prices[line.id] = cents;
   }
-  if (invalid.length > 0) {
-    error = 'Indiquez un prix unitaire HT pour chaque ligne (par exemple 1200 ou 49,90).';
+  const kept = quote.lines.filter((l) => !removed.includes(l.id));
+  const subtotal = kept.filter((l) => !l.monthly).reduce((s, l) => s + (prices[l.id] ?? 0) * l.qty, 0);
+  const percent = discountPercent ? Number(discountPercent.replace(',', '.')) : null;
+  const fixedDiscount = discountAmount ? parseEuros(discountAmount) : null;
+
+  if (kept.length === 0) error = 'Gardez au moins une ligne dans le devis.';
+  else if (invalid.length > 0) error = 'Indiquez un prix unitaire HT pour chaque ligne gardée (par exemple 1200 ou 49,90).';
+  else if (discountAmount && fixedDiscount === null) error = 'Montant de remise invalide.';
+  else if (percent !== null && !(percent > 0 && percent <= 100)) error = 'Pourcentage de remise invalide (entre 1 et 100).';
+  else if (percent !== null && fixedDiscount !== null) error = 'Indiquez la remise en montant ou en pourcentage, pas les deux.';
+
+  if (error) {
     Astro.response.status = 422;
   } else {
+    const amount = percent !== null ? Math.round((subtotal * percent) / 100) : fixedDiscount;
+    const discount = amount
+      ? { label: discountLabel || (percent !== null ? `Remise de ${percent} %` : 'Remise'), amount: Math.min(amount, subtotal) }
+      : null;
     try {
-      await finalizeQuote(quote, prices, note);
+      await finalizeQuote(quote, prices, removed, discount, note);
       return Astro.redirect(`${ADMIN_PATH}/devis/${quote.id}?ok=ferme`, 303);
     } catch (e) {
       console.error(e);
@@ -67,10 +93,13 @@ const STATES = {
   expire: 'Expiré',
   signe: 'Signé',
 };
+const FITS = { couvert: 'couvre l’estimation', dans: 'dans la fourchette', sous: 'en dessous de l’estimation' };
 const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-const qtyLabel = (qty: number, unit: keyof typeof UNIT_LABELS) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
+const qtyLabel = (qty: number, unit: Unit) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
+const range = (part: { min: { ttc: number }; max: { ttc: number } }) => formatRange([part.min.ttc, part.max.ttc]);
 const contact = quote.contact;
+const locked = Boolean(quote.signature);
 ---
 
 <BaseLayout title={`Devis ${quote.number}`} description="Finalisation d'un devis." bare noindex>
@@ -101,16 +130,40 @@ const contact = quote.contact;
       {error && <p class="admin-alert" role="alert">{error}</p>}
 
       <section class="admin-card card" aria-labelledby="q-contact">
-        <h2 class="admin-h2" id="q-contact">Client</h2>
-        {contact ? (
-          <dl class="quote-doc-meta">
-            <div><dt>Nom</dt><dd>{contact.name}</dd></div>
-            <div><dt>E-mail</dt><dd><a href={`mailto:${contact.email}`}>{contact.email}</a></dd></div>
-            {contact.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${contact.phone.replace(/\s/g, '')}`}>{contact.phone}</a></dd></div>}
-            <div><dt>Demande du</dt><dd>{dateTime(contact.requestedAt)}</dd></div>
-          </dl>
-        ) : (
-          <p class="admin-text">Le client n'a pas laissé ses coordonnées : il ne peut être recontacté que s'il revient vers vous.</p>
+        <h2 class="admin-h2" id="q-contact">Client et projet</h2>
+        <dl class="quote-doc-meta">
+          {contact ? (
+            <Fragment>
+              <div><dt>Nom</dt><dd>{contact.name}</dd></div>
+              <div><dt>Téléphone</dt><dd><a href={`tel:${contact.phone.replace(/[^\d+]/g, '')}`}>{contact.phone}</a></dd></div>
+              {contact.email && <div><dt>E-mail</dt><dd><a href={`mailto:${contact.email}`}>{contact.email}</a></dd></div>}
+              <div><dt>Rappel demandé le</dt><dd>{dateTime(contact.requestedAt)}</dd></div>
+            </Fragment>
+          ) : (
+            <div><dt>Contact</dt><dd>Aucune demande de rappel</dd></div>
+          )}
+          <div><dt>Projet</dt><dd>{quote.family.title} · {quote.base}</dd></div>
+          <div>
+            <dt>Estimation</dt>
+            <dd>
+              {quote.totals.oneOff.max.ttc > 0 && range(quote.totals.oneOff)}
+              {quote.totals.monthly.max.ttc > 0 && ` ${quote.totals.oneOff.max.ttc > 0 ? '+ ' : ''}${range(quote.totals.monthly)} / mois`}
+            </dd>
+          </div>
+          <div>
+            <dt>Budget</dt>
+            <dd>{quote.budget ? `${quote.budget.label} (${FITS[quote.budget.fit]})` : 'Non précisé'}</dd>
+          </div>
+        </dl>
+        {quote.suggestion && (
+          <p class="admin-quote-message">
+            Version ajustée proposée au client : formule « {quote.suggestion.base} »
+            {quote.suggestion.removed.length > 0 && `, sans ${quote.suggestion.removed.join(', ')}`}, estimée à
+            {' '}{quote.budget?.monthly ? `${range(quote.suggestion.totals.monthly)} / mois` : range(quote.suggestion.totals.oneOff)}.
+          </p>
+        )}
+        {quote.discounts.length > 0 && (
+          <p class="admin-text">Réductions automatiques de l'estimation : {quote.discounts.map((d) => d.label).join(', ')}.</p>
         )}
         {contact?.message && <p class="admin-quote-message">{contact.message}</p>}
         {quote.signature && (
@@ -121,11 +174,12 @@ const contact = quote.contact;
       </section>
 
       <form class="admin-card card" method="post" novalidate aria-labelledby="q-lines">
-        <h2 class="admin-h2" id="q-lines">{quote.signature ? 'Prix signés' : 'Prix fermes'}</h2>
+        <h2 class="admin-h2" id="q-lines">{locked ? 'Prix signés' : 'Prix fermes'}</h2>
         <p class="admin-text">
-          Prix unitaire HT de chaque ligne, selon la complexité réelle du projet. La fourchette de l'estimation est
-          indiquée à titre de repère ; vous pouvez en sortir si le besoin le justifie.
-          {quote.final && !quote.signature && ' Réémettre le devis remplace les prix et relance la période de signature.'}
+          Prix unitaire HT de chaque ligne, selon la complexité réelle du projet. La fourchette de l'estimation sert de
+          repère ; vous pouvez en sortir si le besoin le justifie. Cochez « Retirer » pour enlever une ligne (pour suivre
+          la version ajustée, par exemple).
+          {quote.final && !locked && ' Réémettre le devis remplace les prix et relance la période de signature.'}
         </p>
         <ul class="admin-prices">
           {quote.lines.map((line) => (
@@ -148,27 +202,49 @@ const contact = quote.contact;
                   inputmode="decimal"
                   maxlength="20"
                   placeholder={toInput(line.unitPrice[0])}
-                  required
-                  disabled={Boolean(quote!.signature)}
+                  disabled={locked}
                   aria-invalid={invalid.includes(line.id) ? 'true' : undefined}
                 />
                 <span class="admin-price-unit">€ HT / {UNIT_LABELS[line.unit][0]}</span>
+                <label class="check">
+                  <input type="checkbox" name="remove" value={line.id} checked={removed.includes(line.id)} disabled={locked} />
+                  Retirer
+                </label>
               </span>
             </li>
           ))}
         </ul>
+
+        <fieldset class="form admin-form" disabled={locked}>
+          <legend class="admin-h2">Remise (facultatif)</legend>
+          <div class="field">
+            <label for="discount-amount">Montant (€ HT)</label>
+            <input class="input" id="discount-amount" name="discount-amount" value={discountAmount} inputmode="decimal" maxlength="20" />
+          </div>
+          <div class="field">
+            <label for="discount-percent">Ou pourcentage (%)</label>
+            <input class="input" id="discount-percent" name="discount-percent" value={discountPercent} inputmode="decimal" maxlength="5" />
+          </div>
+          <div class="field field--full">
+            <label for="discount-label">Libellé affiché sur le devis</label>
+            <input class="input" id="discount-label" name="discount-label" value={discountLabel} maxlength="80" placeholder="Offre de lancement, geste commercial…" />
+          </div>
+          <p class="form-note field--full">La remise porte sur ce qui est payé une fois, pas sur l'abonnement mensuel.</p>
+        </fieldset>
+
         <div class="field">
           <label for="note">Note affichée sur le devis (facultatif)</label>
-          <textarea class="input admin-textarea--short" id="note" name="note" maxlength="1000" disabled={Boolean(quote.signature)} placeholder="Précisions convenues avec le client, délais, conditions…">{note}</textarea>
+          <textarea class="input admin-textarea--short" id="note" name="note" maxlength="1000" disabled={locked} placeholder="Précisions convenues avec le client, délais, conditions…">{note}</textarea>
         </div>
         {quote.final && (
           <p class="admin-text">
             Devis ferme actuel : {formatEuros(quote.final.totals.oneOff.ttc)}
             {quote.final.totals.monthly.ttc > 0 && ` + ${formatEuros(quote.final.totals.monthly.ttc)} / mois`}
-            {quote.vatRate > 0 ? ' TTC' : ''}.
+            {quote.vatRate > 0 ? ' TTC' : ''}
+            {quote.final.discount && `, après ${quote.final.discount.label.toLowerCase()} de ${formatEuros(quote.final.discount.amount)} HT`}.
           </p>
         )}
-        {!quote.signature && (
+        {!locked && (
           <div class="admin-pricing-save">
             <a class="admin-link" href={`${ADMIN_PATH}#devis`}>Annuler</a>
             <button class="btn btn-primary" type="submit">

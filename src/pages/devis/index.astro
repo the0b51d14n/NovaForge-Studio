@@ -1,43 +1,66 @@
 ---
-// Simulateur de devis : le visiteur compose son projet (formule par service, options, quantités) et voit une
-// estimation en fourchette en direct, puis crée son estimation. Les fourchettes sont recalculées ici, côté serveur,
-// à partir de src/data/quote-catalog.ts, et figées dans l'estimation enregistrée : le navigateur n'envoie que les choix.
-// Fonctionne sans JavaScript (le total s'affiche alors sur l'estimation créée).
+// Simulateur de devis, en quatre étapes : famille, type (formule), options, budget envisagé. Aucun prix n'est
+// affiché ni envoyé au navigateur pendant les choix : l'estimation (total en fourchette, comparé au budget, avec une
+// version ajustée si besoin) est calculée ici, côté serveur, à partir de src/data/quote-catalog.ts, puis enregistrée.
+// Sans JavaScript, les étapes s'affichent l'une sous l'autre.
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
-import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
+import { BUDGETS, MONTHLY_BUDGETS, UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
+import { services } from '../../data/content';
 import { launch } from '../../data/site';
 import {
-  VAT_RATE,
-  availableCatalog,
-  computeTotals,
-  estimateLines,
-  formatEuros,
-  formatRange,
-  priceRange,
+  addonGroup,
+  budgetBasis,
+  budgetFit,
+  budgetsFor,
+  buildEstimate,
+  families,
+  fitToBudget,
+  isMonthlyFamily,
   readSelection,
-  type Range,
   type Selection,
 } from '../../lib/pricing';
+import { parisNow } from '../../lib/hours';
 import { clientKey, createQuote } from '../../lib/quotes';
 
-const groups = availableCatalog();
-let selection: Selection = { bases: {}, options: [], quantities: {} };
+const familyList = families();
+const addon = addonGroup();
+let selection: Selection = { family: '', base: '', options: [], quantities: {} };
+let budgetId = '';
 let error = '';
 
-if (Astro.request.method === 'POST' && groups.length > 0) {
+if (Astro.request.method === 'POST' && familyList.length > 0) {
   const data = await Astro.request.formData();
   // Champ piège rempli : un robot, on fait comme si de rien n'était
   if (data.get('site_web')) return Astro.redirect('/devis', 303);
   selection = readSelection(data);
-  const lines = estimateLines(selection);
-  if (lines.length === 0) {
-    error = 'Choisissez au moins une prestation pour créer votre estimation.';
+  const family = familyList.find((group) => group.id === selection.family);
+  const base = family?.items.find((item) => item.kind === 'base' && item.id === selection.base);
+  const monthly = family ? isMonthlyFamily(family) : false;
+  budgetId = String(data.get(monthly ? 'budget-mois' : 'budget') ?? '');
+
+  if (!family) error = 'Choisissez d’abord ce que vous souhaitez réaliser.';
+  else if (!base) error = `Choisissez un type de ${family.title.toLowerCase()}.`;
+  if (error) {
     Astro.response.status = 422;
   } else {
+    const today = parisNow().date;
+    const budget = budgetsFor(family!).find((b) => b.id === budgetId) ?? null;
+    const estimate = buildEstimate(selection, today);
+    const fit = budget ? budgetFit(budget, budgetBasis(estimate, monthly)) : null;
+    const suggestion = budget && fit === 'sous' ? fitToBudget(selection, budget, today) : null;
     try {
-      const quote = await createQuote(lines, await clientKey(Astro.request, () => Astro.clientAddress));
+      const quote = await createQuote(
+        {
+          family: { id: family!.id, title: family!.title },
+          base: base!.label,
+          budget: budget && fit ? { label: budget.label, monthly, fit } : null,
+          ...estimate,
+          ...(suggestion ? { suggestion } : {}),
+        },
+        await clientKey(Astro.request, () => Astro.clientAddress),
+      );
       if (quote !== 'limite') return Astro.redirect(`/devis/${quote.id}`, 303);
       error = 'Vous avez créé beaucoup d’estimations en peu de temps : réessayez dans une heure.';
       Astro.response.status = 429;
@@ -49,36 +72,30 @@ if (Astro.request.method === 'POST' && groups.length > 0) {
   }
 }
 
-// Prix affichés au visiteur : TTC (HT et TTC sont égaux en franchise de TVA)
-const ttc = ([min, max]: Range): Range => [computeTotals(min, VAT_RATE).ttc, computeTotals(max, VAT_RATE).ttc];
-const range = (item: CatalogItem) => priceRange(item.price)!;
-function priceTag(item: CatalogItem) {
-  const price = formatRange(ttc(range(item)));
-  if (item.kind === 'quantity') return `${price} / ${UNIT_LABELS[item.unit][0]}${item.monthly ? ', par mois' : ''}`;
-  return item.monthly ? `${price} / mois` : price;
-}
-const taxNote = VAT_RATE ? `Prix TTC (TVA ${VAT_RATE} % comprise).` : 'TVA non applicable, art. 293 B du CGI.';
+const iconOf = (id: string) => services.find((s) => s.slug === id)?.icon ?? 'star';
+const extrasOf = (items: CatalogItem[]) => items.filter((item) => item.kind !== 'base');
+const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
 ---
 
 <BaseLayout
   title="Simulateur de devis"
-  description="Composez votre projet (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et obtenez immédiatement une estimation détaillée."
+  description="Décrivez votre projet en quelques clics (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et recevez une estimation adaptée à votre budget."
 >
   <PageHero
     eyebrow="Simulateur de devis"
     lead={
       launch.commercial
-        ? "Choisissez vos prestations : vous obtenez une estimation détaillée, en fourchette. Un développeur vous recontacte ensuite pour établir votre devis aux prix fermes, selon la complexité réelle de votre projet."
-        : "Choisissez vos prestations pour obtenir une estimation détaillée, en fourchette. Le studio est en préparation : cette estimation est une simulation, non contractuelle."
+        ? 'Quatre questions, deux minutes : vous recevez une estimation adaptée à votre budget, puis un conseiller vous rappelle pour établir votre devis.'
+        : 'Quatre questions, deux minutes : vous recevez une estimation adaptée à votre budget. Le studio est en préparation : cette estimation est une simulation, non contractuelle.'
     }
   >
-    <Fragment slot="title">Composez votre projet, <em>estimez le prix.</em></Fragment>
+    <Fragment slot="title">Décrivez votre projet, <em>on s'adapte.</em></Fragment>
   </PageHero>
 
   <section class="section section--tight surface-light-2" aria-label="Simulateur">
     <div class="container">
       {
-        groups.length === 0 ? (
+        familyList.length === 0 ? (
           <div class="quote-empty card">
             <h2 class="quote-empty-title">Le simulateur arrive bientôt.</h2>
             <p>Nos tarifs sont en cours de finalisation : le simulateur ouvrira dès qu’ils seront prêts.</p>
@@ -87,145 +104,175 @@ const taxNote = VAT_RATE ? `Prix TTC (TVA ${VAT_RATE} % comprise).` : 'TVA non a
             </a>
           </div>
         ) : (
-          <form class="quote-layout" method="post" data-quote-form data-vat-rate={VAT_RATE}>
+          <form class="wizard card" method="post" novalidate data-wizard>
             <div class="hp" aria-hidden="true">
               <label>
                 Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" />
               </label>
             </div>
 
-            <div class="quote-groups">
-              {groups.map((group) => {
-                const bases = group.items.filter((item) => item.kind === 'base');
-                const extras = group.items.filter((item) => item.kind !== 'base');
-                const chosen = selection.bases[group.id] ?? '';
-                return (
-                  <fieldset class="quote-group card" data-group data-needs-base={bases.length > 0 ? 'true' : undefined}>
-                    <legend class="quote-group-title">{group.title}</legend>
-                    <p class="quote-group-intro">{group.intro}</p>
+            <ol class="wizard-progress" aria-label="Étapes">
+              {STEPS.map((label, i) => (
+                <li data-progress={i + 1} aria-current={i === 0 ? 'step' : undefined}>
+                  <span class="wizard-progress-num">{i + 1}</span> {label}
+                </li>
+              ))}
+            </ol>
 
-                    {bases.length > 0 && (
-                      <div class="quote-items" role="radiogroup" aria-label={`Formule : ${group.title}`}>
-                        <label class="quote-item">
-                          <input type="radio" name={`base:${group.id}`} value="" checked={!chosen} />
-                          <span class="quote-item-text">
-                            <span class="quote-item-label">Pas pour l'instant</span>
-                          </span>
-                        </label>
-                        {bases.map((item) => (
-                          <label class="quote-item">
+            {error && (
+              <p class="admin-alert" role="alert">
+                {error}
+              </p>
+            )}
+
+            <fieldset class="wizard-step" data-step="1">
+              <legend class="wizard-title">Que souhaitez-vous réaliser ?</legend>
+              <div class="family-cards">
+                {familyList.map((group) => (
+                  <label class="family-card">
+                    <input
+                      type="radio"
+                      name="family"
+                      value={group.id}
+                      checked={selection.family === group.id}
+                      required
+                      data-monthly={isMonthlyFamily(group) ? 'true' : undefined}
+                      data-title={group.title}
+                    />
+                    <span class="service-icon">
+                      <Icon name={iconOf(group.id)} />
+                    </span>
+                    <span class="family-card-title">{group.title}</span>
+                    <span class="family-card-text">{group.intro}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step="2">
+              <legend class="wizard-title">Quel type de projet ?</legend>
+              {familyList.map((group) => (
+                <div class="quote-items" data-family-panel={group.id}>
+                  <p class="wizard-panel-title">{group.title}</p>
+                  {group.items
+                    .filter((item) => item.kind === 'base')
+                    .map((item) => (
+                      <label class="quote-item quote-item--plain">
+                        <input
+                          type="radio"
+                          name={`base:${group.id}`}
+                          value={item.id}
+                          checked={selection.family === group.id && selection.base === item.id}
+                          data-label={item.label}
+                        />
+                        <span class="quote-item-text">
+                          <span class="quote-item-label">{item.label}</span>
+                          {item.detail && <span class="quote-item-detail">{item.detail}</span>}
+                        </span>
+                      </label>
+                    ))}
+                </div>
+              ))}
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step="3">
+              <legend class="wizard-title">Des options ?</legend>
+              <p class="wizard-hint">Facultatif : cochez ce qui vous intéresse, le conseiller affinera avec vous.</p>
+              {[...familyList, ...(addon ? [addon] : [])].map((group) => {
+                const extras = extrasOf(group.items);
+                return (
+                  extras.length > 0 && (
+                    <div class="quote-items" data-family-panel={group === addon ? undefined : group.id}>
+                      <p class="wizard-panel-title">{group.title}</p>
+                      {extras.map((item) =>
+                        item.kind === 'quantity' ? (
+                          <div class="quote-item quote-item--qty">
+                            <span class="quote-item-text">
+                              <label class="quote-item-label" for={`qty-${item.id}`}>
+                                {item.label}
+                              </label>
+                              <span class="quote-item-detail">
+                                {item.detail ?? `Nombre de ${UNIT_LABELS[item.unit][1]}`}
+                              </span>
+                            </span>
                             <input
-                              type="radio"
-                              name={`base:${group.id}`}
+                              class="input quote-qty"
+                              id={`qty-${item.id}`}
+                              name={`qty:${item.id}`}
+                              type="number"
+                              min="0"
+                              max={item.max ?? 99}
+                              step="1"
+                              inputmode="numeric"
+                              value={selection.quantities[item.id] || 0}
+                              data-label={item.label}
+                            />
+                          </div>
+                        ) : (
+                          <label class="quote-item quote-item--plain">
+                            <input
+                              type="checkbox"
+                              name="option"
                               value={item.id}
-                              checked={chosen === item.id}
-                              data-min={range(item)[0]}
-                              data-max={range(item)[1]}
-                              data-monthly={item.monthly ? 'true' : undefined}
+                              checked={selection.options.includes(item.id)}
                               data-label={item.label}
                             />
                             <span class="quote-item-text">
                               <span class="quote-item-label">{item.label}</span>
                               {item.detail && <span class="quote-item-detail">{item.detail}</span>}
                             </span>
-                            <span class="quote-item-price">{priceTag(item)}</span>
                           </label>
-                        ))}
-                      </div>
-                    )}
-
-                    {extras.length > 0 && (
-                      <div class="quote-extras" data-extras>
-                        {bases.length > 0 && <p class="quote-extras-title">Options</p>}
-                        <div class="quote-items">
-                          {extras.map((item) =>
-                            item.kind === 'quantity' ? (
-                              <div class="quote-item quote-item--qty">
-                                <span class="quote-item-text">
-                                  <label class="quote-item-label" for={`qty-${item.id}`}>
-                                    {item.label}
-                                  </label>
-                                  {item.detail && <span class="quote-item-detail">{item.detail}</span>}
-                                  <span class="quote-item-price">{priceTag(item)}</span>
-                                </span>
-                                <input
-                                  class="input quote-qty"
-                                  id={`qty-${item.id}`}
-                                  name={`qty:${item.id}`}
-                                  type="number"
-                                  min="0"
-                                  max={item.max ?? 99}
-                                  step="1"
-                                  inputmode="numeric"
-                                  value={selection.quantities[item.id] || 0}
-                                  data-min={range(item)[0]}
-                                  data-max={range(item)[1]}
-                                  data-monthly={item.monthly ? 'true' : undefined}
-                                  data-label={item.label}
-                                  data-unit={UNIT_LABELS[item.unit].join('|')}
-                                />
-                              </div>
-                            ) : (
-                              <label class="quote-item">
-                                <input
-                                  type="checkbox"
-                                  name="option"
-                                  value={item.id}
-                                  checked={selection.options.includes(item.id)}
-                                  data-min={range(item)[0]}
-                                  data-max={range(item)[1]}
-                                  data-monthly={item.monthly ? 'true' : undefined}
-                                  data-label={item.label}
-                                />
-                                <span class="quote-item-text">
-                                  <span class="quote-item-label">{item.label}</span>
-                                  {item.detail && <span class="quote-item-detail">{item.detail}</span>}
-                                </span>
-                                <span class="quote-item-price">{priceTag(item)}</span>
-                              </label>
-                            ),
-                          )}
-                        </div>
-                        {bases.length > 0 && (
-                          <p class="quote-extras-hint">Choisissez d'abord une formule pour ajouter des options.</p>
-                        )}
-                      </div>
-                    )}
-                  </fieldset>
+                        ),
+                      )}
+                    </div>
+                  )
                 );
               })}
-            </div>
+            </fieldset>
 
-            <aside class="quote-summary card surface-dark" aria-labelledby="quote-summary-title">
-              <h2 class="quote-summary-title" id="quote-summary-title">Votre estimation</h2>
-              <ul class="quote-summary-lines" data-summary-lines>
-                <li class="quote-summary-empty">Aucune prestation choisie pour l'instant.</li>
-              </ul>
-              <dl class="quote-summary-totals" aria-live="polite">
-                <div>
-                  <dt>Total estimé{VAT_RATE ? ' TTC' : ''}</dt>
-                  <dd data-total-once>{formatEuros(0)}</dd>
-                </div>
-                <div data-monthly-row hidden>
-                  <dt>Puis chaque mois</dt>
-                  <dd data-total-monthly>{formatEuros(0)}</dd>
-                </div>
-              </dl>
-              <p class="quote-summary-note">{taxNote}</p>
-              {error && (
-                <p class="field-error" role="alert">
-                  {error}
-                </p>
-              )}
-              <button class="btn btn-warm" type="submit">
-                Créer mon estimation <Icon name="arrow" class="btn-arrow" />
-              </button>
-              <p class="quote-summary-note">
-                {launch.commercial
-                  ? `Fourchettes garanties ${QUOTE_VALIDITY_DAYS} jours. Le prix ferme est fixé avec vous par un développeur. Aucune donnée personnelle demandée pour l'estimation.`
-                  : 'Simulation non contractuelle. Aucune donnée personnelle demandée.'}
+            <fieldset class="wizard-step" data-step="4">
+              <legend class="wizard-title">Quel budget envisagez-vous ?</legend>
+              <p class="wizard-hint">
+                Il nous aide à vous proposer la solution la plus adaptée : si besoin, l'estimation inclut une version
+                ajustée.
               </p>
-            </aside>
+              <p class="wizard-recap" data-recap hidden></p>
+              {[
+                { name: 'budget', list: BUDGETS, monthly: false },
+                { name: 'budget-mois', list: MONTHLY_BUDGETS, monthly: true },
+              ].map(({ name, list, monthly }) => (
+                <div class="choices" data-budget-panel={monthly ? 'monthly' : 'once'}>
+                  {list.map((b) => (
+                    <label class="choice">
+                      <input type="radio" name={name} value={b.id} checked={budgetId === b.id} />
+                      <span>{b.label}</span>
+                    </label>
+                  ))}
+                  <label class="choice">
+                    <input type="radio" name={name} value="" checked={!budgetId} />
+                    <span>Je ne sais pas encore</span>
+                  </label>
+                </div>
+              ))}
+            </fieldset>
+
+            <div class="wizard-nav">
+              <button class="btn btn-ghost" type="button" data-prev hidden>
+                Retour
+              </button>
+              <p class="field-error" role="alert" data-step-error></p>
+              <button class="btn btn-primary" type="button" data-next hidden>
+                Suivant <Icon name="arrow" class="btn-arrow" />
+              </button>
+              <button class="btn btn-warm" type="submit" data-submit>
+                Voir mon estimation <Icon name="arrow" class="btn-arrow" />
+              </button>
+            </div>
+            <p class="form-note">
+              {launch.commercial
+                ? 'Aucune donnée personnelle demandée pour l’estimation.'
+                : 'Simulation non contractuelle. Aucune donnée personnelle demandée.'}
+            </p>
           </form>
         )
       }
@@ -234,73 +281,87 @@ const taxNote = VAT_RATE ? `Prix TTC (TVA ${VAT_RATE} % comprise).` : 'TVA non a
 </BaseLayout>
 
 <script>
-  // Estimation en direct et activation des options d'un service une fois sa formule choisie.
-  // Purement indicatif : l'estimation enregistrée est recalculée par le serveur à partir des seuls choix.
-  import { computeTotals, formatRange, type Range } from '../../lib/pricing';
-
-  const form = document.querySelector<HTMLFormElement>('[data-quote-form]');
+  // Parcours pas à pas : une étape à la fois, seules les formules et options de la famille choisie sont montrées
+  const form = document.querySelector<HTMLFormElement>('[data-wizard]');
   if (form) {
-    const rate = Number(form.dataset.vatRate) || 0;
-    const list = form.querySelector<HTMLUListElement>('[data-summary-lines]')!;
-    const once = form.querySelector<HTMLElement>('[data-total-once]')!;
-    const monthly = form.querySelector<HTMLElement>('[data-total-monthly]')!;
-    const monthlyRow = form.querySelector<HTMLElement>('[data-monthly-row]')!;
-    const empty = list.firstElementChild!;
-    const ttc = ([min, max]: Range): Range => [computeTotals(min, rate).ttc, computeTotals(max, rate).ttc];
+    form.classList.add('is-wizard');
+    const steps = [...form.querySelectorAll<HTMLFieldSetElement>('[data-step]')];
+    const progress = [...form.querySelectorAll<HTMLElement>('[data-progress]')];
+    const prev = form.querySelector<HTMLButtonElement>('[data-prev]')!;
+    const next = form.querySelector<HTMLButtonElement>('[data-next]')!;
+    const submit = form.querySelector<HTMLButtonElement>('[data-submit]')!;
+    const stepError = form.querySelector<HTMLElement>('[data-step-error]')!;
+    const recap = form.querySelector<HTMLElement>('[data-recap]')!;
+    let current = 0;
 
-    const update = () => {
-      const oneOff: Range = [0, 0];
-      const perMonth: Range = [0, 0];
-      const picked: { label: string; amount: Range; monthly: boolean }[] = [];
-
-      form.querySelectorAll<HTMLFieldSetElement>('[data-group]').forEach((group) => {
-        const needsBase = group.dataset.needsBase === 'true';
-        const enabled = !needsBase || Boolean(group.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value);
-        const extras = group.querySelector<HTMLElement>('[data-extras]');
-        extras?.classList.toggle('is-disabled', !enabled);
-        extras?.querySelectorAll('input').forEach((input) => (input.disabled = !enabled));
-
-        group.querySelectorAll<HTMLInputElement>('input[data-min]').forEach((input) => {
-          if (input.disabled) return;
-          const max = Number(input.max) || 99;
-          const qty =
-            input.type === 'number'
-              ? Math.min(Math.max(Math.floor(Number(input.value)) || 0, 0), max)
-              : input.checked
-                ? 1
-                : 0;
-          if (!qty) return;
-          const amount: Range = [Number(input.dataset.min) * qty, Number(input.dataset.max) * qty];
-          const isMonthly = input.dataset.monthly === 'true';
-          const target = isMonthly ? perMonth : oneOff;
-          target[0] += amount[0];
-          target[1] += amount[1];
-          const [one, many] = (input.dataset.unit ?? '').split('|');
-          const label = input.type === 'number' ? `${input.dataset.label} (${qty} ${qty > 1 ? many : one})` : input.dataset.label!;
-          picked.push({ label, amount, monthly: isMonthly });
-        });
-      });
-
-      list.replaceChildren(
-        ...(picked.length
-          ? picked.map(({ label, amount, monthly: isMonthly }) => {
-              const li = document.createElement('li');
-              const name = document.createElement('span');
-              const price = document.createElement('span');
-              name.textContent = label;
-              price.textContent = `${formatRange(ttc(amount))}${isMonthly ? ' / mois' : ''}`;
-              li.append(name, price);
-              return li;
-            })
-          : [empty]),
-      );
-      once.textContent = formatRange(ttc(oneOff));
-      monthly.textContent = `${formatRange(ttc(perMonth))} / mois`;
-      monthlyRow.hidden = perMonth[1] === 0;
+    const family = () => form.querySelector<HTMLInputElement>('input[name="family"]:checked');
+    const base = () => {
+      const f = family();
+      return f ? form.querySelector<HTMLInputElement>(`input[name="base:${f.value}"]:checked`) : null;
     };
 
-    form.addEventListener('input', update);
-    form.addEventListener('change', update);
-    update();
+    const filter = () => {
+      const f = family();
+      form.querySelectorAll<HTMLElement>('[data-family-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.familyPanel !== f?.value;
+      });
+      const monthly = f?.dataset.monthly === 'true';
+      form.querySelectorAll<HTMLElement>('[data-budget-panel]').forEach((panel) => {
+        panel.hidden = (panel.dataset.budgetPanel === 'monthly') !== monthly;
+      });
+    };
+
+    const updateRecap = () => {
+      const picked = [...form.querySelectorAll<HTMLInputElement>('input[name="option"]:checked, .quote-qty')]
+        .filter((input) => !input.closest<HTMLElement>('[hidden]') && (input.type !== 'number' || Number(input.value) > 0))
+        .map((input) => (input.type === 'number' ? `${input.dataset.label} (${input.value})` : input.dataset.label));
+      const parts = [family()?.dataset.title, base()?.dataset.label, ...picked].filter(Boolean);
+      recap.textContent = parts.length ? `Votre projet : ${parts.join(' · ')}` : '';
+      recap.hidden = !parts.length;
+    };
+
+    const show = (index: number, scroll = true) => {
+      current = index;
+      steps.forEach((step, i) => (step.hidden = i !== index));
+      progress.forEach((item, i) => {
+        item.toggleAttribute('aria-current', i === index);
+        if (i === index) item.setAttribute('aria-current', 'step');
+        item.classList.toggle('is-done', i < index);
+      });
+      prev.hidden = index === 0;
+      next.hidden = index === steps.length - 1;
+      submit.hidden = index !== steps.length - 1;
+      stepError.textContent = '';
+      filter();
+      updateRecap();
+      if (scroll) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const check = () => {
+      if (current === 0 && !family()) return 'Choisissez ce que vous souhaitez réaliser.';
+      if (current === 1 && !base()) return 'Choisissez un type de projet.';
+      return '';
+    };
+
+    next.addEventListener('click', () => {
+      const message = check();
+      if (message) stepError.textContent = message;
+      else show(current + 1);
+    });
+    prev.addEventListener('click', () => show(current - 1));
+    form.addEventListener('change', () => {
+      stepError.textContent = '';
+      filter();
+      updateRecap();
+    });
+    // Entrée dans un champ : passe à l'étape suivante plutôt que d'envoyer le formulaire trop tôt
+    form.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && current < steps.length - 1 && (event.target as HTMLElement).tagName === 'INPUT') {
+        event.preventDefault();
+        next.click();
+      }
+    });
+
+    show(0, false);
   }
 </script>
