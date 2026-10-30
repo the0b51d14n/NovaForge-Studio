@@ -296,14 +296,12 @@ a:hover > .logo .logo-mark,
   transform: translateY(-1px);
   box-shadow: 0 8px 24px -8px rgba(11, 127, 192, .7);
 }
-/* Compte : icône de profil (src/components/AccountIcon.astro), le prénom ou « Connexion » à côté */
-.account-icon { flex: none; width: 1.9em; height: 1.9em; }
-.account-icon-figure { fill: var(--navy); }
-.site-nav .nav-account { gap: 10px; }
+/* Compte : icône de profil seule (src/components/AccountIcon.astro), son intitulé reste lu par les lecteurs d'écran */
+.account-icon { flex: none; width: 2.1em; height: 2.1em; }
+.site-nav .nav-account { padding: 0; border-radius: 50%; }
 .site-nav .nav-account::after { display: none; }
-.site-nav .nav-account .account-icon { transition: transform .25s var(--ease); }
-.site-nav .nav-account:hover .account-icon { transform: scale(1.08); }
-.nav-account-label { max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-nav .nav-account .account-icon { transition: transform .25s var(--ease), filter .25s; }
+.site-nav .nav-account:hover .account-icon { transform: scale(1.08); filter: drop-shadow(0 4px 10px rgba(224, 161, 90, .45)); }
 
 .pill {
   padding: 3px 8px;

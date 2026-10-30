@@ -12,8 +12,8 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 // Compte : portail pour l'équipe, connexion sinon (l'espace client arrive avec les comptes clients)
 const { user, isAdmin } = Astro.locals;
 const account = isAdmin
-  ? { href: ADMIN_PATH, label: user!.name.split(' ')[0], title: "Portail de l'équipe" }
-  : { href: LOGIN_PATH, label: 'Connexion', title: 'Se connecter' };
+  ? { href: ADMIN_PATH, label: `Portail de l'équipe (${user!.name})`, title: `Portail de l'équipe · ${user!.name}` }
+  : { href: LOGIN_PATH, label: 'Connexion', title: 'Connexion' };
 ---
 
 <header class="site-header" data-header>
@@ -57,7 +57,7 @@ const account = isAdmin
         <li>
           <a class="nav-account" href={account.href} title={account.title} aria-current={isActive(account.href) ? 'page' : undefined}>
             <AccountIcon />
-            <span class="nav-account-label">{account.label}</span>
+            <span class="sr-only">{account.label}</span>
           </a>
         </li>
       </ul>
