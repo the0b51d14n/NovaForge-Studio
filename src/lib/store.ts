@@ -74,7 +74,7 @@ function local([cmd, key, ...args]: string[]): Reply {
       memory.set(key, args[0]);
       return 'OK';
     case 'DEL':
-      return Number(memory.delete(key));
+      return Number(memory.delete(key) || sorted.delete(key));
     case 'INCR': {
       const n = Number(memory.get(key) ?? 0) + 1;
       memory.set(key, String(n));

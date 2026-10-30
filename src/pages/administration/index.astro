@@ -280,7 +280,9 @@ if (Astro.request.method === 'POST') {
           }
         }
         if (action === 'test-create') {
-          testCredentials = await createTestAccounts();
+          // Créer seulement s'il n'en existe pas : sinon, les supprimer d'abord (plus de « recréer »)
+          if ((await listUsers()).some((u) => u.test)) error = 'Les comptes de test existent déjà : supprimez-les d’abord.';
+          else testCredentials = await createTestAccounts();
         }
         if (action === 'test-delete') {
           await deleteTestAccounts();
@@ -997,8 +999,17 @@ const formatDate = (iso: string) =>
                   <p class="admin-text">
                     Un Admin, un Admin+ et un Client, pour voir le rendu de chaque rôle. Ils n'apparaissent ni dans la
                     liste ci-dessus ni dans l'attribution des devis. Ils ont de vrais droits : supprimez-les après les essais.
-                    {testAccounts.length > 0 && ` ${testAccounts.length} compte${testAccounts.length > 1 ? 's' : ''} de test actif${testAccounts.length > 1 ? 's' : ''}.`}
+                    La suppression efface tout de la base : comptes, sessions et devis faits avec le client de test.
                   </p>
+                  {testAccounts.length > 0 && testCredentials.length === 0 && (
+                    <ul class="admin-credentials">
+                      {testAccounts.map((u) => (
+                        <li>
+                          <strong>{ROLE_LABELS[u.role]}</strong> · <code>{u.email}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {testCredentials.length > 0 && (
                     <div class="admin-flash" role="status">
                       <p>Comptes de test créés. Notez ces mots de passe : ils ne seront plus affichés.</p>
@@ -1012,16 +1023,17 @@ const formatDate = (iso: string) =>
                     </div>
                   )}
                   <div class="admin-job-actions">
-                    <form method="post" data-confirm={testAccounts.length ? 'Recréer les comptes de test ? Les anciens seront supprimés.' : undefined}>
-                      <input type="hidden" name="action" value="test-create" />
-                      <button class="btn btn-ghost btn-sm" type="submit">
-                        {testAccounts.length ? 'Recréer les comptes de test' : 'Créer les comptes de test'}
-                      </button>
-                    </form>
-                    {testAccounts.length > 0 && (
-                      <form method="post" data-confirm="Supprimer les comptes de test ?">
+                    {testAccounts.length === 0 ? (
+                      <form method="post">
+                        <input type="hidden" name="action" value="test-create" />
+                        <button class="btn btn-ghost btn-sm" type="submit">
+                          Créer les comptes de test
+                        </button>
+                      </form>
+                    ) : (
+                      <form method="post" data-confirm="Supprimer les comptes de test, leurs sessions et leurs devis ?">
                         <input type="hidden" name="action" value="test-delete" />
-                        <button class="admin-link admin-link--danger" type="submit">
+                        <button class="btn btn-ghost btn-sm admin-link--danger" type="submit">
                           Supprimer les comptes de test
                         </button>
                       </form>

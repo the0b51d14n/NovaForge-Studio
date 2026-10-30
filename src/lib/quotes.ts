@@ -52,6 +52,8 @@ export type Quote = QuoteDraft & {
   vatRate: number;
   /** false : créé avant l'ouverture commerciale, ce n'est qu'une simulation (ni rappel ni signature) */
   binding: boolean;
+  /** Compte client connecté au moment de la simulation : le devis apparaît dans son espace (/espace) */
+  ownerId?: string;
   contact?: Contact;
   /** Admin+ chargé du devis (lui seul peut fixer les prix), attribué par un admin+ */
   assignee?: { id: string; name: string; assignedAt: string; by: string };
@@ -86,6 +88,7 @@ const KEYS = {
   quote: (id: string) => `nf:quote:${id}`,
   index: 'nf:quotes',
   sequence: 'nf:quote-seq',
+  owner: (userId: string) => `nf:user-quotes:${userId}`,
   rate: (client: string) => `nf:quote-rate:${client}`,
 };
 
@@ -131,8 +134,11 @@ export async function clientKey(request: Request, clientAddress: () => string): 
     .join('');
 }
 
-/** Enregistre l'estimation telle que calculée, ou 'limite' si cette adresse en a déjà créé trop récemment */
-export async function createQuote(draft: QuoteDraft, client: string): Promise<Quote | 'limite'> {
+/**
+ * Enregistre l'estimation telle que calculée, ou 'limite' si cette adresse en a déjà créé trop récemment.
+ * ownerId : compte client connecté, qui retrouvera le devis dans son espace.
+ */
+export async function createQuote(draft: QuoteDraft, client: string, ownerId?: string): Promise<Quote | 'limite'> {
   const [count] = await redis([
     ['INCR', KEYS.rate(client)],
     ['EXPIRE', KEYS.rate(client), '3600'],
@@ -150,10 +156,42 @@ export async function createQuote(draft: QuoteDraft, client: string): Promise<Qu
     vat: VAT_REGIME,
     vatRate: VAT_RATE,
     binding: launch.commercial,
+    ...(ownerId ? { ownerId } : {}),
   };
   await save(quote, quote.expiresAt);
-  await redis([['ZADD', KEYS.index, String(now), quote.id]]);
+  await redis([
+    ['ZADD', KEYS.index, String(now), quote.id],
+    ...(ownerId ? [['ZADD', KEYS.owner(ownerId), String(now), quote.id]] : []),
+  ]);
   return quote;
+}
+
+/** Devis d'un compte client, du plus récent au plus ancien ; les devis supprimés automatiquement sortent de la liste */
+export async function listUserQuotes(userId: string): Promise<Quote[]> {
+  const [ids] = await redis([['ZREVRANGE', KEYS.owner(userId), '0', '-1']]);
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const keys = ids.filter((id): id is string => typeof id === 'string');
+  const [raw] = await redis([['MGET', ...keys.map(KEYS.quote)]]);
+  const values = Array.isArray(raw) ? raw : [];
+  const gone = keys.filter((_, i) => !values[i]);
+  if (gone.length) await redis([['ZREM', KEYS.owner(userId), ...gone]]);
+  return values.filter((v): v is string => typeof v === 'string').map((v) => JSON.parse(v));
+}
+
+/**
+ * À la suppression d'un compte client : ses devis non signés sont supprimés ; un devis signé (contrat) est conservé,
+ * détaché du compte. purge : tout supprimer, devis signés compris (comptes de test seulement).
+ */
+export async function deleteUserQuotes(userId: string, purge = false): Promise<void> {
+  for (const quote of await listUserQuotes(userId)) {
+    if (quote.signature && !purge) {
+      const { ownerId: _owner, ...rest } = quote;
+      await save(rest, null);
+    } else {
+      await deleteQuote(quote.id);
+    }
+  }
+  await redis([['DEL', KEYS.owner(userId)]]);
 }
 
 export async function loadQuote(id: string): Promise<Quote | null> {

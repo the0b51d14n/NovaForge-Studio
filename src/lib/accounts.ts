@@ -6,6 +6,7 @@ import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } fr
 import { promisify } from 'node:util';
 import { redis, text } from './store';
 import { mailEnabled, sendMail } from './forms';
+import { deleteUserQuotes } from './quotes';
 
 const scrypt = promisify(scryptCallback) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
@@ -63,6 +64,8 @@ const KEYS = {
   email: (email: string) => `nf:user-email:${email}`,
   index: 'nf:users',
   session: (token: string) => `nf:session:${token}`,
+  /** Jetons de session d'un compte, pour toutes les fermer à la suppression du compte */
+  userSessions: (id: string) => `nf:user-sessions:${id}`,
   verify: (token: string) => `nf:verify:${token}`,
   signupRate: (client: string) => `nf:signup-rate:${client}`,
   failures: (email: string) => `nf:login-fail:${createHash('sha256').update(email).digest('hex').slice(0, 24)}`,
@@ -172,11 +175,21 @@ export async function changeEmail(id: string, emailInput: string): Promise<'ok' 
   return 'ok';
 }
 
-/** Supprime le compte (à la demande du client) : il ne peut plus se connecter, son adresse redevient libre */
+/**
+ * Supprime le compte et tout ce qui s'y rattache : sessions, devis non signés (un devis signé est un contrat :
+ * conservé, détaché du compte). L'adresse e-mail redevient libre. Compte de test : tout est effacé, devis signés
+ * compris, pour ne rien laisser en base.
+ */
 export async function deleteUser(id: string): Promise<void> {
   const user = await loadUser(id);
   if (!user) return;
+  await deleteUserQuotes(id, Boolean(user.test));
+  const [tokens] = await redis([['ZREVRANGE', KEYS.userSessions(id), '0', '-1']]);
+  const sessions = Array.isArray(tokens) ? tokens.filter((t): t is string => typeof t === 'string') : [];
   await redis([
+    ...sessions.map((token) => ['DEL', KEYS.session(token)]),
+    ['DEL', KEYS.userSessions(id)],
+    ['DEL', `nf:verify-sent:${id}`],
     ['DEL', KEYS.user(id)],
     ['DEL', KEYS.email(user.email)],
     ['ZREM', KEYS.index, id],
@@ -300,7 +313,11 @@ export async function checkUserPassword(id: string, password: string): Promise<b
 /** Ouvre une session : jeton aléatoire, gardé SESSION_DAYS jours */
 export async function createSession(userId: string): Promise<string> {
   const token = randomBytes(32).toString('base64url');
-  await redis([['SET', KEYS.session(token), userId, 'EX', String(SESSION_DAYS * 86_400)]]);
+  await redis([
+    ['SET', KEYS.session(token), userId, 'EX', String(SESSION_DAYS * 86_400)],
+    ['ZADD', KEYS.userSessions(userId), String(Date.now()), token],
+    ['EXPIRE', KEYS.userSessions(userId), String(SESSION_DAYS * 86_400)],
+  ]);
   return token;
 }
 

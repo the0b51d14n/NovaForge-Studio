@@ -60,6 +60,8 @@ if (Astro.request.method === 'POST' && familyList.length > 0) {
           ...(suggestion ? { suggestion } : {}),
         },
         await clientKey(Astro.request, () => Astro.clientAddress),
+        // Client connecté : le devis apparaîtra dans son espace
+        Astro.locals.user?.role === 'client' ? Astro.locals.user.id : undefined,
       );
       if (quote !== 'limite') return Astro.redirect(`/devis/${quote.id}`, 303);
       error = 'Vous avez créé beaucoup d’estimations en peu de temps : réessayez dans une heure.';

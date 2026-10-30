@@ -1,6 +1,6 @@
 ---
-// Espace client (« Mon espace ») : informations du compte, changement d'adresse e-mail et de mot de passe,
-// déconnexion, suppression du compte. Les devis et candidatures du client viendront s'y ajouter.
+// Espace client (« Mon espace ») : devis faits en étant connecté, informations du compte, changement d'adresse
+// e-mail et de mot de passe, déconnexion, suppression du compte. Les candidatures viendront s'y ajouter.
 // Réservé aux clients connectés ; l'équipe est renvoyée vers son portail. Accessible même site verrouillé.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
@@ -16,10 +16,37 @@ import {
   updateUser,
 } from '../lib/accounts';
 import { isEmail, mailEnabled } from '../lib/forms';
+import { formatEuros, formatRange } from '../lib/pricing';
+import { listUserQuotes, quoteStatus, type Quote, type QuoteStatus } from '../lib/quotes';
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect(`${LOGIN_PATH}?espace=client&suite=/espace`);
 if (isStaff(user)) return Astro.redirect(ADMIN_PATH);
+
+let quotes: Quote[] = [];
+try {
+  quotes = await listUserQuotes(user.id);
+} catch (e) {
+  console.error(e);
+}
+const STATES: Record<QuoteStatus, string> = {
+  estimation: 'Estimation',
+  rappel: 'Rappel demandé',
+  ferme: 'Devis à signer',
+  expire: 'Expiré',
+  signe: 'Signé',
+};
+// Montant : devis ferme s'il existe, sinon fourchette de l'estimation (TTC)
+const amount = (q: Quote) =>
+  q.final
+    ? formatEuros(q.final.totals.oneOff.ttc) +
+      (q.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(q.final.totals.monthly.ttc)} / mois` : '')
+    : (q.totals.oneOff.max.ttc > 0 ? formatRange([q.totals.oneOff.min.ttc, q.totals.oneOff.max.ttc]) : '') +
+      (q.totals.monthly.max.ttc > 0
+        ? `${q.totals.oneOff.max.ttc > 0 ? ' + ' : ''}${formatRange([q.totals.monthly.min.ttc, q.totals.monthly.max.ttc])} / mois`
+        : '');
+const quoteDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
 
 const errors: Record<string, string> = {};
 const done = (ok: string) => Astro.redirect(`/espace?ok=${ok}`, 303);
@@ -109,11 +136,39 @@ const since = new Date(user.createdAt).toLocaleDateString('fr-FR', { day: 'numer
       </section>
 
       <section class="admin-card card" aria-labelledby="e-projects">
-        <h2 class="admin-h2" id="e-projects">Mes devis et candidatures</h2>
-        <p class="admin-text">
-          Vos devis et vos candidatures apparaîtront ici. En attendant, le <a href="/devis">simulateur de devis</a> vous
-          donne une première estimation.
-        </p>
+        <div class="admin-card-head">
+          <h2 class="admin-h2" id="e-projects">Mes devis</h2>
+          <a class="btn btn-primary btn-sm" href="/devis">
+            Nouvelle simulation <Icon name="arrow" class="btn-arrow" />
+          </a>
+        </div>
+        {quotes.length === 0 ? (
+          <p class="admin-text">
+            Aucun devis pour l'instant. Les simulations faites en étant connecté apparaissent ici, avec leur suivi.
+          </p>
+        ) : (
+          <ul class="admin-jobs">
+            {quotes.map((q) => (
+              <li class="admin-job">
+                <div class="admin-job-main">
+                  <p class="admin-job-title">
+                    {q.family.title} · {q.base}
+                  </p>
+                  <p class="admin-job-meta">
+                    {q.number} · {quoteDate(q.createdAt)} · {amount(q)}
+                  </p>
+                </div>
+                <div class="admin-job-actions">
+                  <span class="admin-state admin-state--open">{STATES[quoteStatus(q)]}</span>
+                  <a class="admin-link" href={`/devis/${q.id}`}>
+                    Voir
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p class="admin-text">Vos candidatures apparaîtront aussi dans cet espace.</p>
       </section>
 
       <section class="admin-card card" aria-labelledby="e-email">

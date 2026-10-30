@@ -35,7 +35,9 @@ try {
 if (!quote) Astro.response.status = unavailable ? 503 : 404;
 
 const errors: Record<string, string> = {};
-const form = { name: '', email: '', phone: '', message: '' };
+// Client connecté : nom et e-mail préremplis dans la demande de rappel et la signature
+const me = Astro.locals.user?.role === 'client' ? Astro.locals.user : null;
+const form = { name: me?.name ?? '', email: me?.email ?? '', phone: '', message: '' };
 
 if (quote && Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
