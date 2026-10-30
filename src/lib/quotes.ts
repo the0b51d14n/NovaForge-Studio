@@ -1,13 +1,25 @@
-// Devis créés depuis le simulateur (/devis) : chaque devis garde une copie de ses lignes et de ses prix,
-// qui ne changent plus ensuite, même si les tarifs sont modifiés dans l'administration.
-// Signable pendant QUOTE_VALIDITY_DAYS jours, seulement s'il a été créé après l'ouverture commerciale (launch.commercial).
-// Un devis non signé est supprimé automatiquement de la base RETENTION_DAYS jours après sa création ;
-// un devis signé est conservé (c'est un contrat).
+// Devis du simulateur (/devis), en trois temps, à la même adresse (/devis/<id>) :
+// 1. Estimation : le visiteur compose son projet, les fourchettes de prix du moment y sont copiées et figées
+//    (QUOTE_VALIDITY_DAYS jours). Aucune donnée personnelle.
+// 2. Demande de rappel : le visiteur laisse ses coordonnées pour être recontacté (après l'ouverture commerciale).
+// 3. Devis ferme : un développeur fixe les prix depuis l'administration, selon la complexité réelle ; le client
+//    peut le signer en ligne pendant QUOTE_VALIDITY_DAYS jours (seulement après l'ouverture commerciale).
+// Un devis non signé est supprimé automatiquement 30 jours après la fin de sa validité ; un devis signé est conservé.
 import { launch } from '../data/site';
-import { QUOTE_VALIDITY_DAYS } from '../data/quote-catalog';
-import { VAT_RATES, quoteTotals, type Pricing, type QuoteLine, type Totals, type VatRegime } from './pricing';
+import { QUOTE_VALIDITY_DAYS, VAT_REGIME } from '../data/quote-catalog';
+import {
+  VAT_RATE,
+  estimateTotals,
+  finalTotals,
+  type EstimateLine,
+  type FinalLine,
+  type Totals,
+  type VatRegime,
+} from './pricing';
 import { parisNow } from './hours';
 import { redis, text } from './store';
+
+export type Contact = { name: string; email: string; phone: string; message: string; requestedAt: string };
 
 export type Quote = {
   /** Identifiant secret, dans l'adresse du devis (/devis/<id>) : seul celui qui a le lien peut le voir */
@@ -15,23 +27,38 @@ export type Quote = {
   /** Numéro affiché, ex. « D-2026-0007 » */
   number: string;
   createdAt: string;
-  /** Fin de la période de signature, prix garantis jusque-là */
+  /** Fin de validité de l'estimation (fourchettes garanties jusque-là) */
   expiresAt: string;
   vat: VatRegime;
   vatRate: number;
-  lines: QuoteLine[];
-  totals: { oneOff: Totals; monthly: Totals };
-  /** false : créé avant l'ouverture commerciale, c'est une simulation qui ne pourra jamais être signée */
+  lines: EstimateLine[];
+  totals: { oneOff: { min: Totals; max: Totals }; monthly: { min: Totals; max: Totals } };
+  /** false : créé avant l'ouverture commerciale, ce n'est qu'une simulation (ni rappel ni signature) */
   binding: boolean;
+  contact?: Contact;
+  /** Devis ferme émis depuis l'administration */
+  final?: {
+    lines: FinalLine[];
+    totals: { oneOff: Totals; monthly: Totals };
+    note: string;
+    issuedAt: string;
+    /** Fin de la période de signature */
+    expiresAt: string;
+  };
   signature?: { name: string; email: string; signedAt: string };
 };
 
-export type QuoteStatus = 'simulation' | 'open' | 'expired' | 'signed';
+/**
+ * estimation : en attente d'une demande de rappel ; rappel : coordonnées laissées, devis ferme à établir ;
+ * ferme : devis ferme émis, à signer ; expire : estimation ou devis ferme dépassé ; signe : accepté par le client
+ */
+export type QuoteStatus = 'estimation' | 'rappel' | 'ferme' | 'expire' | 'signe';
 
 const DAY = 86_400_000;
-/** Délai de suppression d'un devis non signé : sa période de validité, puis 30 jours pour le consulter expiré */
-export const RETENTION_DAYS = QUOTE_VALIDITY_DAYS + 30;
-/** Au-delà, une même adresse IP doit attendre avant de créer un nouveau devis (protection contre les abus) */
+/** Délai de conservation après la fin de validité, pour consulter un devis expiré */
+const GRACE_DAYS = 30;
+export const RETENTION_DAYS = QUOTE_VALIDITY_DAYS + GRACE_DAYS;
+/** Au-delà, une même adresse IP doit attendre avant de créer une nouvelle estimation (protection contre les abus) */
 const MAX_PER_HOUR = 20;
 
 const KEYS = {
@@ -41,16 +68,30 @@ const KEYS = {
   rate: (client: string) => `nf:quote-rate:${client}`,
 };
 
-const isQuoteId = (id: string) => /^[a-f0-9]{32}$/.test(id);
+export const isQuoteId = (id: string) => /^[a-f0-9]{32}$/.test(id);
 
 export function quoteStatus(quote: Quote, now = Date.now()): QuoteStatus {
-  if (quote.signature) return 'signed';
-  if (now >= Date.parse(quote.expiresAt)) return 'expired';
-  return quote.binding && launch.commercial ? 'open' : 'simulation';
+  if (quote.signature) return 'signe';
+  if (quote.final) return now >= Date.parse(quote.final.expiresAt) ? 'expire' : 'ferme';
+  if (now >= Date.parse(quote.expiresAt)) return 'expire';
+  return quote.contact ? 'rappel' : 'estimation';
+}
+
+/** Le visiteur peut demander à être recontacté (estimation en cours, studio ouvert commercialement) */
+export const canRequestCallback = (quote: Quote) =>
+  quoteStatus(quote) === 'estimation' && quote.binding && launch.commercial;
+
+/** Le client peut signer le devis ferme */
+export const canSign = (quote: Quote) => quoteStatus(quote) === 'ferme' && quote.binding && launch.commercial;
+
+/** Enregistre le devis ; expire : date de fin de validité, ou null pour le conserver (devis signé) */
+async function save(quote: Quote, expires: string | null): Promise<void> {
+  const ttl = expires ? Math.max(60, Math.ceil((Date.parse(expires) + GRACE_DAYS * DAY - Date.now()) / 1000)) : null;
+  await redis([['SET', KEYS.quote(quote.id), JSON.stringify(quote), ...(ttl ? ['EX', String(ttl)] : [])]]);
 }
 
 /**
- * Empreinte de l'adresse IP du visiteur (jamais l'adresse elle-même), pour limiter le nombre de devis par heure.
+ * Empreinte de l'adresse IP du visiteur (jamais l'adresse elle-même), pour limiter le nombre d'estimations par heure.
  * clientAddress : Astro.clientAddress, lu à la demande car il peut être indisponible.
  */
 export async function clientKey(request: Request, clientAddress: () => string): Promise<string> {
@@ -69,8 +110,8 @@ export async function clientKey(request: Request, clientAddress: () => string): 
     .join('');
 }
 
-/** Crée le devis avec les prix du moment, ou 'limite' si cette adresse en a déjà créé trop récemment */
-export async function createQuote(lines: QuoteLine[], pricing: Pricing, client: string): Promise<Quote | 'limite'> {
+/** Crée l'estimation avec les fourchettes du moment, ou 'limite' si cette adresse en a déjà créé trop récemment */
+export async function createQuote(lines: EstimateLine[], client: string): Promise<Quote | 'limite'> {
   const [count] = await redis([
     ['INCR', KEYS.rate(client)],
     ['EXPIRE', KEYS.rate(client), '3600'],
@@ -79,22 +120,19 @@ export async function createQuote(lines: QuoteLine[], pricing: Pricing, client: 
 
   const [sequence] = await redis([['INCR', KEYS.sequence]]);
   const now = Date.now();
-  const vatRate = VAT_RATES[pricing.vat];
   const quote: Quote = {
     id: crypto.randomUUID().replace(/-/g, ''),
     number: `D-${parisNow().date.slice(0, 4)}-${String(sequence).padStart(4, '0')}`,
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + QUOTE_VALIDITY_DAYS * DAY).toISOString(),
-    vat: pricing.vat,
-    vatRate,
+    vat: VAT_REGIME,
+    vatRate: VAT_RATE,
     lines,
-    totals: quoteTotals(lines, vatRate),
+    totals: estimateTotals(lines, VAT_RATE),
     binding: launch.commercial,
   };
-  await redis([
-    ['SET', KEYS.quote(quote.id), JSON.stringify(quote), 'EX', String(RETENTION_DAYS * 86_400)],
-    ['ZADD', KEYS.index, String(now), quote.id],
-  ]);
+  await save(quote, quote.expiresAt);
+  await redis([['ZADD', KEYS.index, String(now), quote.id]]);
   return quote;
 }
 
@@ -105,11 +143,34 @@ export async function loadQuote(id: string): Promise<Quote | null> {
   return saved ? JSON.parse(saved) : null;
 }
 
+export async function requestCallback(quote: Quote, contact: Omit<Contact, 'requestedAt'>): Promise<void> {
+  await save({ ...quote, contact: { ...contact, requestedAt: new Date().toISOString() } }, quote.expiresAt);
+}
+
+/**
+ * Émet (ou réémet) le devis ferme : prix unitaires HT fixés par le studio, en centimes, par ligne.
+ * La période de signature repart de zéro à chaque émission.
+ */
+export async function finalizeQuote(quote: Quote, prices: Record<string, number>, note: string): Promise<void> {
+  const lines: FinalLine[] = quote.lines.map(({ unitPrice: _range, total: _total, ...line }) => ({
+    ...line,
+    unitPrice: prices[line.id],
+    total: prices[line.id] * line.qty,
+  }));
+  const now = Date.now();
+  const final = {
+    lines,
+    totals: finalTotals(lines, quote.vatRate),
+    note,
+    issuedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + QUOTE_VALIDITY_DAYS * DAY).toISOString(),
+  };
+  await save({ ...quote, final }, final.expiresAt);
+}
+
 /** Enregistre la signature ; le devis est alors conservé sans limite de durée (SET sans EX retire l'expiration) */
-export async function signQuote(quote: Quote, signer: { name: string; email: string }): Promise<Quote> {
-  const signed: Quote = { ...quote, signature: { ...signer, signedAt: new Date().toISOString() } };
-  await redis([['SET', KEYS.quote(quote.id), JSON.stringify(signed)]]);
-  return signed;
+export async function signQuote(quote: Quote, signer: { name: string; email: string }): Promise<void> {
+  await save({ ...quote, signature: { ...signer, signedAt: new Date().toISOString() } }, null);
 }
 
 /** Derniers devis créés, pour l'administration ; les devis supprimés automatiquement sortent de la liste */

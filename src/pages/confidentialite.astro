@@ -90,25 +90,28 @@ const updated = new Date('2026-10-30').toLocaleDateString('fr-FR', { day: 'numer
       <h2>Simulateur de devis</h2>
       <ul class="legal-points">
         <li>
-          <strong>Données</strong> : les prestations choisies et leurs prix. Aucune donnée personnelle n'est demandée
-          pour créer un devis. Pour limiter les abus, une empreinte de votre adresse IP (qui ne permet pas de la
-          retrouver directement) est gardée une heure.
-        </li>
-        <li>
-          <strong>Finalité</strong> : vous remettre un devis consultable à son adresse, connue de vous seul, et
-          {launch.commercial ? ' vous permettre de le signer en ligne.' : ' nous permettre de suivre les demandes.'}
-        </li>
-        <li>
-          <strong>Durée</strong> : un devis non signé est supprimé automatiquement {RETENTION_DAYS} jours après sa
-          création.
+          <strong>Estimation</strong> : les prestations choisies et leurs fourchettes de prix. Aucune donnée
+          personnelle n'est demandée pour créer une estimation. Pour limiter les abus, une empreinte de votre adresse IP
+          (qui ne permet pas de la retrouver directement) est gardée une heure.
         </li>
         {launch.commercial && (
           <li>
-            <strong>Signature</strong> : vos prénom, nom et e-mail, et la date de signature, pour établir le contrat
-            (RGPD, art. 6.1.b). Un devis signé est conservé pendant la durée du contrat, puis 5 ans (délai de
-            prescription, code civil, art. 2224), ou plus longtemps si une obligation légale l'impose.
+            <strong>Demande de rappel</strong> : si vous demandez à être recontacté, vos prénom, nom et e-mail
+            (obligatoires), téléphone et précisions sur votre projet (facultatifs), pour vous recontacter et établir
+            votre devis ferme (mesures précontractuelles prises à votre demande, RGPD, art. 6.1.b).
           </li>
         )}
+        {launch.commercial && (
+          <li>
+            <strong>Signature</strong> : vos prénom, nom et e-mail, et la date de signature, pour établir le contrat
+            (RGPD, art. 6.1.b).
+          </li>
+        )}
+        <li>
+          <strong>Durée</strong> : un devis non signé, avec les coordonnées éventuellement laissées, est supprimé
+          automatiquement 30 jours après la fin de sa validité (soit {RETENTION_DAYS} jours après sa création pour une
+          estimation).{launch.commercial && " Un devis signé est conservé pendant la durée du contrat, puis 5 ans (délai de prescription, code civil, art. 2224), ou plus longtemps si une obligation légale l'impose."}
+        </li>
       </ul>
 
       <h2>Candidatures{!applyOpen && ' (aucun recrutement ouvert pour le moment)'}</h2>

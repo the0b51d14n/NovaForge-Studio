@@ -2773,7 +2773,7 @@ textarea.admin-textarea--short { min-height: 80px; }
 .quote-summary-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
 .quote-summary-lines { display: grid; gap: 8px; max-height: 40vh; overflow-y: auto; font-size: .92rem; }
 .quote-summary-lines li { display: flex; justify-content: space-between; gap: 12px; }
-.quote-summary-lines li > :last-child { flex: none; font-weight: 700; }
+.quote-summary-lines li > :last-child { flex: none; max-width: 55%; font-weight: 700; text-align: right; }
 .quote-summary-empty { color: var(--muted); }
 .quote-summary-totals { display: grid; gap: 6px; padding-top: 16px; border-top: 1px solid var(--line); }
 .quote-summary-totals > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -2815,14 +2815,15 @@ html:not(.js) .quote-summary-totals { display: none; }
 .quote-totals dd { font-weight: 700; }
 .quote-totals-main { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--line-strong); font-size: 1.15rem; }
 .quote-totals-main dt { color: var(--fg); font-weight: 700; }
+.quote-doc-note { padding: 14px 18px; border-left: 3px solid var(--blue-2); border-radius: 0 12px 12px 0; background: var(--hover); white-space: pre-line; }
 .quote-doc-notes { display: grid; gap: 4px; padding-left: 1.1em; font-size: .88rem; color: var(--muted); list-style: disc; }
 .quote-signed { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 12px; background: rgba(11, 127, 192, .1); }
 .quote-signed .icon { flex: none; width: 1.2em; height: 1.2em; color: var(--blue-2); }
 .quote-sign-title { font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: -.02em; }
 .quote-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 
-/* Administration des tarifs */
-.admin-pricing { display: grid; gap: 24px; }
+/* Administration : finalisation d'un devis (prix fermes) */
+.admin-quote-message { padding: 14px 18px; border-radius: 12px; background: var(--hover); white-space: pre-line; }
 .admin-prices { display: grid; border-top: 1px solid var(--line); }
 .admin-price { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 24px; padding-block: 12px; border-bottom: 1px solid var(--line); }
 .admin-price-text { display: grid; gap: 2px; min-width: 0; cursor: pointer; }

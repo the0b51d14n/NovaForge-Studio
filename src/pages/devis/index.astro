@@ -1,103 +1,93 @@
 ---
-// Simulateur de devis : le visiteur compose son projet (formule par service, options, quantités), voit le total
-// en direct, puis crée son devis. Les prix sont recalculés ici, côté serveur, et figés dans le devis enregistré.
-// Fonctionne sans JavaScript (le total s'affiche alors sur le devis créé).
+// Simulateur de devis : le visiteur compose son projet (formule par service, options, quantités) et voit une
+// estimation en fourchette en direct, puis crée son estimation. Les fourchettes sont recalculées ici, côté serveur,
+// à partir de src/data/quote-catalog.ts, et figées dans l'estimation enregistrée : le navigateur n'envoie que les choix.
+// Fonctionne sans JavaScript (le total s'affiche alors sur l'estimation créée).
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
 import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
 import { launch } from '../../data/site';
 import {
-  VAT_RATES,
+  VAT_RATE,
   availableCatalog,
   computeTotals,
-  defaultPricing,
+  estimateLines,
   formatEuros,
-  priceLines,
+  formatRange,
+  priceRange,
   readSelection,
+  type Range,
   type Selection,
 } from '../../lib/pricing';
-import { loadPricing } from '../../lib/store';
 import { clientKey, createQuote } from '../../lib/quotes';
 
-let pricing = defaultPricing();
-let unavailable = false;
-try {
-  pricing = await loadPricing();
-} catch (e) {
-  console.error(e);
-  unavailable = true;
-}
-const groups = availableCatalog(pricing);
-const vatRate = VAT_RATES[pricing.vat];
+const groups = availableCatalog();
 let selection: Selection = { bases: {}, options: [], quantities: {} };
 let error = '';
 
-if (Astro.request.method === 'POST' && !unavailable) {
+if (Astro.request.method === 'POST' && groups.length > 0) {
   const data = await Astro.request.formData();
   // Champ piège rempli : un robot, on fait comme si de rien n'était
   if (data.get('site_web')) return Astro.redirect('/devis', 303);
   selection = readSelection(data);
-  const lines = priceLines(selection, pricing);
+  const lines = estimateLines(selection);
   if (lines.length === 0) {
-    error = 'Choisissez au moins une prestation pour créer votre devis.';
+    error = 'Choisissez au moins une prestation pour créer votre estimation.';
     Astro.response.status = 422;
   } else {
     try {
-      const quote = await createQuote(lines, pricing, await clientKey(Astro.request, () => Astro.clientAddress));
+      const quote = await createQuote(lines, await clientKey(Astro.request, () => Astro.clientAddress));
       if (quote !== 'limite') return Astro.redirect(`/devis/${quote.id}`, 303);
-      error = 'Vous avez créé beaucoup de devis en peu de temps : réessayez dans une heure.';
+      error = 'Vous avez créé beaucoup d’estimations en peu de temps : réessayez dans une heure.';
       Astro.response.status = 429;
     } catch (e) {
       console.error(e);
-      error = "Le devis n'a pas pu être enregistré. Réessayez dans un instant.";
+      error = "L'estimation n'a pas pu être enregistrée. Réessayez dans un instant.";
       Astro.response.status = 500;
     }
   }
 }
 
-// Prix affiché au visiteur : TTC (HT et TTC sont égaux en franchise de TVA)
-const shown = (cents: number) => formatEuros(computeTotals(cents, vatRate).ttc);
+// Prix affichés au visiteur : TTC (HT et TTC sont égaux en franchise de TVA)
+const ttc = ([min, max]: Range): Range => [computeTotals(min, VAT_RATE).ttc, computeTotals(max, VAT_RATE).ttc];
+const range = (item: CatalogItem) => priceRange(item.price)!;
 function priceTag(item: CatalogItem) {
-  const price = shown(pricing.prices[item.id]);
+  const price = formatRange(ttc(range(item)));
   if (item.kind === 'quantity') return `${price} / ${UNIT_LABELS[item.unit][0]}${item.monthly ? ', par mois' : ''}`;
   return item.monthly ? `${price} / mois` : price;
 }
-const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non applicable, art. 293 B du CGI.';
+const taxNote = VAT_RATE ? `Prix TTC (TVA ${VAT_RATE} % comprise).` : 'TVA non applicable, art. 293 B du CGI.';
 ---
 
 <BaseLayout
   title="Simulateur de devis"
-  description="Composez votre projet (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et obtenez immédiatement un devis détaillé."
+  description="Composez votre projet (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et obtenez immédiatement une estimation détaillée."
 >
   <PageHero
     eyebrow="Simulateur de devis"
     lead={
       launch.commercial
-        ? `Choisissez vos prestations : votre devis détaillé est créé immédiatement, ses prix sont garantis ${QUOTE_VALIDITY_DAYS} jours et vous pouvez le signer en ligne.`
-        : "Choisissez vos prestations pour obtenir un devis détaillé. Le studio est en préparation : le devis obtenu est une simulation, non contractuelle."
+        ? "Choisissez vos prestations : vous obtenez une estimation détaillée, en fourchette. Un développeur vous recontacte ensuite pour établir votre devis aux prix fermes, selon la complexité réelle de votre projet."
+        : "Choisissez vos prestations pour obtenir une estimation détaillée, en fourchette. Le studio est en préparation : cette estimation est une simulation, non contractuelle."
     }
   >
-    <Fragment slot="title">Composez votre projet, <em>voyez le prix.</em></Fragment>
+    <Fragment slot="title">Composez votre projet, <em>estimez le prix.</em></Fragment>
   </PageHero>
 
   <section class="section section--tight surface-light-2" aria-label="Simulateur">
     <div class="container">
       {
-        unavailable || groups.length === 0 ? (
+        groups.length === 0 ? (
           <div class="quote-empty card">
             <h2 class="quote-empty-title">Le simulateur arrive bientôt.</h2>
-            <p>
-              {unavailable
-                ? 'Le simulateur est momentanément indisponible. Réessayez dans un instant.'
-                : 'Nos tarifs sont en cours de finalisation : le simulateur ouvrira dès qu’ils seront prêts.'}
-            </p>
+            <p>Nos tarifs sont en cours de finalisation : le simulateur ouvrira dès qu’ils seront prêts.</p>
             <a class="btn btn-primary" href="/contact">
               Nous contacter <Icon name="arrow" class="btn-arrow" />
             </a>
           </div>
         ) : (
-          <form class="quote-layout" method="post" data-quote-form data-vat-rate={vatRate}>
+          <form class="quote-layout" method="post" data-quote-form data-vat-rate={VAT_RATE}>
             <div class="hp" aria-hidden="true">
               <label>
                 Ne pas remplir <input type="text" name="site_web" tabindex="-1" autocomplete="off" />
@@ -129,7 +119,8 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
                               name={`base:${group.id}`}
                               value={item.id}
                               checked={chosen === item.id}
-                              data-price={pricing.prices[item.id]}
+                              data-min={range(item)[0]}
+                              data-max={range(item)[1]}
                               data-monthly={item.monthly ? 'true' : undefined}
                               data-label={item.label}
                             />
@@ -167,7 +158,8 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
                                   step="1"
                                   inputmode="numeric"
                                   value={selection.quantities[item.id] || 0}
-                                  data-price={pricing.prices[item.id]}
+                                  data-min={range(item)[0]}
+                                  data-max={range(item)[1]}
                                   data-monthly={item.monthly ? 'true' : undefined}
                                   data-label={item.label}
                                   data-unit={UNIT_LABELS[item.unit].join('|')}
@@ -180,7 +172,8 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
                                   name="option"
                                   value={item.id}
                                   checked={selection.options.includes(item.id)}
-                                  data-price={pricing.prices[item.id]}
+                                  data-min={range(item)[0]}
+                                  data-max={range(item)[1]}
                                   data-monthly={item.monthly ? 'true' : undefined}
                                   data-label={item.label}
                                 />
@@ -204,13 +197,13 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
             </div>
 
             <aside class="quote-summary card surface-dark" aria-labelledby="quote-summary-title">
-              <h2 class="quote-summary-title" id="quote-summary-title">Votre devis</h2>
+              <h2 class="quote-summary-title" id="quote-summary-title">Votre estimation</h2>
               <ul class="quote-summary-lines" data-summary-lines>
                 <li class="quote-summary-empty">Aucune prestation choisie pour l'instant.</li>
               </ul>
               <dl class="quote-summary-totals" aria-live="polite">
                 <div>
-                  <dt>Total{vatRate ? ' TTC' : ''}</dt>
+                  <dt>Total estimé{VAT_RATE ? ' TTC' : ''}</dt>
                   <dd data-total-once>{formatEuros(0)}</dd>
                 </div>
                 <div data-monthly-row hidden>
@@ -225,11 +218,11 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
                 </p>
               )}
               <button class="btn btn-warm" type="submit">
-                Créer mon devis <Icon name="arrow" class="btn-arrow" />
+                Créer mon estimation <Icon name="arrow" class="btn-arrow" />
               </button>
               <p class="quote-summary-note">
                 {launch.commercial
-                  ? `Prix garantis ${QUOTE_VALIDITY_DAYS} jours, signature en ligne. Aucune donnée personnelle demandée pour créer le devis.`
+                  ? `Fourchettes garanties ${QUOTE_VALIDITY_DAYS} jours. Le prix ferme est fixé avec vous par un développeur. Aucune donnée personnelle demandée pour l'estimation.`
                   : 'Simulation non contractuelle. Aucune donnée personnelle demandée.'}
               </p>
             </aside>
@@ -241,8 +234,9 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
 </BaseLayout>
 
 <script>
-  // Total en direct et activation des options d'un service une fois sa formule choisie
-  import { computeTotals, formatEuros } from '../../lib/pricing';
+  // Estimation en direct et activation des options d'un service une fois sa formule choisie.
+  // Purement indicatif : l'estimation enregistrée est recalculée par le serveur à partir des seuls choix.
+  import { computeTotals, formatRange, type Range } from '../../lib/pricing';
 
   const form = document.querySelector<HTMLFormElement>('[data-quote-form]');
   if (form) {
@@ -252,11 +246,12 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
     const monthly = form.querySelector<HTMLElement>('[data-total-monthly]')!;
     const monthlyRow = form.querySelector<HTMLElement>('[data-monthly-row]')!;
     const empty = list.firstElementChild!;
+    const ttc = ([min, max]: Range): Range => [computeTotals(min, rate).ttc, computeTotals(max, rate).ttc];
 
     const update = () => {
-      let oneOffHt = 0;
-      let monthlyHt = 0;
-      const picked: { label: string; amount: number; monthly: boolean }[] = [];
+      const oneOff: Range = [0, 0];
+      const perMonth: Range = [0, 0];
+      const picked: { label: string; amount: Range; monthly: boolean }[] = [];
 
       form.querySelectorAll<HTMLFieldSetElement>('[data-group]').forEach((group) => {
         const needsBase = group.dataset.needsBase === 'true';
@@ -265,7 +260,7 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
         extras?.classList.toggle('is-disabled', !enabled);
         extras?.querySelectorAll('input').forEach((input) => (input.disabled = !enabled));
 
-        group.querySelectorAll<HTMLInputElement>('input[data-price]').forEach((input) => {
+        group.querySelectorAll<HTMLInputElement>('input[data-min]').forEach((input) => {
           if (input.disabled) return;
           const max = Number(input.max) || 99;
           const qty =
@@ -275,10 +270,11 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
                 ? 1
                 : 0;
           if (!qty) return;
-          const amount = Number(input.dataset.price) * qty;
+          const amount: Range = [Number(input.dataset.min) * qty, Number(input.dataset.max) * qty];
           const isMonthly = input.dataset.monthly === 'true';
-          if (isMonthly) monthlyHt += amount;
-          else oneOffHt += amount;
+          const target = isMonthly ? perMonth : oneOff;
+          target[0] += amount[0];
+          target[1] += amount[1];
           const [one, many] = (input.dataset.unit ?? '').split('|');
           const label = input.type === 'number' ? `${input.dataset.label} (${qty} ${qty > 1 ? many : one})` : input.dataset.label!;
           picked.push({ label, amount, monthly: isMonthly });
@@ -292,15 +288,15 @@ const taxNote = vatRate ? `Prix TTC (TVA ${vatRate} % comprise).` : 'TVA non app
               const name = document.createElement('span');
               const price = document.createElement('span');
               name.textContent = label;
-              price.textContent = `${formatEuros(computeTotals(amount, rate).ttc)}${isMonthly ? ' / mois' : ''}`;
+              price.textContent = `${formatRange(ttc(amount))}${isMonthly ? ' / mois' : ''}`;
               li.append(name, price);
               return li;
             })
           : [empty]),
       );
-      once.textContent = formatEuros(computeTotals(oneOffHt, rate).ttc);
-      monthly.textContent = `${formatEuros(computeTotals(monthlyHt, rate).ttc)} / mois`;
-      monthlyRow.hidden = monthlyHt === 0;
+      once.textContent = formatRange(ttc(oneOff));
+      monthly.textContent = `${formatRange(ttc(perMonth))} / mois`;
+      monthlyRow.hidden = perMonth[1] === 0;
     };
 
     form.addEventListener('input', update);

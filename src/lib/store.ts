@@ -1,6 +1,6 @@
-// Données modifiables depuis /administration : verrou du site, adresse du siège, fermetures, offres d'emploi,
-// tarifs du simulateur de devis. Stockées dans Upstash Redis (Vercel → Storage → Upstash) via son API REST.
-// Les devis eux-mêmes sont gérés dans src/lib/quotes.ts, avec la même base.
+// Données modifiables depuis /administration : verrou du site, adresse du siège, fermetures, offres d'emploi.
+// Stockées dans Upstash Redis (Vercel → Storage → Upstash) via son API REST.
+// Les devis du simulateur sont gérés dans src/lib/quotes.ts, avec la même base.
 // Sans Redis configuré (développement local), elles vivent en mémoire et sont perdues au redémarrage.
 // Tant que rien n'a été enregistré, les valeurs de src/data/site.ts et src/data/content.ts servent de départ.
 import {
@@ -12,7 +12,6 @@ import {
 import { launch, site } from '../data/site';
 import { initialOpenings, type Opening } from '../data/content';
 import { parisNow, startOfWeek, type Closure } from './hours';
-import { defaultPricing, type Pricing } from './pricing';
 import type { LockReason } from '../data/lock-reasons';
 
 export type Settings = {
@@ -31,7 +30,7 @@ export type Settings = {
 };
 
 // nf:version : tampon changé à chaque enregistrement, surveillé par les pages ouvertes (src/scripts/live.ts)
-const KEYS = { settings: 'nf:settings', openings: 'nf:openings', pricing: 'nf:pricing', version: 'nf:version' } as const;
+const KEYS = { settings: 'nf:settings', openings: 'nf:openings', version: 'nf:version' } as const;
 const stamp = () => Date.now().toString(36);
 
 const defaults = (): { settings: Settings; openings: Opening[] } => ({
@@ -166,21 +165,6 @@ export async function purgeExpiredClosures(settings: Settings): Promise<Settings
 export async function saveOpenings(openings: Opening[]): Promise<void> {
   await redis([
     ['SET', KEYS.openings, JSON.stringify(openings)],
-    ['SET', KEYS.version, stamp()],
-  ]);
-}
-
-/** Tarifs du simulateur de devis : lus seulement par les pages qui en ont besoin (pas à chaque requête) */
-export async function loadPricing(): Promise<Pricing> {
-  const [pricing] = await redis([['GET', KEYS.pricing]]);
-  const saved = text(pricing);
-  return saved ? { ...defaultPricing(), ...JSON.parse(saved) } : defaultPricing();
-}
-
-/** Les devis déjà créés gardent leurs prix : seuls les nouveaux devis utilisent ces tarifs */
-export async function savePricing(pricing: Pricing): Promise<void> {
-  await redis([
-    ['SET', KEYS.pricing, JSON.stringify(pricing)],
     ['SET', KEYS.version, stamp()],
   ]);
 }

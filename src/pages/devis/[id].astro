@@ -1,16 +1,25 @@
 ---
-// Devis créé depuis le simulateur : lignes et prix figés à la création, période de signature de
-// QUOTE_VALIDITY_DAYS jours. Adresse secrète (/devis/<id>), non référencée : seul celui qui a le lien y accède.
-// Signature en ligne seulement pour un devis créé après l'ouverture commerciale (voir quoteStatus).
+// Estimation puis devis ferme, à la même adresse secrète (/devis/<id>), non référencée : seul celui qui a le lien
+// y accède. Voir src/lib/quotes.ts pour les étapes (estimation → demande de rappel → devis ferme → signature).
+// Demande de rappel et signature en ligne seulement après l'ouverture commerciale (canRequestCallback, canSign).
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
 import { QUOTE_VALIDITY_DAYS, UNIT_LABELS } from '../../data/quote-catalog';
 import { legal, isRegistered } from '../../data/site';
-import { formatEuros, type QuoteLine } from '../../lib/pricing';
+import { formatEuros, formatRange, type Totals } from '../../lib/pricing';
 import { getSite } from '../../lib/store';
 import { isEmail, oneLine } from '../../lib/forms';
-import { RETENTION_DAYS, loadQuote, quoteStatus, signQuote, type Quote } from '../../lib/quotes';
+import {
+  RETENTION_DAYS,
+  canRequestCallback,
+  canSign,
+  loadQuote,
+  quoteStatus,
+  requestCallback,
+  signQuote,
+  type Quote,
+} from '../../lib/quotes';
 
 const site = getSite(Astro.locals);
 let quote: Quote | null = null;
@@ -24,27 +33,33 @@ try {
 if (!quote) Astro.response.status = unavailable ? 503 : 404;
 
 const errors: Record<string, string> = {};
-let signer = { name: '', email: '' };
+const form = { name: '', email: '', phone: '', message: '' };
 
 if (quote && Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
-  signer = {
-    name: oneLine(String(data.get('name') ?? '')).trim().slice(0, 120),
-    email: String(data.get('email') ?? '').trim().slice(0, 200),
-  };
-  if (quoteStatus(quote) !== 'open') {
-    errors.form = 'Ce devis ne peut pas (ou plus) être signé.';
+  const action = data.get('action');
+  form.name = oneLine(String(data.get('name') ?? '')).trim().slice(0, 120);
+  form.email = String(data.get('email') ?? '').trim().slice(0, 200);
+  form.phone = oneLine(String(data.get('phone') ?? '')).trim().slice(0, 30);
+  form.message = String(data.get('message') ?? '').trim().slice(0, 2000);
+  const allowed = action === 'callback' ? canRequestCallback(quote) : action === 'sign' ? canSign(quote) : false;
+  if (!allowed) {
+    errors.form = 'Cette action n’est pas (ou plus) possible pour ce devis.';
   } else {
-    if (signer.name.length < 2) errors.name = 'Indiquez vos prénom et nom.';
-    if (!isEmail(signer.email)) errors.email = 'Indiquez une adresse e-mail valide.';
-    if (data.get('accept') !== 'oui') errors.accept = 'Cochez la case pour accepter le devis.';
+    if (form.name.length < 2) errors.name = 'Indiquez vos prénom et nom.';
+    if (!isEmail(form.email)) errors.email = 'Indiquez une adresse e-mail valide.';
+    if (action === 'sign' && data.get('accept') !== 'oui') errors.accept = 'Cochez la case pour accepter le devis.';
     if (Object.keys(errors).length === 0) {
       try {
-        await signQuote(quote, signer);
-        return Astro.redirect(`/devis/${quote.id}?signe=1`, 303);
+        if (action === 'callback') {
+          await requestCallback(quote, form);
+          return Astro.redirect(`/devis/${quote.id}?ok=rappel`, 303);
+        }
+        await signQuote(quote, { name: form.name, email: form.email });
+        return Astro.redirect(`/devis/${quote.id}?ok=signe`, 303);
       } catch (e) {
         console.error(e);
-        errors.form = "La signature n'a pas pu être enregistrée. Réessayez dans un instant.";
+        errors.form = "L'enregistrement a échoué. Réessayez dans un instant.";
       }
     }
   }
@@ -52,44 +67,59 @@ if (quote && Astro.request.method === 'POST') {
 }
 
 const status = quote ? quoteStatus(quote) : null;
+const final = quote?.final;
 const dateFormat = { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' } as const;
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString('fr-FR', dateFormat);
 const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { ...dateFormat, hour: '2-digit', minute: '2-digit' });
-const daysLeft = quote ? Math.max(0, Math.ceil((Date.parse(quote.expiresAt) - Date.now()) / 86_400_000)) : 0;
+const validUntil = final?.expiresAt ?? quote?.expiresAt ?? '';
+const daysLeft = Math.max(0, Math.ceil((Date.parse(validUntil) - Date.now()) / 86_400_000));
 
-// Lignes regroupées par service, dans l'ordre du catalogue
-const sections = (monthly: boolean) => {
-  const groups = new Map<string, QuoteLine[]>();
-  for (const line of quote?.lines.filter((l) => l.monthly === monthly) ?? []) {
-    groups.set(line.group, [...(groups.get(line.group) ?? []), line]);
+// Tableau affiché : devis ferme s'il existe, sinon estimation en fourchette ; lignes regroupées par service
+type Row = { label: string; detail?: string; qty: string; unitPrice: string; total: string };
+const qtyLabel = (qty: number, unit: keyof typeof UNIT_LABELS) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
+const rows = (monthly: boolean) => {
+  const groups = new Map<string, Row[]>();
+  const lines = final
+    ? final.lines.map((l) => ({ ...l, unitPrice: formatEuros(l.unitPrice), total: formatEuros(l.total) }))
+    : (quote?.lines ?? []).map((l) => ({ ...l, unitPrice: formatRange(l.unitPrice), total: formatRange(l.total) }));
+  for (const line of lines.filter((l) => l.monthly === monthly)) {
+    const row = { label: line.label, detail: line.detail, qty: qtyLabel(line.qty, line.unit), unitPrice: line.unitPrice, total: line.total };
+    groups.set(line.group, [...(groups.get(line.group) ?? []), row]);
   }
   return [...groups];
 };
-const qtyLabel = (line: QuoteLine) => `${line.qty} ${UNIT_LABELS[line.unit][line.qty > 1 ? 1 : 0]}`;
+const vatRate = quote?.vatRate ?? 0;
+const totalRows = (monthly: boolean): [string, string, boolean][] => {
+  if (!quote) return [];
+  const per = monthly ? ' par mois' : '';
+  const fmt = (pick: (t: Totals) => number) =>
+    final
+      ? formatEuros(pick(monthly ? final.totals.monthly : final.totals.oneOff))
+      : formatRange(
+          [quote!.totals[monthly ? 'monthly' : 'oneOff'].min, quote!.totals[monthly ? 'monthly' : 'oneOff'].max].map(pick) as [number, number],
+        );
+  return [
+    [`Total HT${per}`, fmt((t) => t.ht), false],
+    ...(vatRate > 0 ? [[`TVA ${vatRate} %`, fmt((t) => t.vat), false] as [string, string, boolean]] : []),
+    [`Total ${vatRate > 0 ? 'TTC' : 'à payer'}${per}`, fmt((t) => t.ttc), true],
+  ];
+};
+const amount = final
+  ? `${formatEuros(final.totals.oneOff.ttc)}${final.totals.monthly.ttc > 0 ? `, puis ${formatEuros(final.totals.monthly.ttc)} par mois` : ''}`
+  : '';
 const issuer = legal.legalName ?? legal.publisher ?? site.name;
+const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
+const ok = Astro.url.searchParams.get('ok');
 const invalid = (name: string) => (errors[name] ? 'true' : undefined);
 const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined);
+const titles = { estimation: 'Votre estimation.', rappel: 'Votre estimation.', ferme: 'Votre devis.', expire: 'Devis expiré.', signe: 'Devis signé.' };
 ---
 
-<BaseLayout
-  title={quote ? `Devis ${quote.number}` : 'Devis introuvable'}
-  description="Votre devis NovaForge Studio."
-  noindex
->
-  <PageHero eyebrow={quote ? `Devis ${quote.number}` : 'Devis'} compact>
+<BaseLayout title={quote ? `${final ? 'Devis' : 'Estimation'} ${quote.number}` : 'Devis introuvable'} description="Votre devis NovaForge Studio." noindex>
+  <PageHero eyebrow={quote ? `${final ? 'Devis' : 'Estimation'} ${quote.number}` : 'Devis'} compact>
     <Fragment slot="title">
-      {
-        status === 'signed' ? (
-          <Fragment>Devis <em>signé.</em></Fragment>
-        ) : status === 'expired' ? (
-          <Fragment>Devis <em>expiré.</em></Fragment>
-        ) : quote ? (
-          <Fragment>Votre <em>devis.</em></Fragment>
-        ) : (
-          <Fragment>Devis <em>introuvable.</em></Fragment>
-        )
-      }
+      {status ? <em>{titles[status]}</em> : <Fragment>Devis <em>introuvable.</em></Fragment>}
     </Fragment>
   </PageHero>
 
@@ -109,21 +139,32 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
           </div>
         ) : (
           <Fragment>
-            {Astro.url.searchParams.has('signe') && status === 'signed' && (
+            {ok === 'rappel' && status === 'rappel' && (
+              <p class="admin-flash" role="status">
+                <Icon name="check" /> Demande envoyée : un développeur vous recontacte pour établir votre devis ferme.
+              </p>
+            )}
+            {ok === 'signe' && status === 'signe' && (
               <p class="admin-flash" role="status">
                 <Icon name="check" /> Merci ! Votre devis est signé : nous revenons vers vous pour lancer le projet.
               </p>
             )}
-            {status === 'simulation' && (
+            {!quote.binding && (
               <p class="quote-banner">
-                <strong>Simulation non contractuelle.</strong> Ce devis a été établi avant l'ouverture commerciale du
-                studio : il ne peut pas être signé. Ses prix restent indicatifs.
+                <strong>Simulation non contractuelle.</strong> Établie avant l'ouverture commerciale du studio, elle donne
+                un ordre de prix : elle ne peut être ni finalisée en ligne ni signée.
               </p>
             )}
-            {status === 'expired' && (
+            {quote.binding && !final && status !== 'expire' && (
               <p class="quote-banner">
-                <strong>Ce devis a expiré le {formatDate(quote.expiresAt)}.</strong> Ses prix ne sont plus garantis :
-                refaites une simulation pour obtenir un devis à jour.
+                <strong>Estimation indicative.</strong> Les prix exacts dépendent de la complexité réelle de votre projet :
+                un développeur les fixe avec vous dans un devis ferme, que vous pourrez signer ici.
+              </p>
+            )}
+            {status === 'expire' && (
+              <p class="quote-banner">
+                <strong>Ce {final ? 'devis' : 'cette estimation'} a expiré le {formatDate(validUntil)}.</strong> Ses prix ne
+                sont plus garantis : refaites une simulation pour obtenir une estimation à jour.
               </p>
             )}
 
@@ -139,25 +180,28 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
                 </div>
                 <dl class="quote-doc-meta">
                   <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
-                  <div><dt>Date</dt><dd>{formatDate(quote.createdAt)}</dd></div>
+                  <div><dt>{final ? 'Devis du' : 'Estimation du'}</dt><dd>{formatDate(final?.issuedAt ?? quote.createdAt)}</dd></div>
                   <div>
                     <dt>Valable jusqu'au</dt>
                     <dd>
-                      {formatDate(quote.expiresAt)}
-                      {status === 'open' && ` (encore ${daysLeft} jour${daysLeft > 1 ? 's' : ''})`}
+                      {formatDate(validUntil)}
+                      {(status === 'estimation' || status === 'rappel' || status === 'ferme') &&
+                        ` (encore ${daysLeft} jour${daysLeft > 1 ? 's' : ''})`}
                     </dd>
                   </div>
                 </dl>
               </header>
 
               {[false, true].map((monthly) => {
-                const groups = sections(monthly);
-                const totals = monthly ? quote!.totals.monthly : quote!.totals.oneOff;
+                const groups = rows(monthly);
                 return (
                   groups.length > 0 && (
                     <div class="quote-table-wrap">
                       <table class="quote-table">
-                        <caption>{monthly ? 'Abonnement mensuel' : 'Prestations'}</caption>
+                        <caption>
+                          {monthly ? 'Abonnement mensuel' : 'Prestations'}
+                          {!final && ' · estimation'}
+                        </caption>
                         <thead>
                           <tr>
                             <th scope="col">Désignation</th>
@@ -177,37 +221,40 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
                                   {line.label}
                                   {line.detail && <span class="quote-item-detail">{line.detail}</span>}
                                 </td>
-                                <td>{qtyLabel(line)}</td>
-                                <td>{formatEuros(line.unitPrice)}</td>
-                                <td>{formatEuros(line.total)}</td>
+                                <td>{line.qty}</td>
+                                <td>{line.unitPrice}</td>
+                                <td>{line.total}</td>
                               </tr>
                             ))}
                           </tbody>
                         ))}
                       </table>
                       <dl class="quote-totals">
-                        <div><dt>Total HT{monthly && ' par mois'}</dt><dd>{formatEuros(totals.ht)}</dd></div>
-                        {quote!.vatRate > 0 && (
-                          <div><dt>TVA {quote!.vatRate} %</dt><dd>{formatEuros(totals.vat)}</dd></div>
-                        )}
-                        <div class="quote-totals-main">
-                          <dt>Total {quote!.vatRate > 0 ? 'TTC' : 'à payer'}{monthly && ' par mois'}</dt>
-                          <dd>{formatEuros(totals.ttc)}</dd>
-                        </div>
+                        {totalRows(monthly).map(([label, value, main]) => (
+                          <div class:list={{ 'quote-totals-main': main }}>
+                            <dt>{label}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
                       </dl>
                     </div>
                   )
                 );
               })}
 
+              {final?.note && <p class="quote-doc-note">{final.note}</p>}
+
               <ul class="quote-doc-notes">
-                {quote.vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
-                <li>
-                  Prix fermes pendant {QUOTE_VALIDITY_DAYS} jours à compter de la date du devis, soit jusqu'au
-                  {' '}{formatDate(quote.expiresAt)}.
-                </li>
-                {quote.totals.monthly.ht > 0 && <li>L'abonnement mensuel démarre à la mise en ligne.</li>}
-                <li>Devis établi à partir de vos choix dans le simulateur ; le contenu exact est confirmé avec vous au lancement du projet.</li>
+                {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
+                {final ? (
+                  <li>Prix fermes jusqu'au {formatDate(final.expiresAt)}, date limite de signature.</li>
+                ) : (
+                  <li>
+                    Fourchettes garanties {QUOTE_VALIDITY_DAYS} jours, jusqu'au {formatDate(quote.expiresAt)}. Le prix ferme
+                    est fixé dans le devis établi par un développeur.
+                  </li>
+                )}
+                {quote.totals.monthly.max.ht > 0 && <li>L'abonnement mensuel démarre à la mise en ligne.</li>}
               </ul>
 
               {quote.signature && (
@@ -218,22 +265,76 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
               )}
             </article>
 
-            {status === 'open' && (
+            {errors.form && (
+              <p class="admin-alert" role="alert">
+                {errors.form}
+              </p>
+            )}
+
+            {status === 'rappel' && quote.contact && (
+              <p class="quote-banner">
+                <strong>Demande de rappel reçue le {formatDate(quote.contact.requestedAt)}.</strong> Un développeur étudie
+                votre projet et vous recontacte ; votre devis ferme apparaîtra sur cette page.
+              </p>
+            )}
+
+            {canRequestCallback(quote) && (
               <form class="form form--card card quote-sign" method="post" novalidate>
+                <input type="hidden" name="action" value="callback" />
+                <h2 class="quote-sign-title field--full">Être recontacté pour finaliser</h2>
+                <p class="form-note field--full">
+                  Un développeur étudie votre estimation, vous recontacte pour préciser votre besoin, puis établit votre
+                  devis aux prix fermes.
+                </p>
+                <div class="field">
+                  <label for="cb-name">Prénom et nom <span class="req">*</span></label>
+                  <input class="input" id="cb-name" name="name" value={form.name} required maxlength="120" autocomplete="name" aria-invalid={invalid('name')} aria-describedby={describedBy('name')} />
+                  {errors.name && <p class="field-error" id="name-err">{errors.name}</p>}
+                </div>
+                <div class="field">
+                  <label for="cb-email">E-mail <span class="req">*</span></label>
+                  <input class="input" id="cb-email" name="email" type="email" value={form.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
+                  {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
+                </div>
+                <div class="field">
+                  <label for="cb-phone">Téléphone</label>
+                  <input class="input" id="cb-phone" name="phone" type="tel" value={form.phone} maxlength="30" autocomplete="tel" />
+                </div>
+                <div class="field field--full">
+                  <label for="cb-message">Précisions sur votre projet</label>
+                  <textarea class="input" id="cb-message" name="message" rows="4" maxlength="2000" placeholder="Votre activité, vos délais, ce qui vous paraît particulier…">{form.message}</textarea>
+                </div>
+                <p class="form-privacy field--full">
+                  Vos coordonnées servent uniquement à vous recontacter au sujet de ce devis. Elles sont supprimées avec
+                  lui s'il n'est pas signé : <a href="/confidentialite">politique de confidentialité</a>.
+                </p>
+                <div class="form-footer">
+                  <p class="form-note"><span aria-hidden="true">*</span> Champs obligatoires</p>
+                  <button class="btn btn-primary" type="submit">
+                    Demander à être recontacté <Icon name="arrow" class="btn-arrow" />
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!quote.binding && phoneHref && !final && (
+              <p class="form-note">
+                Une question sur ce projet ? Appelez-nous au <a href={phoneHref}>{site.phone}</a>.
+              </p>
+            )}
+
+            {canSign(quote) && (
+              <form class="form form--card card quote-sign" method="post" novalidate>
+                <input type="hidden" name="action" value="sign" />
                 <h2 class="quote-sign-title field--full">Signer ce devis</h2>
-                {errors.form && (
-                  <p class="field-error field--full" role="alert">
-                    {errors.form}
-                  </p>
-                )}
                 <div class="field">
                   <label for="sign-name">Prénom et nom <span class="req">*</span></label>
-                  <input class="input" id="sign-name" name="name" value={signer.name} required maxlength="120" autocomplete="name" aria-invalid={invalid('name')} aria-describedby={describedBy('name')} />
+                  <input class="input" id="sign-name" name="name" value={form.name || quote.contact?.name} required maxlength="120" autocomplete="name" aria-invalid={invalid('name')} aria-describedby={describedBy('name')} />
                   {errors.name && <p class="field-error" id="name-err">{errors.name}</p>}
                 </div>
                 <div class="field">
                   <label for="sign-email">E-mail <span class="req">*</span></label>
-                  <input class="input" id="sign-email" name="email" type="email" value={signer.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
+                  <input class="input" id="sign-email" name="email" type="email" value={form.email || quote.contact?.email} required maxlength="200" autocomplete="email" aria-invalid={invalid('email')} aria-describedby={describedBy('email')} />
                   {errors.email && <p class="field-error" id="email-err">{errors.email}</p>}
                 </div>
                 <div class="field field--full">
@@ -241,19 +342,18 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
                     <input type="checkbox" name="accept" value="oui" required aria-invalid={invalid('accept')} aria-describedby={describedBy('accept')} />
                     <span>
                       J'ai lu le détail de ce devis et les conditions générales de vente, et je les accepte : bon pour
-                      accord pour un montant de {formatEuros(quote.totals.oneOff.ttc)}
-                      {quote.totals.monthly.ttc > 0 && `, puis ${formatEuros(quote.totals.monthly.ttc)} par mois`}.
+                      accord pour un montant de {amount}.
                     </span>
                   </label>
                   {errors.accept && <p class="field-error" id="accept-err">{errors.accept}</p>}
                 </div>
                 <p class="form-privacy field--full">
                   Vous disposez d'un délai de 14 jours à compter de la signature pour vous rétracter, sans avoir à vous
-                  justifier (code de la consommation, art. L221-18). Vos nom et e-mail servent à établir le contrat et
-                  à vous recontacter : <a href="/confidentialite">politique de confidentialité</a>.
+                  justifier (code de la consommation, art. L221-18). Vos nom et e-mail servent à établir le contrat :
+                  {' '}<a href="/confidentialite">politique de confidentialité</a>.
                 </p>
                 <div class="form-footer">
-                  <p class="form-note">Valable jusqu'au {formatDate(quote.expiresAt)}</p>
+                  <p class="form-note">À signer avant le {formatDate(validUntil)}</p>
                   <button class="btn btn-primary" type="submit">
                     Signer le devis <Icon name="arrow" class="btn-arrow" />
                   </button>
@@ -264,7 +364,7 @@ const describedBy = (name: string) => (errors[name] ? `${name}-err` : undefined)
             <div class="quote-actions">
               <button class="btn btn-ghost" type="button" data-print>Imprimer ou enregistrer en PDF</button>
               <a class="btn btn-ghost" href="/devis">Nouvelle simulation</a>
-              {status !== 'signed' && (
+              {status !== 'signe' && (
                 <p class="form-note">Gardez le lien de cette page : c'est la seule façon de retrouver votre devis.</p>
               )}
             </div>

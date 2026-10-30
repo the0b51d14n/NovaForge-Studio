@@ -1,0 +1,182 @@
+---
+// Finalisation d'une estimation par un développeur : coordonnées du client, fourchette de chaque ligne,
+// saisie des prix fermes HT puis émission du devis ferme (signable par le client pendant QUOTE_VALIDITY_DAYS jours).
+// Réémettre un devis non signé remplace ses prix et relance sa période de signature.
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import AdminBar from '../../../components/AdminBar.astro';
+import { QUOTE_VALIDITY_DAYS, UNIT_LABELS } from '../../../data/quote-catalog';
+import { launch } from '../../../data/site';
+import { ADMIN_PATH } from '../../../lib/access';
+import { formatEuros, formatRange, parseEuros } from '../../../lib/pricing';
+import { finalizeQuote, loadQuote, quoteStatus, type Quote } from '../../../lib/quotes';
+
+if (!Astro.locals.isAdmin) return Astro.redirect(ADMIN_PATH);
+
+let quote: Quote | null = null;
+try {
+  quote = await loadQuote(Astro.params.id ?? '');
+} catch (e) {
+  console.error(e);
+}
+if (!quote) return Astro.redirect(`${ADMIN_PATH}#devis`);
+
+// 123450 → « 1234,50 », 120000 → « 1200 »
+const toInput = (cents: number) => (cents % 100 ? (cents / 100).toFixed(2) : String(cents / 100)).replace('.', ',');
+const values: Record<string, string> = Object.fromEntries(
+  quote.lines.map((line) => {
+    const fixed = quote!.final?.lines.find((l) => l.id === line.id)?.unitPrice;
+    return [line.id, fixed === undefined ? '' : toInput(fixed)];
+  }),
+);
+let note = quote.final?.note ?? '';
+const invalid: string[] = [];
+let error = '';
+
+if (Astro.request.method === 'POST' && !quote.signature) {
+  const data = await Astro.request.formData();
+  note = String(data.get('note') ?? '').trim().slice(0, 1000);
+  const prices: Record<string, number> = {};
+  for (const line of quote.lines) {
+    const raw = String(data.get(`price:${line.id}`) ?? '').trim().slice(0, 20);
+    values[line.id] = raw;
+    const cents = parseEuros(raw);
+    if (cents === null) invalid.push(line.id);
+    else prices[line.id] = cents;
+  }
+  if (invalid.length > 0) {
+    error = 'Indiquez un prix unitaire HT pour chaque ligne (par exemple 1200 ou 49,90).';
+    Astro.response.status = 422;
+  } else {
+    try {
+      await finalizeQuote(quote, prices, note);
+      return Astro.redirect(`${ADMIN_PATH}/devis/${quote.id}?ok=ferme`, 303);
+    } catch (e) {
+      console.error(e);
+      error = "L'enregistrement a échoué (base de données injoignable). Réessayez dans un instant.";
+      Astro.response.status = 500;
+    }
+  }
+}
+
+const status = quoteStatus(quote);
+const STATES = {
+  estimation: 'Estimation, sans demande de rappel',
+  rappel: 'Rappel demandé : devis ferme à établir',
+  ferme: 'Devis ferme émis, en attente de signature',
+  expire: 'Expiré',
+  signe: 'Signé',
+};
+const dateTime = (iso: string) =>
+  new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+const qtyLabel = (qty: number, unit: keyof typeof UNIT_LABELS) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
+const contact = quote.contact;
+---
+
+<BaseLayout title={`Devis ${quote.number}`} description="Finalisation d'un devis." bare noindex>
+  <AdminBar />
+  <div class="admin surface-light-2">
+    <div class="container admin-inner">
+      <a class="admin-back" href={`${ADMIN_PATH}#devis`}><Icon name="arrow" /> Tableau de bord</a>
+      <h1 class="admin-title">Devis {quote.number}</h1>
+      <p class="admin-text">
+        {STATES[status]} · créé le {dateTime(quote.createdAt)}
+        {quote.final && ` · devis ferme émis le ${dateTime(quote.final.issuedAt)}, à signer avant le ${dateTime(quote.final.expiresAt)}`}
+        {' '}· <a href={`/devis/${quote.id}`} target="_blank" rel="noopener">voir la page du client</a>
+      </p>
+
+      {Astro.url.searchParams.get('ok') === 'ferme' && (
+        <p class="admin-flash" role="status">
+          <Icon name="check" /> Devis ferme émis : il s'affiche sur la page du client, signable pendant {QUOTE_VALIDITY_DAYS} jours.
+        </p>
+      )}
+      {!quote.binding && (
+        <p class="admin-alert">
+          Simulation créée avant l'ouverture commerciale : même avec des prix fermes, le client ne pourra pas la signer.
+        </p>
+      )}
+      {quote.binding && !launch.commercial && (
+        <p class="admin-alert">Le studio n'est plus ouvert commercialement (launch.commercial) : la signature est fermée.</p>
+      )}
+      {error && <p class="admin-alert" role="alert">{error}</p>}
+
+      <section class="admin-card card" aria-labelledby="q-contact">
+        <h2 class="admin-h2" id="q-contact">Client</h2>
+        {contact ? (
+          <dl class="quote-doc-meta">
+            <div><dt>Nom</dt><dd>{contact.name}</dd></div>
+            <div><dt>E-mail</dt><dd><a href={`mailto:${contact.email}`}>{contact.email}</a></dd></div>
+            {contact.phone && <div><dt>Téléphone</dt><dd><a href={`tel:${contact.phone.replace(/\s/g, '')}`}>{contact.phone}</a></dd></div>}
+            <div><dt>Demande du</dt><dd>{dateTime(contact.requestedAt)}</dd></div>
+          </dl>
+        ) : (
+          <p class="admin-text">Le client n'a pas laissé ses coordonnées : il ne peut être recontacté que s'il revient vers vous.</p>
+        )}
+        {contact?.message && <p class="admin-quote-message">{contact.message}</p>}
+        {quote.signature && (
+          <p class="quote-signed">
+            <Icon name="check" /> Signé par <strong>{quote.signature.name}</strong> ({quote.signature.email}) le {dateTime(quote.signature.signedAt)}.
+          </p>
+        )}
+      </section>
+
+      <form class="admin-card card" method="post" novalidate aria-labelledby="q-lines">
+        <h2 class="admin-h2" id="q-lines">{quote.signature ? 'Prix signés' : 'Prix fermes'}</h2>
+        <p class="admin-text">
+          Prix unitaire HT de chaque ligne, selon la complexité réelle du projet. La fourchette de l'estimation est
+          indiquée à titre de repère ; vous pouvez en sortir si le besoin le justifie.
+          {quote.final && !quote.signature && ' Réémettre le devis remplace les prix et relance la période de signature.'}
+        </p>
+        <ul class="admin-prices">
+          {quote.lines.map((line) => (
+            <li class="admin-price">
+              <label class="admin-price-text" for={`price-${line.id}`}>
+                <span class="admin-job-title">
+                  {line.label} · {qtyLabel(line.qty, line.unit)}
+                  {line.monthly && ' · mensuel'}
+                </span>
+                <span class="admin-job-meta">
+                  {line.group} · estimation {formatRange(line.unitPrice)} HT l'unité
+                </span>
+              </label>
+              <span class="admin-price-input">
+                <input
+                  class="input"
+                  id={`price-${line.id}`}
+                  name={`price:${line.id}`}
+                  value={values[line.id]}
+                  inputmode="decimal"
+                  maxlength="20"
+                  placeholder={toInput(line.unitPrice[0])}
+                  required
+                  disabled={Boolean(quote!.signature)}
+                  aria-invalid={invalid.includes(line.id) ? 'true' : undefined}
+                />
+                <span class="admin-price-unit">€ HT / {UNIT_LABELS[line.unit][0]}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div class="field">
+          <label for="note">Note affichée sur le devis (facultatif)</label>
+          <textarea class="input admin-textarea--short" id="note" name="note" maxlength="1000" disabled={Boolean(quote.signature)} placeholder="Précisions convenues avec le client, délais, conditions…">{note}</textarea>
+        </div>
+        {quote.final && (
+          <p class="admin-text">
+            Devis ferme actuel : {formatEuros(quote.final.totals.oneOff.ttc)}
+            {quote.final.totals.monthly.ttc > 0 && ` + ${formatEuros(quote.final.totals.monthly.ttc)} / mois`}
+            {quote.vatRate > 0 ? ' TTC' : ''}.
+          </p>
+        )}
+        {!quote.signature && (
+          <div class="admin-pricing-save">
+            <a class="admin-link" href={`${ADMIN_PATH}#devis`}>Annuler</a>
+            <button class="btn btn-primary" type="submit">
+              {quote.final ? 'Réémettre le devis ferme' : 'Émettre le devis ferme'} <Icon name="arrow" class="btn-arrow" />
+            </button>
+          </div>
+        )}
+      </form>
+    </div>
+  </div>
+</BaseLayout>

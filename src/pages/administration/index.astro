@@ -8,7 +8,7 @@ import AdminBar from '../../components/AdminBar.astro';
 import { ADMIN_PATH, checkPassword, isConfigured, logIn, logOut, stopPreview } from '../../lib/access';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
 import { deleteQuote, listQuotes, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
-import { formatEuros } from '../../lib/pricing';
+import { formatEuros, formatRange } from '../../lib/pricing';
 import { site } from '../../data/site';
 import { LOCK_REASONS, isLockReason } from '../../data/lock-reasons';
 import {
@@ -170,11 +170,17 @@ if (isAdmin) {
   }
 }
 const QUOTE_STATES: Record<QuoteStatus, [label: string, tone: 'open' | 'locked']> = {
-  simulation: ['Simulation', 'locked'],
-  open: ['En attente de signature', 'open'],
-  expired: ['Expiré', 'locked'],
-  signed: ['Signé', 'open'],
+  estimation: ['Estimation', 'locked'],
+  rappel: ['À rappeler', 'locked'],
+  ferme: ['Devis ferme, à signer', 'open'],
+  expire: ['Expiré', 'locked'],
+  signe: ['Signé', 'open'],
 };
+// Montant affiché dans la liste : devis ferme s'il existe, sinon fourchette de l'estimation
+const quoteAmount = (q: Quote) =>
+  q.final
+    ? `${formatEuros(q.final.totals.oneOff.ttc)}${q.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(q.final.totals.monthly.ttc)} / mois` : ''}`
+    : `${formatRange([q.totals.oneOff.min.ttc, q.totals.oneOff.max.ttc])}${q.totals.monthly.max.ttc > 0 ? ` + ${formatRange([q.totals.monthly.min.ttc, q.totals.monthly.max.ttc])} / mois` : ''}`;
 
 // Dates de l'administration : jour et mois seulement (« 11 nov. »)
 const cal = buildCalendar(site.schedule, { ...settings, closures });
@@ -512,16 +518,12 @@ const formatDate = (iso: string) =>
             </section>
 
             <section class="admin-card card" id="devis" aria-labelledby="a-quotes">
-              <div class="admin-card-head">
-                <h2 class="admin-h2" id="a-quotes">Simulateur de devis</h2>
-                <a class="btn btn-primary btn-sm" href={`${ADMIN_PATH}/tarifs`}>
-                  Modifier les tarifs <Icon name="arrow" class="btn-arrow" />
-                </a>
-              </div>
+              <h2 class="admin-h2" id="a-quotes">Simulateur de devis</h2>
               <p class="admin-text">
                 Les visiteurs composent leur projet sur <a href="/devis" target="_blank" rel="noopener">/devis</a> et
-                obtiennent un devis aux prix figés, signable pendant 30 jours une fois le studio ouvert commercialement.
-                Seuls les éléments qui ont un prix sont proposés.
+                obtiennent une estimation en fourchette, puis demandent à être recontactés. Ouvrez une estimation pour
+                fixer les prix fermes : le client signe ensuite son devis en ligne (une fois le studio ouvert
+                commercialement). Les prestations et leurs fourchettes se règlent dans src/data/quote-catalog.ts.
               </p>
               {quotesError ? (
                 <p class="admin-text">Liste des devis momentanément indisponible (base de données injoignable).</p>
@@ -535,18 +537,20 @@ const formatDate = (iso: string) =>
                       <li class="admin-job">
                         <div class="admin-job-main">
                           <p class="admin-job-title">
-                            {q.number} · {formatEuros(q.totals.oneOff.ttc)}
-                            {q.totals.monthly.ttc > 0 && ` + ${formatEuros(q.totals.monthly.ttc)} / mois`}
+                            {q.number} · {quoteAmount(q)}
                           </p>
                           <p class="admin-job-meta">
                             Créé le {formatDate(q.createdAt)} · {q.lines.length} ligne{q.lines.length > 1 ? 's' : ''}
-                            {q.signature && ` · signé par ${q.signature.name} (${q.signature.email})`}
+                            {q.contact && ` · ${q.contact.name}`}
                           </p>
                         </div>
                         <div class="admin-job-actions">
                           <span class:list={['admin-state', `admin-state--${tone}`]}>{label}</span>
+                          <a class="admin-link" href={`${ADMIN_PATH}/devis/${q.id}`}>
+                            {q.signature ? 'Ouvrir' : 'Finaliser'}
+                          </a>
                           <a class="admin-link" href={`/devis/${q.id}`} target="_blank" rel="noopener">
-                            Voir
+                            Page client
                           </a>
                           <form method="post" data-confirm={`Supprimer le devis ${q.number} ?`}>
                             <input type="hidden" name="action" value="quote-delete" />
