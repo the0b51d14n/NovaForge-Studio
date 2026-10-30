@@ -298,7 +298,9 @@ a:hover > .logo .logo-mark,
 }
 /* Compte : icône de profil seule (src/components/AccountIcon.astro), son intitulé reste lu par les lecteurs d'écran */
 .account-icon { flex: none; width: 2.1em; height: 2.1em; }
-.site-nav .nav-account { padding: 0; border-radius: 50%; }
+/* Même hauteur que le bouton Contact (texte de .95rem sur 1.65 de hauteur de ligne + 2 × 10px), centrée avec lui */
+.site-nav .nav-account { display: flex; padding: 0; border-radius: 50%; }
+.site-nav .nav-account .account-icon { width: 2.8rem; height: 2.8rem; }
 .site-nav .nav-account::after { display: none; }
 .site-nav .nav-account .account-icon { transition: transform .25s var(--ease), filter .25s; }
 .site-nav .nav-account:hover .account-icon { transform: scale(1.08); filter: drop-shadow(0 4px 10px rgba(224, 161, 90, .45)); }
@@ -2649,6 +2651,8 @@ textarea.admin-textarea--short { min-height: 80px; }
     line-height: 1.15;
   }
   .site-nav .nav-cta { margin-top: 18px; padding: 14px 28px; font-size: clamp(1.4rem, 6vw, 1.9rem); }
+  .site-nav .nav-account { margin-top: 14px; }
+  .site-nav .nav-account .account-icon { width: 3.4rem; height: 3.4rem; }
   .nav-open { overflow: hidden; }
 }
 
