@@ -1,6 +1,7 @@
 ---
-// Connexion (icône de compte de l'en-tête) : deux formulaires, l'un pour les clients et visiteurs, l'autre pour
-// les employés. Chaque formulaire n'accepte que les comptes de son espace (vérifié côté serveur).
+// Connexion (icône de compte de l'en-tête) : une carte à deux onglets, Client (clients et visiteurs) et Employé.
+// Les onglets sont des liens (?espace=client|equipe) : ils marchent sans JavaScript. Chaque formulaire n'accepte
+// que les comptes de son espace (vérifié côté serveur).
 // Après connexion : retour à la page demandée (?suite=…), sinon le portail de l'équipe pour un employé,
 // l'accueil pour un client.
 import BaseLayout from '../layouts/BaseLayout.astro';
@@ -17,8 +18,9 @@ if (user && Astro.request.method !== 'POST') return Astro.redirect(home(isStaff(
 
 const errors: Record<Space, string> = { client: '', equipe: '' };
 const emails: Record<Space, string> = { client: '', equipe: '' };
-// Formulaire mis en avant sur mobile : celui de l'équipe si la page demandée est le portail
-let active: Space = next?.startsWith(ADMIN_PATH) ? 'equipe' : 'client';
+// Onglet affiché : celui demandé (?espace=…), sinon Employé si la page demandée est le portail, sinon Client
+const asked = Astro.url.searchParams.get('espace');
+let active: Space = asked === 'equipe' || asked === 'client' ? asked : next?.startsWith(ADMIN_PATH) ? 'equipe' : 'client';
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
@@ -66,6 +68,9 @@ const spaces: { id: Space; title: string; lead: string; note: string }[] = [
     note: 'Mot de passe oublié ? Demandez à un dirigeant de le réinitialiser.',
   },
 ];
+const current = spaces.find((s) => s.id === active)!;
+// Lien d'un onglet, en gardant la page de retour éventuelle
+const tabHref = (id: Space) => `?${new URLSearchParams({ espace: id, ...(next ? { suite: next } : {}) })}`;
 ---
 
 <BaseLayout title="Connexion" description="Connexion à votre compte NovaForge Studio." bare noindex>
@@ -76,40 +81,44 @@ const spaces: { id: Space; title: string; lead: string; note: string }[] = [
       <p class="lock-badge"><Icon name="lock" class="lock-badge-icon" /> Connexion</p>
       <h1 id="login-title">Votre compte.</h1>
 
-      <div class="login-grid">
-        {spaces.map(({ id, title, lead, note }) => (
-          <form class:list={['login-card', 'card', { 'is-active': active === id }]} method="post" aria-labelledby={`login-${id}`}>
-            <input type="hidden" name="space" value={id} />
-            <h2 class="login-card-title" id={`login-${id}`}>{title}</h2>
-            <p class="lock-lead">{lead}</p>
-            <div class="field">
-              <label for={`${id}-email`}>E-mail</label>
-              <input class="input" id={`${id}-email`} name="email" type="email" value={emails[id]} autocomplete="username" required />
-            </div>
-            <div class="field">
-              <label for={`${id}-password`}>Mot de passe</label>
-              <input
-                class="input"
-                id={`${id}-password`}
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                required
-                aria-invalid={errors[id] ? 'true' : undefined}
-                aria-describedby={errors[id] ? `${id}-error` : undefined}
-              />
-              {errors[id] && (
-                <p class="field-error" id={`${id}-error`} role="alert">
-                  {errors[id]}
-                </p>
-              )}
-            </div>
-            <button class:list={['btn', id === 'equipe' ? 'btn-primary' : 'btn-warm']} type="submit">
-              Se connecter <Icon name="arrow" class="btn-arrow" />
-            </button>
-            <p class="lock-note">{note}</p>
-          </form>
-        ))}
+      <div class="login-card card">
+        <nav class="login-tabs" aria-label="Type de compte">
+          {spaces.map(({ id, title }) => (
+            <a class="login-tab" href={tabHref(id)} aria-current={active === id ? 'page' : undefined}>
+              {title}
+            </a>
+          ))}
+        </nav>
+        <form class="login-form" method="post" aria-label={`Connexion ${current.title.toLowerCase()}`}>
+          <input type="hidden" name="space" value={current.id} />
+          <p class="lock-lead">{current.lead}</p>
+          <div class="field">
+            <label for="login-email">E-mail</label>
+            <input class="input" id="login-email" name="email" type="email" value={emails[current.id]} autocomplete="username" required />
+          </div>
+          <div class="field">
+            <label for="login-password">Mot de passe</label>
+            <input
+              class="input"
+              id="login-password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              aria-invalid={errors[current.id] ? 'true' : undefined}
+              aria-describedby={errors[current.id] ? 'login-error' : undefined}
+            />
+            {errors[current.id] && (
+              <p class="field-error" id="login-error" role="alert">
+                {errors[current.id]}
+              </p>
+            )}
+          </div>
+          <button class:list={['btn', current.id === 'equipe' ? 'btn-primary' : 'btn-warm']} type="submit">
+            Se connecter <Icon name="arrow" class="btn-arrow" />
+          </button>
+          <p class="lock-note">{current.note}</p>
+        </form>
       </div>
     </div>
   </section>
