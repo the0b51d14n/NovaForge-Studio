@@ -123,11 +123,12 @@ export function finalTotals(lines: FinalLine[], vatRate: number) {
 }
 
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
+const wholeEuros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 
-/** 123450 → « 1 234,50 € » */
-export const formatEuros = (cents: number) => euros.format(cents / 100);
+/** 123450 → « 1 234,50 € », 120000 → « 1 200 € » (centimes affichés seulement s'il y en a) */
+export const formatEuros = (cents: number) => (cents % 100 ? euros : wholeEuros).format(cents / 100);
 
-/** [120000, 250000] → « 1 200,00 € – 2 500,00 € » ; un seul montant si les deux sont égaux */
+/** [120000, 250000] → « 1 200 € – 2 500 € » ; un seul montant si les deux sont égaux */
 export const formatRange = ([min, max]: Range) => (min === max ? formatEuros(min) : `${formatEuros(min)} – ${formatEuros(max)}`);
 
 /** « 1 234,50 » ou « 1234.5 » (euros saisis dans l'administration) → 123450 ; null si vide ou invalide */
