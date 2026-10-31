@@ -2816,6 +2816,16 @@ textarea.admin-textarea--short { min-height: 80px; }
 .quote-item input[type="radio"],
 .quote-item input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--blue); cursor: pointer; }
 .quote-item--plain { grid-template-columns: auto minmax(0, 1fr); }
+/* Option du simulateur : la case et sa priorité ; option déjà comprise dans la formule choisie */
+.quote-option { display: grid; gap: 6px; }
+.quote-option-priority { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-left: 16px; font-size: .85rem; color: var(--muted); }
+.quote-option-priority .input { width: auto; padding-block: 2px 4px; font-size: .88rem; }
+.quote-option-included { display: none; font-size: .85rem; font-weight: 600; color: var(--blue-2); }
+.quote-option.is-included .quote-option-included { display: block; }
+.quote-option.is-included .quote-option-priority { display: none; }
+.quote-option.is-included .quote-item { opacity: .7; }
+.wizard-question { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; }
+.wizard-budget { max-width: 22rem; }
 .quote-item--qty { grid-template-columns: minmax(0, 1fr) 6.5rem; cursor: default; }
 .quote-item-text { display: grid; gap: 2px; min-width: 0; }
 .quote-item-label { font-weight: 700; cursor: inherit; }

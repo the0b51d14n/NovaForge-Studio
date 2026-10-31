@@ -1,0 +1,281 @@
+---
+// Résultats NovaForge SmartQuote d'une estimation (page /devis/<id>) : indicateur de budget, devis initial
+// (minimum, recommandé, maximum), proposition optimisée, alternative, phases, complexité, frais externes.
+// Aucun calcul ici : tout vient du résultat du moteur (src/lib/smartquote.ts), recalculé côté serveur.
+// editable : le client peut ajuster (budget, priorités, retrait ou réintégration) et retenir une proposition.
+import Icon from './Icon.astro';
+import { UNIT_LABELS, catalog } from '../data/quote-catalog';
+import {
+  BUDGET_STATUS_LABELS,
+  CRITERIA,
+  CRITERION_LABELS,
+  PRIORITIES,
+  PRIORITY_LABELS,
+  formatEuros,
+  type Bucket,
+  type SmartLine,
+  type SmartResult,
+} from '../lib/smartquote';
+
+interface Props {
+  smart: SmartResult;
+  vatRate: number;
+  editable: boolean;
+  retained?: 'initial' | 'optimise';
+  /** Budget saisi en dernier (texte), pour le formulaire d'ajustement */
+  budgetText: string;
+  error?: string;
+}
+
+const { smart, vatRate, editable, retained, budgetText, error } = Astro.props;
+const byId = new Map(smart.lines.map((l) => [l.id, l]));
+const deferred = new Map((smart.optimized?.deferred ?? []).map((d) => [d.id, d]));
+const ttc = vatRate > 0 ? ' TTC' : '';
+const per = smart.basis === 'monthly' ? ' / mois' : '';
+const qty = (l: SmartLine) => (l.unit === 'forfait' || l.unit === 'mois' ? '' : `${l.qty} ${UNIT_LABELS[l.unit][l.qty > 1 ? 1 : 0]}`);
+// Montants d'un ensemble : ponctuel puis mensuel, jamais additionnés
+const amounts = (bucket: Bucket, kind: 'min' | 'recommended' | 'max' = 'recommended') =>
+  [
+    bucket.oneOff[kind].ttc > 0 && formatEuros(bucket.oneOff[kind].ttc),
+    bucket.monthly[kind].ttc > 0 && `${formatEuros(bucket.monthly[kind].ttc)} / mois`,
+  ]
+    .filter(Boolean)
+    .join(' + ') || formatEuros(0);
+const priceCell = (l: SmartLine, kind: 'min' | 'recommended' | 'max') =>
+  l.status === 'inclus' ? 'Inclus' : l.status === 'a-estimer' ? 'À estimer' : `${formatEuros(l.total![kind])}${l.monthly ? ' / mois' : ''}`;
+const status = smart.budget?.status;
+const tone = !status ? 'neutre' : status === 'confortable' || status === 'adapte' ? 'ok' : status === 'non-realisable' ? 'ko' : 'warn';
+const suggestions = smart.suggestions
+  .map((id) => catalog.flatMap((g) => g.items).find((i) => i.id === id)?.label)
+  .filter(Boolean);
+const criteria = CRITERIA.filter((c) => smart.complexity.levels[c] !== undefined);
+---
+
+<div class="sq">
+  <section class:list={['sq-budget', `sq-budget--${tone}`]} aria-labelledby="sq-budget-title">
+    <h2 class="sq-title" id="sq-budget-title">{status ? BUDGET_STATUS_LABELS[status] : 'Estimation sans budget'}</h2>
+    <p>{smart.explanation}</p>
+    {smart.budget && (
+      <dl class="sq-figures">
+        <div><dt>Budget annoncé</dt><dd>{formatEuros(smart.budget.amount)}{per}</dd></div>
+        <div><dt>Projet demandé</dt><dd>{formatEuros(smart.budget.initial)}{per}</dd></div>
+        {smart.optimized && <div><dt>Proposition optimisée</dt><dd>{formatEuros(smart.budget.proposal)}{per}</dd></div>}
+        <div>
+          <dt>{smart.budget.overflow ? 'Dépassement' : 'Reste disponible'}</dt>
+          <dd>{formatEuros(smart.budget.overflow || smart.budget.remaining)}{per}</dd>
+        </div>
+        <div><dt>Budget utilisé</dt><dd>{smart.budget.percentUsed} %</dd></div>
+      </dl>
+    )}
+    {suggestions.length > 0 && <p class="sq-note">Améliorations possibles dans votre budget : {suggestions.join(', ')}.</p>}
+  </section>
+
+  <section class="sq-block" aria-labelledby="sq-initial">
+    <h2 class="sq-title" id="sq-initial">A · Votre projet tel que demandé</h2>
+    <p class="sq-note">
+      {smart.family.title} · {smart.base.label}. Prix{ttc} selon la complexité estimée (score {Math.round(smart.complexity.score)} / 100),
+      toujours compris entre le minimum et le maximum de nos tarifs.
+    </p>
+    <div class="quote-table-wrap">
+      <table class="quote-table sq-table">
+        <thead>
+          <tr>
+            <th scope="col">Prestation</th>
+            <th scope="col">Priorité</th>
+            <th scope="col">Minimum</th>
+            <th scope="col">Recommandé</th>
+            <th scope="col">Maximum</th>
+          </tr>
+        </thead>
+        <tbody>
+          {smart.lines.map((l) => (
+            <tr class:list={{ 'is-deferred': deferred.has(l.id) }}>
+              <td>
+                {l.label}
+                {qty(l) && ` (${qty(l)})`}
+                {l.note && <span class="quote-item-detail">{l.note}</span>}
+              </td>
+              <td>{PRIORITY_LABELS[l.priority]}</td>
+              <td>{priceCell(l, 'min')}</td>
+              <td><strong>{priceCell(l, 'recommended')}</strong></td>
+              <td>{priceCell(l, 'max')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <dl class="sq-figures">
+      <div><dt>Création (une fois)</dt><dd>{formatEuros(smart.initial.oneOff.recommended.ttc)}{ttc}</dd></div>
+      {smart.initial.monthly.recommended.ttc > 0 && (
+        <div><dt>Abonnement</dt><dd>{formatEuros(smart.initial.monthly.recommended.ttc)} / mois</dd></div>
+      )}
+      <div><dt>Fourchette</dt><dd>{amounts(smart.initial, 'min')} – {amounts(smart.initial, 'max')}</dd></div>
+    </dl>
+    {smart.discounts && (
+      <p class="sq-note"><Icon name="star" /> {smart.discounts.labels.join(', ')} : {formatEuros(smart.discounts.amount)} HT déduits.</p>
+    )}
+  </section>
+
+  {smart.optimized && (
+    <section class="sq-block" aria-labelledby="sq-optimized">
+      <h2 class="sq-title" id="sq-optimized">B · Proposition {smart.optimized.fits ? 'optimisée' : 'réduite à l’essentiel'}</h2>
+      <p class="sq-note">
+        Mêmes tarifs, périmètre ajusté :
+        {' '}{formatEuros(smart.initial[smart.basis].recommended.ttc - smart.optimized.totals[smart.basis].recommended.ttc)}{per} de
+        moins que le projet demandé, uniquement grâce aux prestations reportées.
+      </p>
+      <ul class="sq-list">
+        {smart.optimized.kept.map((id) => (
+          <li><Icon name="check" /> {byId.get(id)!.label}</li>
+        ))}
+      </ul>
+      <p class="sq-total">
+        {amounts(smart.optimized.totals)}{ttc}
+        {smart.budget &&
+          (smart.optimized.fits
+            ? ` · ${formatEuros(smart.budget.remaining)} sous votre budget`
+            : ` · ${formatEuros(smart.missing ?? 0)} au-dessus de votre budget`)}
+      </p>
+    </section>
+  )}
+
+  {smart.alternative && (
+    <section class="sq-block" aria-labelledby="sq-alt">
+      <h2 class="sq-title" id="sq-alt">Alternative du catalogue</h2>
+      <p>
+        Démarrer avec la formule « {smart.alternative.base} » et vos prestations indispensables :
+        <strong> {amounts(smart.alternative.totals)}{ttc}</strong>.
+      </p>
+    </section>
+  )}
+
+  {smart.phases.length > 1 && (
+    <section class="sq-block" aria-labelledby="sq-phases">
+      <h2 class="sq-title" id="sq-phases">C · Évolutions futures</h2>
+      <p class="sq-note">Les phases suivantes ne sont pas commandées : elles montrent comment compléter le projet plus tard.</p>
+      <ol class="sq-phases">
+        {smart.phases.map((p) => (
+          <li class="sq-phase">
+            <p class="sq-phase-head">
+              <strong>{p.title}</strong>
+              <span>{amounts(p.totals)}{ttc}</span>
+              <span class="admin-state admin-state--open">
+                {p.status === 'inclus' ? 'Dans la proposition' : p.status === 'reporte' ? 'Reportée' : 'À étudier'}
+              </span>
+            </p>
+            <p class="sq-note">{p.objective}</p>
+            <ul class="sq-list">
+              {p.items.map((id) => (
+                <li>
+                  {byId.get(id)!.label}
+                  {deferred.get(id) && <span class="quote-item-detail">{deferred.get(id)!.reason}</span>}
+                </li>
+              ))}
+            </ul>
+            {p.dependencies.length > 0 && <p class="sq-note">Nécessite : {p.dependencies.join(', ')}.</p>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
+
+  <details class="sq-block sq-details">
+    <summary class="sq-title">Comment ce prix est calculé</summary>
+    <p class="sq-note">
+      Score de complexité : {smart.complexity.score} / 100. Chaque prix recommandé = minimum + (maximum − minimum) × score
+      / 100, arrondi à l'euro. Votre budget ne change jamais nos tarifs : il ne détermine que le périmètre proposé.
+    </p>
+    <table class="quote-table sq-table">
+      <thead>
+        <tr><th scope="col">Critère</th><th scope="col">Niveau (0 à 4)</th><th scope="col">Poids</th><th scope="col">Points</th></tr>
+      </thead>
+      <tbody>
+        {criteria.map((c) => (
+          <tr>
+            <td>{CRITERION_LABELS[c]}{smart.complexity.unknown.includes(c) && ' (sans réponse)'}</td>
+            <td>{smart.complexity.levels[c]}</td>
+            <td>{smart.complexity.weights[c]} %</td>
+            <td>{smart.complexity.contributions[c]}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+
+  <section class="sq-block" aria-labelledby="sq-extra">
+    <h2 class="sq-title" id="sq-extra">À savoir</h2>
+    <ul class="quote-doc-notes">
+      {smart.external.map((e) => <li>Non compris dans nos prix : {e.charAt(0).toLowerCase()}{e.slice(1)}.</li>)}
+      {smart.warnings.map((w) => <li>{w}</li>)}
+      {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
+      <li>Estimation indicative : le prix ferme est fixé avec vous par un conseiller.</li>
+    </ul>
+  </section>
+
+  {editable && (
+    <form class="sq-block sq-adjust" method="post" aria-labelledby="sq-adjust">
+      <input type="hidden" name="action" value="adjust" />
+      <h2 class="sq-title" id="sq-adjust">Ajuster et recalculer</h2>
+      {error && <p class="field-error" role="alert">{error}</p>}
+      <div class="field">
+        <label for="sq-budget-input">{smart.basis === 'monthly' ? 'Budget mensuel maximal TTC' : 'Budget maximal TTC'} (vide : sans budget)</label>
+        <input class="input" id="sq-budget-input" name="budget" inputmode="decimal" maxlength="12" value={budgetText} />
+      </div>
+      <ul class="admin-prices">
+        {smart.lines
+          .filter((l) => l.id !== smart.base.id)
+          .map((l) => (
+            <li class="admin-price">
+              <span class="admin-price-text">
+                <span class="admin-job-title">{l.label}</span>
+                {deferred.has(l.id) && <span class="admin-job-meta">Reportée dans la proposition</span>}
+              </span>
+              <span class="admin-price-input">
+                <label class="sr-only" for={`sq-prio-${l.id}`}>Priorité de {l.label}</label>
+                <select class="input" id={`sq-prio-${l.id}`} name={`prio:${l.id}`}>
+                  {PRIORITIES.map((p) => (
+                    <option value={p} selected={l.priority === p}>
+                      {PRIORITY_LABELS[p]}
+                    </option>
+                  ))}
+                </select>
+                <label class="check">
+                  <input type="checkbox" name="remove" value={l.id} /> Retirer
+                </label>
+                {deferred.has(l.id) && (
+                  <button class="admin-link" type="submit" name="keep" value={l.id}>
+                    Réintégrer
+                  </button>
+                )}
+              </span>
+            </li>
+          ))}
+      </ul>
+      <button class="btn btn-primary" type="submit">
+        Recalculer <Icon name="arrow" class="btn-arrow" />
+      </button>
+    </form>
+  )}
+
+  {editable && (
+    <form class="sq-block sq-retain" method="post" aria-labelledby="sq-retain">
+      <input type="hidden" name="action" value="retain" />
+      <h2 class="sq-title" id="sq-retain">Votre choix</h2>
+      <p class="sq-note">
+        {retained
+          ? `Proposition retenue : ${retained === 'optimise' ? 'la proposition optimisée' : 'le projet complet'}. Le conseiller partira de ce choix.`
+          : 'Indiquez la proposition à étudier avec le conseiller.'}
+      </p>
+      <div class="quote-actions">
+        <button class:list={['btn', retained === 'initial' ? 'btn-primary' : 'btn-ghost']} type="submit" name="retained" value="initial">
+          Le projet complet
+        </button>
+        {smart.optimized && (
+          <button class:list={['btn', retained === 'optimise' ? 'btn-primary' : 'btn-ghost']} type="submit" name="retained" value="optimise">
+            La proposition optimisée
+          </button>
+        )}
+      </div>
+    </form>
+  )}
+</div>

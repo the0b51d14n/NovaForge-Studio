@@ -6,59 +6,40 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
-import { BUDGETS, MONTHLY_BUDGETS, UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
+import { UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
 import { services } from '../../data/content';
 import { launch } from '../../data/site';
-import {
-  addonGroup,
-  budgetBasis,
-  budgetFit,
-  budgetsFor,
-  buildEstimate,
-  families,
-  fitToBudget,
-  isMonthlyFamily,
-  readSelection,
-  type Selection,
-} from '../../lib/pricing';
+import { addonGroup, families, isMonthlyFamily, readInput, runSmartQuote } from '../../lib/pricing';
+import { CRITERIA, PRIORITIES, PRIORITY_LABELS, weightsFor, type Criterion, type SmartInput } from '../../lib/smartquote';
 import { parisNow } from '../../lib/hours';
-import { clientKey, createQuote } from '../../lib/quotes';
+import { clientKey, createQuote, toDraft } from '../../lib/quotes';
 
 const familyList = families();
 const addon = addonGroup();
-let selection: Selection = { family: '', base: '', options: [], quantities: {} };
-let budgetId = '';
+let selection: SmartInput = { family: '', base: '', options: [], quantities: {}, complexity: {}, priorities: {}, budget: null };
+let budgetText = '';
 let error = '';
 
 if (Astro.request.method === 'POST' && familyList.length > 0) {
   const data = await Astro.request.formData();
   // Champ piège rempli : un robot, on fait comme si de rien n'était
   if (data.get('site_web')) return Astro.redirect('/devis', 303);
-  selection = readSelection(data);
+  selection = readInput(data);
+  budgetText = String(data.get('budget') ?? '').slice(0, 20);
   const family = familyList.find((group) => group.id === selection.family);
   const base = family?.items.find((item) => item.kind === 'base' && item.id === selection.base);
-  const monthly = family ? isMonthlyFamily(family) : false;
-  budgetId = String(data.get(monthly ? 'budget-mois' : 'budget') ?? '');
 
   if (!family) error = 'Choisissez d’abord ce que vous souhaitez réaliser.';
   else if (!base) error = `Choisissez un type de ${family.title.toLowerCase()}.`;
-  if (error) {
+  else if (budgetText.trim() && selection.budget === null) error = 'Budget invalide : indiquez un montant en euros, par exemple 3000.';
+  const result = error ? null : runSmartQuote(selection, parisNow().date);
+  if (!result) {
+    error ||= 'Ce projet ne peut pas être calculé.';
     Astro.response.status = 422;
   } else {
-    const today = parisNow().date;
-    const budget = budgetsFor(family!).find((b) => b.id === budgetId) ?? null;
-    const estimate = buildEstimate(selection, today);
-    const fit = budget ? budgetFit(budget, budgetBasis(estimate, monthly)) : null;
-    const suggestion = budget && fit === 'sous' ? fitToBudget(selection, budget, today) : null;
     try {
       const quote = await createQuote(
-        {
-          family: { id: family!.id, title: family!.title },
-          base: base!.label,
-          budget: budget && fit ? { label: budget.label, monthly, fit } : null,
-          ...estimate,
-          ...(suggestion ? { suggestion } : {}),
-        },
+        toDraft(selection, result),
         await clientKey(Astro.request, () => Astro.clientAddress),
         // Client connecté : le devis apparaîtra dans son espace
         Astro.locals.user?.role === 'client' ? Astro.locals.user.id : undefined,
@@ -76,7 +57,37 @@ if (Astro.request.method === 'POST' && familyList.length > 0) {
 
 const iconOf = (id: string) => services.find((s) => s.slug === id)?.icon ?? 'star';
 const extrasOf = (items: CatalogItem[]) => items.filter((item) => item.kind !== 'base');
-const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
+const STEPS = ['Votre projet', 'Le type', 'Les options', 'La complexité', 'Votre budget'];
+// Critères de complexité utiles à chaque famille (pondération non nulle dans son profil)
+const criteriaOf = (group: (typeof familyList)[number]) => CRITERIA.filter((c) => weightsFor(group)[c] > 0).join(' ');
+// Questions sans jargon, une par critère : niveaux 0 (très simple) à 4 (très complexe)
+const QUESTIONS: Record<Criterion, { question: string; answers: string[] }> = {
+  design: {
+    question: 'Quel rendu visuel souhaitez-vous ?',
+    answers: ['Simple et efficace', 'Soigné, sur une base existante', 'Personnalisé à votre image', 'Très créatif, avec animations', 'Entièrement sur mesure'],
+  },
+  fonctionnel: {
+    question: 'Votre projet a-t-il des fonctions ou des règles particulières ?',
+    answers: ['Aucune', 'Quelques-unes, simples', 'Plusieurs, classiques', 'Nombreuses ou propres à votre métier', 'Très spécifiques, à concevoir ensemble'],
+  },
+  integrations: {
+    question: 'Doit-il échanger avec d’autres outils ?',
+    answers: ['Aucun', 'Un outil courant (agenda, réseaux sociaux)', 'Deux ou trois outils', 'Votre logiciel métier ou de caisse', 'Plusieurs logiciels synchronisés'],
+  },
+  contenus: {
+    question: 'Quels contenus faut-il préparer ?',
+    answers: ['Tout est prêt', 'Quelques textes à adapter', 'Une partie à créer', 'Beaucoup de contenus à organiser', 'Un grand volume ou un import de données'],
+  },
+  technique: {
+    question: 'Avez-vous des contraintes particulières ?',
+    answers: ['Aucune', 'Quelques préférences', 'Rapidité ou accessibilité importantes', 'Sécurité ou données sensibles', 'Fortes contraintes (affluence, réglementation)'],
+  },
+  delais: {
+    question: 'Quel délai envisagez-vous ?',
+    answers: ['Pas de date précise', 'Quelques mois', 'Un à deux mois', 'Quelques semaines', 'Très urgent'],
+  },
+};
+const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === 'quantity' ? 'importante' : 'facultative');
 ---
 
 <BaseLayout
@@ -140,6 +151,7 @@ const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
                       required
                       data-monthly={isMonthlyFamily(group) ? 'true' : undefined}
                       data-title={group.title}
+                      data-criteria={criteriaOf(group)}
                     />
                     <span class="service-icon">
                       <Icon name={iconOf(group.id)} />
@@ -179,53 +191,69 @@ const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
 
             <fieldset class="wizard-step" data-step="3">
               <legend class="wizard-title">Des options ?</legend>
-              <p class="wizard-hint">Facultatif : cochez ce qui vous intéresse, le conseiller affinera avec vous.</p>
+              <p class="wizard-hint">
+                Facultatif : cochez ce qui vous intéresse et dites-nous ce qui compte le plus. Si le budget est serré, nous
+                garderons l'indispensable et proposerons de reporter le reste.
+              </p>
               {[...familyList, ...(addon ? [addon] : [])].map((group) => {
                 const extras = extrasOf(group.items);
                 return (
                   extras.length > 0 && (
                     <div class="quote-items" data-family-panel={group === addon ? undefined : group.id}>
                       <p class="wizard-panel-title">{group.title}</p>
-                      {extras.map((item) =>
-                        item.kind === 'quantity' ? (
-                          <div class="quote-item quote-item--qty">
-                            <span class="quote-item-text">
-                              <label class="quote-item-label" for={`qty-${item.id}`}>
-                                {item.label}
-                              </label>
-                              <span class="quote-item-detail">
-                                {item.detail ?? `Nombre de ${UNIT_LABELS[item.unit][1]}`}
+                      {extras.map((item) => (
+                        <div class="quote-option" data-included-in={item.includedIn?.join(' ')}>
+                          {item.kind === 'quantity' ? (
+                            <div class="quote-item quote-item--qty">
+                              <span class="quote-item-text">
+                                <label class="quote-item-label" for={`qty-${item.id}`}>
+                                  {item.label}
+                                </label>
+                                <span class="quote-item-detail">
+                                  {item.detail ?? `Nombre de ${UNIT_LABELS[item.unit][1]}`}
+                                </span>
                               </span>
-                            </span>
-                            <input
-                              class="input quote-qty"
-                              id={`qty-${item.id}`}
-                              name={`qty:${item.id}`}
-                              type="number"
-                              min="0"
-                              max={item.max ?? 99}
-                              step="1"
-                              inputmode="numeric"
-                              value={selection.quantities[item.id] || 0}
-                              data-label={item.label}
-                            />
-                          </div>
-                        ) : (
-                          <label class="quote-item quote-item--plain">
-                            <input
-                              type="checkbox"
-                              name="option"
-                              value={item.id}
-                              checked={selection.options.includes(item.id)}
-                              data-label={item.label}
-                            />
-                            <span class="quote-item-text">
-                              <span class="quote-item-label">{item.label}</span>
-                              {item.detail && <span class="quote-item-detail">{item.detail}</span>}
-                            </span>
+                              <input
+                                class="input quote-qty"
+                                id={`qty-${item.id}`}
+                                name={`qty:${item.id}`}
+                                type="number"
+                                min="0"
+                                max={item.max ?? 99}
+                                step="1"
+                                inputmode="numeric"
+                                value={selection.quantities[item.id] || 0}
+                                data-label={item.label}
+                              />
+                            </div>
+                          ) : (
+                            <label class="quote-item quote-item--plain">
+                              <input
+                                type="checkbox"
+                                name="option"
+                                value={item.id}
+                                checked={selection.options.includes(item.id)}
+                                data-label={item.label}
+                              />
+                              <span class="quote-item-text">
+                                <span class="quote-item-label">{item.label}</span>
+                                {item.detail && <span class="quote-item-detail">{item.detail}</span>}
+                                <span class="quote-option-included">Incluse dans la formule choisie : rien à ajouter.</span>
+                              </span>
+                            </label>
+                          )}
+                          <label class="quote-option-priority">
+                            <span>Pour vous, c'est</span>
+                            <select class="input" name={`prio:${item.id}`}>
+                              {PRIORITIES.map((p) => (
+                                <option value={p} selected={(selection.priorities[item.id] ?? defaultPriority(item)) === p}>
+                                  {PRIORITY_LABELS[p].toLowerCase()}
+                                </option>
+                              ))}
+                            </select>
                           </label>
-                        ),
-                      )}
+                        </div>
+                      ))}
                     </div>
                   )
                 );
@@ -233,29 +261,38 @@ const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
             </fieldset>
 
             <fieldset class="wizard-step" data-step="4">
-              <legend class="wizard-title">Quel budget envisagez-vous ?</legend>
+              <legend class="wizard-title">Pour affiner l'estimation</legend>
+              <p class="wizard-hint">Quelques questions simples : sans réponse, nous comptons une complexité moyenne.</p>
+              {CRITERIA.map((criterion) => (
+                <fieldset class="wizard-question" data-criterion={criterion}>
+                  <legend class="wizard-panel-title">{QUESTIONS[criterion].question}</legend>
+                  <div class="choices">
+                    {QUESTIONS[criterion].answers.map((answer, level) => (
+                      <label class="choice">
+                        <input type="radio" name={`cx:${criterion}`} value={level} checked={selection.complexity[criterion] === level} />
+                        <span>{answer}</span>
+                      </label>
+                    ))}
+                    <label class="choice">
+                      <input type="radio" name={`cx:${criterion}`} value="" checked={selection.complexity[criterion] === undefined} />
+                      <span>Je ne sais pas</span>
+                    </label>
+                  </div>
+                </fieldset>
+              ))}
+            </fieldset>
+
+            <fieldset class="wizard-step" data-step="5">
+              <legend class="wizard-title">Avez-vous un budget maximal ?</legend>
               <p class="wizard-hint">
-                Il nous aide à vous proposer la solution la plus adaptée : si besoin, l'estimation inclut une version
-                ajustée.
+                Facultatif. Il ne change pas nos prix : il nous sert à vous proposer ce qui est réalisable, quitte à
+                reporter une partie du projet.
               </p>
               <p class="wizard-recap" data-recap hidden></p>
-              {[
-                { name: 'budget', list: BUDGETS, monthly: false },
-                { name: 'budget-mois', list: MONTHLY_BUDGETS, monthly: true },
-              ].map(({ name, list, monthly }) => (
-                <div class="choices" data-budget-panel={monthly ? 'monthly' : 'once'}>
-                  {list.map((b) => (
-                    <label class="choice">
-                      <input type="radio" name={name} value={b.id} checked={budgetId === b.id} />
-                      <span>{b.label}</span>
-                    </label>
-                  ))}
-                  <label class="choice">
-                    <input type="radio" name={name} value="" checked={!budgetId} />
-                    <span>Je ne sais pas encore</span>
-                  </label>
-                </div>
-              ))}
+              <div class="field wizard-budget">
+                <label for="budget" data-budget-label>Budget maximal TTC, en euros</label>
+                <input class="input" id="budget" name="budget" inputmode="decimal" maxlength="12" value={budgetText} placeholder="Par exemple 3000" />
+              </div>
             </fieldset>
 
             <div class="wizard-nav">
@@ -307,15 +344,25 @@ const STEPS = ['Votre projet', 'Le type', 'Les options', 'Votre budget'];
       form.querySelectorAll<HTMLElement>('[data-family-panel]').forEach((panel) => {
         panel.hidden = panel.dataset.familyPanel !== f?.value;
       });
-      const monthly = f?.dataset.monthly === 'true';
-      form.querySelectorAll<HTMLElement>('[data-budget-panel]').forEach((panel) => {
-        panel.hidden = (panel.dataset.budgetPanel === 'monthly') !== monthly;
+      // Questions de complexité utiles à la famille choisie
+      const criteria = (f?.dataset.criteria ?? '').split(' ');
+      form.querySelectorAll<HTMLElement>('[data-criterion]').forEach((question) => {
+        question.hidden = Boolean(f) && !criteria.includes(question.dataset.criterion!);
       });
+      // Options déjà comprises dans la formule choisie : affichées comme incluses, pas à cocher
+      const chosen = base()?.value ?? '';
+      form.querySelectorAll<HTMLElement>('.quote-option').forEach((row) => {
+        const included = Boolean(chosen) && (row.dataset.includedIn ?? '').split(' ').includes(chosen);
+        row.classList.toggle('is-included', included);
+        row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach((field) => (field.disabled = included));
+      });
+      const label = form.querySelector<HTMLElement>('[data-budget-label]');
+      if (label) label.textContent = f?.dataset.monthly === 'true' ? 'Budget mensuel maximal TTC, en euros' : 'Budget maximal TTC, en euros';
     };
 
     const updateRecap = () => {
       const picked = [...form.querySelectorAll<HTMLInputElement>('input[name="option"]:checked, .quote-qty')]
-        .filter((input) => !input.closest<HTMLElement>('[hidden]') && (input.type !== 'number' || Number(input.value) > 0))
+        .filter((input) => !input.disabled && !input.closest<HTMLElement>('[hidden]') && (input.type !== 'number' || Number(input.value) > 0))
         .map((input) => (input.type === 'number' ? `${input.dataset.label} (${input.value})` : input.dataset.label));
       const parts = [family()?.dataset.title, base()?.dataset.label, ...picked].filter(Boolean);
       recap.textContent = parts.length ? `Votre projet : ${parts.join(' · ')}` : '';

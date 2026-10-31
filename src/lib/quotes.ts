@@ -12,33 +12,45 @@ import { QUOTE_VALIDITY_DAYS, VAT_REGIME } from '../data/quote-catalog';
 import {
   VAT_RATE,
   finalTotals,
-  type AppliedDiscount,
-  type BudgetFit,
+  toEstimateLines,
   type EstimateLine,
   type FinalLine,
   type RangeTotals,
-  type Suggestion,
   type Totals,
   type VatRegime,
 } from './pricing';
+import type { SmartInput, SmartResult } from './smartquote';
 import { parisNow } from './hours';
 import { redis, text } from './store';
 
 export type Contact = { name: string; phone: string; email: string; message: string; requestedAt: string };
 
-/** Ce que le simulateur calcule ; le reste du devis (numéro, dates…) est ajouté à l'enregistrement */
+/** Ce que le simulateur calcule (moteur SmartQuote) ; le reste du devis (numéro, dates…) est ajouté à l'enregistrement */
 export type QuoteDraft = {
   family: { id: string; title: string };
   /** Formule (type) choisie */
   base: string;
-  /** Budget envisagé par le visiteur, null s'il ne le connaît pas encore */
-  budget: { label: string; monthly: boolean; fit: BudgetFit } | null;
+  /** Choix du client, conservés pour recalculer après un ajustement */
+  input?: SmartInput;
+  /** Résultat complet du moteur au moment du calcul (prix figés) */
+  smart?: SmartResult;
+  /** Lignes facturées du projet demandé (repères de prix pour le conseiller) */
   lines: EstimateLine[];
-  discounts: AppliedDiscount[];
   totals: { oneOff: RangeTotals; monthly: RangeTotals };
-  /** Version ajustée au budget, quand celui-ci ne couvre pas l'estimation */
-  suggestion?: Suggestion;
 };
+
+/** Brouillon de devis à partir du résultat du moteur */
+export const toDraft = (input: SmartInput, smart: SmartResult): QuoteDraft => ({
+  family: smart.family,
+  base: smart.base.label,
+  input,
+  smart,
+  lines: toEstimateLines(smart),
+  totals: {
+    oneOff: { min: smart.initial.oneOff.min, max: smart.initial.oneOff.max },
+    monthly: { min: smart.initial.monthly.min, max: smart.initial.monthly.max },
+  },
+});
 
 export type Quote = QuoteDraft & {
   /** Identifiant secret, dans l'adresse du devis (/devis/<id>) : seul celui qui a le lien peut le voir */
@@ -55,6 +67,8 @@ export type Quote = QuoteDraft & {
   /** Compte client connecté au moment de la simulation : le devis apparaît dans son espace (/espace) */
   ownerId?: string;
   contact?: Contact;
+  /** Proposition retenue par le client sur la page de résultats : projet complet ou proposition optimisée */
+  retained?: 'initial' | 'optimise';
   /** Admin+ chargé du devis (lui seul peut fixer les prix), attribué par un admin+ */
   assignee?: { id: string; name: string; assignedAt: string; by: string };
   /** Devis ferme émis depuis l'administration */
@@ -211,6 +225,22 @@ export async function assignQuote(quote: Quote, assignee: { id: string; name: st
   await save(next, retentionOf(next));
 }
 
+/**
+ * Ajustement par le client (budget, priorités, prestations retirées ou réintégrées) : nouveau calcul enregistré à la
+ * place du précédent, même numéro et même validité. Le choix de proposition retenue est remis à zéro.
+ */
+export async function updateEstimate(quote: Quote, draft: QuoteDraft): Promise<Quote> {
+  const { retained: _retained, ...rest } = quote;
+  const next: Quote = { ...rest, ...draft };
+  await save(next, retentionOf(next));
+  return next;
+}
+
+/** Le client retient le projet complet ou la proposition optimisée */
+export async function retainProposal(quote: Quote, retained: 'initial' | 'optimise'): Promise<void> {
+  await save({ ...quote, retained }, retentionOf(quote));
+}
+
 export async function requestCallback(quote: Quote, contact: Omit<Contact, 'requestedAt'>): Promise<void> {
   await save({ ...quote, contact: { ...contact, requestedAt: new Date().toISOString() } }, quote.expiresAt);
 }
@@ -260,6 +290,29 @@ export async function listQuotes(limit = 30): Promise<Quote[]> {
   const gone = keys.filter((_, i) => !values[i]);
   if (gone.length) await redis([['ZREM', KEYS.index, ...gone]]);
   return values.filter((v): v is string => typeof v === 'string').map((v) => JSON.parse(v));
+}
+
+/**
+ * Efface toute trace des devis : chaque devis, la liste générale, le rattachement aux comptes clients et le compteur
+ * de numérotation (le prochain devis repart à 0001). Irréversible ; renvoie le nombre de devis supprimés.
+ */
+export async function deleteAllQuotes(): Promise<number> {
+  const [ids] = await redis([['ZREVRANGE', KEYS.index, '0', '-1']]);
+  const keys = Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
+  const [raw] = keys.length ? await redis([['MGET', ...keys.map(KEYS.quote)]]) : [[]];
+  const owners = new Set(
+    (Array.isArray(raw) ? raw : [])
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => (JSON.parse(v) as Quote).ownerId)
+      .filter((owner): owner is string => Boolean(owner)),
+  );
+  await redis([
+    ...keys.map((id) => ['DEL', KEYS.quote(id)]),
+    ...[...owners].map((owner) => ['DEL', KEYS.owner(owner)]),
+    ['DEL', KEYS.index],
+    ['DEL', KEYS.sequence],
+  ]);
+  return keys.length;
 }
 
 export async function deleteQuote(id: string): Promise<void> {

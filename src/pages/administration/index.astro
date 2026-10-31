@@ -782,7 +782,7 @@ const formatDate = (iso: string) =>
                           </p>
                           <p class="admin-job-meta">
                             {q.assignee ? `Attribué à ${q.assignee.name}` : 'Non attribué'} · créé le {formatDate(q.createdAt)}
-                            {!isDirigeant && q.budget && ` · budget ${q.budget.label}`}
+                            {!isDirigeant && q.smart?.budget && ` · budget ${formatEuros(q.smart.budget.amount)}`}
                             {!isDirigeant && q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
                           </p>
                         </div>

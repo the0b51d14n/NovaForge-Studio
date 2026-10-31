@@ -9,7 +9,10 @@ import PageHero from '../../components/PageHero.astro';
 import Icon from '../../components/Icon.astro';
 import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type Unit } from '../../data/quote-catalog';
 import { legal, isRegistered } from '../../data/site';
-import { formatEuros, formatRange, type Estimate, type FinalLine } from '../../lib/pricing';
+import SmartQuoteResult from '../../components/SmartQuoteResult.astro';
+import { formatEuros, formatRange, parseEuros, runSmartQuote, type FinalLine } from '../../lib/pricing';
+import { isPriority, type SmartInput } from '../../lib/smartquote';
+import { parisNow } from '../../lib/hours';
 import { getSite } from '../../lib/store';
 import { isEmail, oneLine } from '../../lib/forms';
 import {
@@ -19,8 +22,12 @@ import {
   loadQuote,
   quoteStatus,
   requestCallback,
+  retainProposal,
   signQuote,
+  toDraft,
+  updateEstimate,
   type Quote,
+  type QuoteStatus,
 } from '../../lib/quotes';
 
 const site = getSite(Astro.locals);
@@ -39,9 +46,51 @@ const errors: Record<string, string> = {};
 const me = Astro.locals.user?.role === 'client' ? Astro.locals.user : null;
 const form = { name: me?.name ?? '', email: me?.email ?? '', phone: '', message: '' };
 
-if (quote && Astro.request.method === 'POST') {
-  const data = await Astro.request.formData();
-  const action = data.get('action');
+// Ajustements SmartQuote (budget, priorités, retrait, réintégration) et choix de la proposition : seulement tant que
+// l'estimation n'a ni demande de rappel ni devis ferme. Recalcul complet côté serveur, prix toujours du catalogue.
+const adjustable = Boolean(quote?.input && quote.smart && quoteStatus(quote) === 'estimation');
+let adjustError = '';
+let budgetText = quote?.input?.budget ? String(quote.input.budget / 100).replace('.', ',') : '';
+const postData = quote && Astro.request.method === 'POST' ? await Astro.request.formData() : null;
+const postAction = postData?.get('action');
+
+if (quote && postData && adjustable && postAction === 'adjust') {
+  const input = quote.input!;
+  const removed = new Set(postData.getAll('remove').map(String));
+  const keep = String(postData.get('keep') ?? '');
+  const priorities = { ...input.priorities };
+  for (const [name, value] of postData) if (name.startsWith('prio:') && isPriority(value)) priorities[name.slice(5)] = value;
+  // Réintégrer une prestation reportée : elle devient indispensable, l'optimisation la conserve
+  if (keep) priorities[keep] = 'obligatoire';
+  budgetText = String(postData.get('budget') ?? '').trim().slice(0, 20);
+  const budget = budgetText ? parseEuros(budgetText) : null;
+  if (budgetText && !budget) {
+    adjustError = 'Budget invalide : indiquez un montant en euros, par exemple 3000.';
+  } else {
+    const next: SmartInput = {
+      ...input,
+      options: input.options.filter((id) => !removed.has(id)),
+      quantities: Object.fromEntries(Object.entries(input.quantities).filter(([id]) => !removed.has(id))),
+      priorities,
+      budget: budget || null,
+    };
+    const result = runSmartQuote(next, parisNow().date);
+    if (result) {
+      await updateEstimate(quote, toDraft(next, result));
+      return Astro.redirect(`/devis/${quote.id}#resultats`, 303);
+    }
+    adjustError = 'Ce projet ne peut pas être recalculé.';
+  }
+  Astro.response.status = 422;
+} else if (quote && postData && adjustable && postAction === 'retain') {
+  const retained = postData.get('retained');
+  if (retained === 'initial' || (retained === 'optimise' && quote.smart?.optimized)) {
+    await retainProposal(quote, retained);
+    return Astro.redirect(`/devis/${quote.id}#resultats`, 303);
+  }
+} else if (quote && postData) {
+  const data = postData;
+  const action = postAction;
   form.name = oneLine(String(data.get('name') ?? '')).trim().slice(0, 120);
   form.email = String(data.get('email') ?? '').trim().slice(0, 200);
   form.phone = oneLine(String(data.get('phone') ?? '')).trim().slice(0, 30);
@@ -87,13 +136,12 @@ const vatRate = quote?.vatRate ?? 0;
 const ttcLabel = vatRate > 0 ? 'TTC' : '';
 
 const qtyLabel = (qty: number, unit: Unit) => `${qty} ${UNIT_LABELS[unit][qty > 1 ? 1 : 0]}`;
-// Choix du visiteur, sans prix : « Site vitrine · Site essentiel », puis les options
-const choices = (lines: { label: string; qty: number; unit: Unit }[]) =>
-  lines.map((l) => (l.qty > 1 || (l.unit !== 'forfait' && l.unit !== 'mois') ? `${l.label} (${qtyLabel(l.qty, l.unit)})` : l.label));
-const options = quote?.lines.filter((l) => l.label !== quote!.base) ?? [];
-const totalOf = (estimate: Pick<Estimate, 'totals'>, monthly: boolean) => {
-  const part = monthly ? estimate.totals.monthly : estimate.totals.oneOff;
-  return formatRange([part.min.ttc, part.max.ttc]);
+const STATUS_LABELS: Record<QuoteStatus, string> = {
+  estimation: 'Estimation',
+  rappel: 'Rappel demandé',
+  ferme: 'Devis à signer',
+  expire: 'Expiré',
+  signe: 'Signé',
 };
 
 // Devis ferme : lignes regroupées par service, avec leurs prix
@@ -125,11 +173,6 @@ const amount = final
   ? `${formatEuros(final.totals.oneOff.ttc)}${final.totals.monthly.ttc > 0 ? `, puis ${formatEuros(final.totals.monthly.ttc)} par mois` : ''}`
   : '';
 
-const FIT_TEXT = {
-  couvert: 'Votre budget couvre cette estimation.',
-  dans: 'Votre budget se situe dans la fourchette estimée : le conseiller ajustera le contenu avec vous pour le respecter.',
-  sous: 'Votre budget est en dessous de cette estimation.',
-};
 const issuer = legal.legalName ?? legal.publisher ?? site.name;
 const phoneHref = site.phone ? `tel:${site.phone.replace(/\s/g, '')}` : null;
 const ok = Astro.url.searchParams.get('ok');
@@ -186,88 +229,46 @@ const kind = final ? 'Devis' : 'Estimation';
             )}
 
             {!final ? (
-              <article class="quote-doc card">
-                <header class="quote-doc-head">
-                  <div>
-                    <p class="quote-doc-label">Votre projet</p>
-                    <p class="quote-doc-strong">
-                      {quote.family.title} · {quote.base}
-                    </p>
-                  </div>
-                  <dl class="quote-doc-meta">
-                    <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
-                    <div><dt>Estimation du</dt><dd>{formatDate(quote.createdAt)}</dd></div>
-                    <div><dt>Valable jusqu'au</dt><dd>{formatDate(quote.expiresAt)}</dd></div>
-                  </dl>
-                </header>
-
-                {options.length > 0 && (
-                  <div>
-                    <p class="quote-doc-label">Options choisies</p>
-                    <ul class="quote-choices">
-                      {choices(options).map((choice) => (
-                        <li>
-                          <Icon name="check" /> {choice}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div class="quote-estimate">
-                  <p class="quote-doc-label">Estimation approximative {ttcLabel}</p>
-                  {quote.totals.oneOff.max.ttc > 0 && <p class="quote-estimate-value">{totalOf(quote, false)}</p>}
-                  {quote.totals.monthly.max.ttc > 0 && (
-                    <p class:list={['quote-estimate-value', { 'quote-estimate-value--sub': quote.totals.oneOff.max.ttc > 0 }]}>
-                      {quote.totals.oneOff.max.ttc > 0 && 'puis '}
-                      {totalOf(quote, true)} / mois
-                    </p>
+              <Fragment>
+                <article class="quote-doc card">
+                  <header class="quote-doc-head">
+                    <div>
+                      <p class="quote-doc-label">Votre projet</p>
+                      <p class="quote-doc-strong">
+                        {quote.family.title} · {quote.base}
+                      </p>
+                    </div>
+                    <dl class="quote-doc-meta">
+                      <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                      <div><dt>Statut</dt><dd>{STATUS_LABELS[status!]}</dd></div>
+                      <div><dt>Conseiller</dt><dd>{quote.assignee?.name ?? 'Pas encore attribué'}</dd></div>
+                      <div><dt>Estimation du</dt><dd>{formatDate(quote.createdAt)}</dd></div>
+                      <div><dt>Valable jusqu'au</dt><dd>{formatDate(quote.expiresAt)}</dd></div>
+                    </dl>
+                  </header>
+                  {!quote.smart && (
+                    <div class="quote-estimate">
+                      <p class="quote-doc-label">Estimation approximative {ttcLabel}</p>
+                      <p class="quote-estimate-value">
+                        {formatRange([quote.totals.oneOff.min.ttc, quote.totals.oneOff.max.ttc])}
+                      </p>
+                      <p class="form-note">Estimation garantie {QUOTE_VALIDITY_DAYS} jours.</p>
+                    </div>
                   )}
-                  {quote.discounts.map((d) => (
-                    <p class="quote-estimate-discount">
-                      <Icon name="star" /> {d.label} : déjà déduite ({formatRange(d.amount)} HT)
-                    </p>
-                  ))}
-                  <p class="form-note">
-                    Le prix exact dépend de la complexité réelle de votre projet : il est fixé avec vous par un conseiller
-                    dans votre devis.
-                  </p>
-                </div>
-
-                {quote.budget && (
-                  <div class:list={['quote-budget', `quote-budget--${quote.budget.fit}`]}>
-                    <p class="quote-doc-label">Votre budget : {quote.budget.label}</p>
-                    <p>{FIT_TEXT[quote.budget.fit]}</p>
-                    {quote.budget.fit === 'sous' &&
-                      (quote.suggestion ? (
-                        <div class="quote-suggestion">
-                          <p class="quote-doc-strong">Une version ajustée à votre budget</p>
-                          <p>
-                            {quote.suggestion.base !== quote.base && <Fragment>Formule « {quote.suggestion.base} »</Fragment>}
-                            {quote.suggestion.base !== quote.base && quote.suggestion.removed.length > 0 && ', '}
-                            {quote.suggestion.removed.length > 0 && <Fragment>sans : {quote.suggestion.removed.join(', ')}</Fragment>}.
-                          </p>
-                          <p class="quote-estimate-value quote-estimate-value--sub">
-                            {quote.budget.monthly
-                              ? `${totalOf(quote.suggestion, true)} / mois`
-                              : totalOf(quote.suggestion, false)}
-                          </p>
-                          <p class="form-note">Le conseiller vous présentera les deux possibilités.</p>
-                        </div>
-                      ) : (
-                        <p>
-                          Aucune formule de ce type ne rentre dans ce budget : le conseiller vous proposera une solution
-                          par étapes ou une alternative.
-                        </p>
-                      ))}
+                </article>
+                {quote.smart && (
+                  <div id="resultats">
+                    <SmartQuoteResult
+                      smart={quote.smart}
+                      vatRate={vatRate}
+                      editable={adjustable}
+                      retained={quote.retained}
+                      budgetText={budgetText}
+                      error={adjustError}
+                    />
                   </div>
                 )}
-
-                <ul class="quote-doc-notes">
-                  {vatRate === 0 && <li>TVA non applicable, art. 293 B du CGI.</li>}
-                  <li>Estimation garantie {QUOTE_VALIDITY_DAYS} jours, jusqu'au {formatDate(quote.expiresAt)}.</li>
-                </ul>
-              </article>
+              </Fragment>
             ) : (
               <article class="quote-doc card">
                 <header class="quote-doc-head">
