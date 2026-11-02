@@ -2,8 +2,9 @@
 // Portail de l'équipe : admins, admins+ et dirigeants (comptes de src/lib/accounts.ts). Chaque section n'est
 // affichée, et chaque action acceptée, que pour les rôles autorisés (voir `can` dans src/lib/accounts.ts) :
 // - dirigeants : état du site, adresse du siège, fermetures, offres d'emploi, comptes de l'équipe ;
-// - tous : liste des devis et personne qui s'en occupe (les dirigeants n'en voient que le résumé et le prix final) ;
-// - admins+ : attribution des devis à un admin+ et suppression ; seul l'admin+ attribué fixe les prix
+// - tous : liste des devis et personne qui s'en occupe ;
+// - admins+ et dirigeants : attribution des devis (à un admin+ ou un dirigeant) et suppression ; seule la personne
+//   attribuée fixe les prix
 //   (/administration/devis/<id>).
 // Sans compte de l'équipe : page de connexion, ou création du premier dirigeant avec SITE_PASSWORD.
 // Chaque action est un formulaire POST traité ici, suivi d'une redirection (pas de double envoi en rechargeant).
@@ -216,11 +217,11 @@ if (Astro.request.method === 'POST') {
           const quote = await loadQuote(text(data, 'id', 32));
           const assigneeId = text(data, 'assignee', 32);
           const assignee = assigneeId
-            ? (await listUsers()).find((u) => u.id === assigneeId && u.role === 'admin_plus' && !u.disabled)
+            ? (await listUsers()).find((u) => u.id === assigneeId && (u.role === 'admin_plus' || u.role === 'dirigeant') && !u.disabled)
             : null;
           if (!quote) error = 'Ce devis n’existe plus.';
           else if (quote.signature) error = 'Ce devis est déjà signé : son attribution ne change plus.';
-          else if (assigneeId && !assignee) error = 'Un devis ne peut être attribué qu’à un admin+ actif.';
+          else if (assigneeId && !assignee) error = 'Un devis ne peut être attribué qu’à un admin+ ou un dirigeant actif.';
           else {
             await assignQuote(quote, assignee ? { id: assignee.id, name: assignee.name } : null, user!.name);
             return doneAt(assignee ? 'attribue' : 'desattribue', 'devis');
@@ -366,7 +367,9 @@ if (isAdmin) {
   }
 }
 // Comptes de test : hors des listes de l'équipe ; un admin+ de test se voit seulement lui-même dans l'attribution
-const assignable = team.filter((u) => u.role === 'admin_plus' && !u.disabled && (!u.test || u.id === user?.id));
+const assignable = team.filter(
+  (u) => (u.role === 'admin_plus' || u.role === 'dirigeant') && !u.disabled && (!u.test || u.id === user?.id),
+);
 const staffAccounts = team.filter((u) => STAFF_ROLES.includes(u.role) && !u.test);
 const testAccounts = team.filter((u) => u.test);
 const isDirigeant = can.manageSite(user);
@@ -496,7 +499,7 @@ const formatDate = (iso: string) =>
             <h1 class="admin-title">Portail de l'équipe</h1>
             <p class="admin-text">
               Bonjour {user!.name} · {ROLE_LABELS[user!.role]}.
-              {isDirigeant && ' Vous gérez le site, les offres d’emploi et les comptes ; vous suivez les devis.'}
+              {isDirigeant && ' Vous gérez le site, les offres d’emploi et les comptes, et les devis comme un admin+.'}
               {isAdminPlus && ' Vous répartissez les devis et fixez les prix de ceux qui vous sont attribués.'}
               {user!.role === 'admin' && ' Vous consultez les devis et la personne qui s’en occupe.'}
             </p>
@@ -756,10 +759,8 @@ const formatDate = (iso: string) =>
             <section class="admin-card card" id="devis" aria-labelledby="a-quotes">
               <h2 class="admin-h2" id="a-quotes">Devis</h2>
               <p class="admin-text">
-                {isDirigeant
-                  ? 'Suivi des devis du simulateur : la personne qui s’en occupe et le prix final une fois le devis ferme émis.'
-                  : isAdminPlus
-                    ? 'Attribuez chaque devis à un admin+ (vous-même ou un collègue) : seul l’admin+ attribué fixe ses prix. Prestations, fourchettes, budgets et réductions se règlent dans src/data/quote-catalog.ts.'
+                {isDirigeant || isAdminPlus
+                    ? 'Attribuez chaque devis à un admin+ ou à un dirigeant (vous-même ou un collègue) : seule la personne attribuée fixe ses prix. Prestations, fourchettes et réductions se règlent dans src/data/quote-catalog.ts.'
                     : 'Consultation des devis du simulateur et de la personne qui s’en occupe. Seul l’admin+ attribué peut fixer les prix.'}
               </p>
               {quotesError ? (
@@ -776,14 +777,11 @@ const formatDate = (iso: string) =>
                         <div class="admin-job-main">
                           <p class="admin-job-title">
                             {q.number} · {q.family.title}
-                            {isDirigeant
-                              ? ` · ${q.final ? `prix final ${formatEuros(q.final.totals.oneOff.ttc)}${q.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(q.final.totals.monthly.ttc)} / mois` : ''}` : 'prix final à venir'}`
-                              : ` · ${quoteAmount(q)}`}
+                            {` · ${quoteAmount(q)}`}
                           </p>
                           <p class="admin-job-meta">
                             {q.assignee ? `Attribué à ${q.assignee.name}` : 'Non attribué'} · créé le {formatDate(q.createdAt)}
-                            {!isDirigeant && q.smart?.budget && ` · budget ${formatEuros(q.smart.budget.amount)}`}
-                            {!isDirigeant && q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
+                            {q.contact && ` · ${q.contact.name}, ${q.contact.phone}`}
                           </p>
                         </div>
                         <div class="admin-job-actions">
@@ -880,7 +878,8 @@ const formatDate = (iso: string) =>
                 <h2 class="admin-h2" id="a-accounts">Comptes de l'équipe</h2>
                 <p class="admin-text">
                   Admin : consulte les devis. Admin+ : répartit les devis et fixe les prix de ceux qui lui sont attribués.
-                  Dirigeant : gère le site, les offres d'emploi et les comptes, et suit les devis. Choisissez un mot de
+                  Dirigeant : gère le site, les offres d'emploi et les comptes, avec les mêmes droits qu'un admin+ sur
+                  les devis. Choisissez un mot de
                   passe provisoire et transmettez-le à la personne : elle pourra le changer depuis « Mon compte ».
                 </p>
 

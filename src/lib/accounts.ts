@@ -43,15 +43,15 @@ export const isStaff = (user: PublicUser | null | undefined): boolean => Boolean
 export const can = {
   /** État du site, adresse du siège, fermetures, offres d'emploi, comptes de l'équipe */
   manageSite: (user: PublicUser | null) => user?.role === 'dirigeant',
-  /** Liste des devis (les dirigeants n'en voient que le résumé) */
+  /** Liste des devis */
   viewQuotes: (user: PublicUser | null) => isStaff(user),
   /** Détail complet d'un devis (coordonnées du client, lignes, fourchettes) */
-  readQuoteDetails: (user: PublicUser | null) => user?.role === 'admin' || user?.role === 'admin_plus',
+  readQuoteDetails: (user: PublicUser | null) => isStaff(user),
   /** Attribuer un devis à un admin+, supprimer un devis */
-  assignQuotes: (user: PublicUser | null) => user?.role === 'admin_plus',
+  assignQuotes: (user: PublicUser | null) => user?.role === 'admin_plus' || user?.role === 'dirigeant',
   /** Fixer les prix : seulement l'admin+ à qui le devis est attribué */
   editQuote: (user: PublicUser | null, assigneeId: string | undefined) =>
-    user?.role === 'admin_plus' && Boolean(assigneeId) && assigneeId === user.id,
+    (user?.role === 'admin_plus' || user?.role === 'dirigeant') && Boolean(assigneeId) && assigneeId === user.id,
 };
 
 export const MIN_PASSWORD = 10;
