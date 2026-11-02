@@ -53,7 +53,7 @@ const criteria = CRITERIA.filter((c) => smart.complexity.levels[c] !== undefined
 
 <div class="sq">
   <section class:list={['sq-budget', `sq-budget--${tone}`]} aria-labelledby="sq-budget-title">
-    <h2 class="sq-title" id="sq-budget-title">{status ? BUDGET_STATUS_LABELS[status] : 'Estimation sans budget'}</h2>
+    <h2 class="sq-title" id="sq-budget-title">{status ? BUDGET_STATUS_LABELS[status] : 'Votre estimation'}</h2>
     <p>{smart.explanation}</p>
     {smart.budget && (
       <dl class="sq-figures">
@@ -217,10 +217,6 @@ const criteria = CRITERIA.filter((c) => smart.complexity.levels[c] !== undefined
       <input type="hidden" name="action" value="adjust" />
       <h2 class="sq-title" id="sq-adjust">Ajuster et recalculer</h2>
       {error && <p class="field-error" role="alert">{error}</p>}
-      <div class="field">
-        <label for="sq-budget-input">{smart.basis === 'monthly' ? 'Budget mensuel maximal TTC' : 'Budget maximal TTC'} (vide : sans budget)</label>
-        <input class="input" id="sq-budget-input" name="budget" inputmode="decimal" maxlength="12" value={budgetText} />
-      </div>
       <ul class="admin-prices">
         {smart.lines
           .filter((l) => l.id !== smart.base.id)

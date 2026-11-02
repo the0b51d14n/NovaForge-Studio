@@ -649,7 +649,7 @@ export function smartQuote(input: SmartInput, ctx: SmartContext): SmartResult | 
   const deferredLabels = (optimized?.deferred ?? []).map((d) => `« ${byId.get(d.id)!.label} »`);
   const explanation =
     budgetAnalysis === null
-      ? 'Estimation calculée à partir de vos choix et de la complexité de votre projet. Indiquez un budget pour obtenir une proposition adaptée.'
+      ? 'Estimation calculée à partir de vos choix, de la complexité de votre projet et du délai souhaité.'
       : budgetAnalysis.status === 'confortable' || budgetAnalysis.status === 'adapte'
         ? 'Votre budget couvre l’ensemble du projet demandé : rien n’est retiré.'
         : optimized?.fits

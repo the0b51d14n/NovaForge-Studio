@@ -57,7 +57,7 @@ if (Astro.request.method === 'POST' && familyList.length > 0) {
 
 const iconOf = (id: string) => services.find((s) => s.slug === id)?.icon ?? 'star';
 const extrasOf = (items: CatalogItem[]) => items.filter((item) => item.kind !== 'base');
-const STEPS = ['Votre projet', 'Le type', 'Les options', 'La complexité', 'Votre budget'];
+const STEPS = ['Votre projet', 'Le type', 'Les options', 'Délais et complexité'];
 // Critères de complexité utiles à chaque famille (pondération non nulle dans son profil)
 const criteriaOf = (group: (typeof familyList)[number]) => CRITERIA.filter((c) => weightsFor(group)[c] > 0).join(' ');
 // Questions sans jargon, une par critère : niveaux 0 (très simple) à 4 (très complexe)
@@ -262,7 +262,11 @@ const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === '
 
             <fieldset class="wizard-step" data-step="4">
               <legend class="wizard-title">Pour affiner l'estimation</legend>
-              <p class="wizard-hint">Quelques questions simples : sans réponse, nous comptons une complexité moyenne.</p>
+              <p class="wizard-hint">
+                Quelques questions simples : sans réponse, nous comptons une complexité moyenne. Un délai large fait baisser
+                le prix, un délai court l'augmente ; pour une mise en ligne prioritaire, ajoutez l'option « Délai express ».
+              </p>
+              <p class="wizard-recap" data-recap hidden></p>
               {CRITERIA.map((criterion) => (
                 <fieldset class="wizard-question" data-criterion={criterion}>
                   <legend class="wizard-panel-title">{QUESTIONS[criterion].question}</legend>
@@ -282,18 +286,6 @@ const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === '
               ))}
             </fieldset>
 
-            <fieldset class="wizard-step" data-step="5">
-              <legend class="wizard-title">Avez-vous un budget maximal ?</legend>
-              <p class="wizard-hint">
-                Facultatif. Il ne change pas nos prix : il nous sert à vous proposer ce qui est réalisable, quitte à
-                reporter une partie du projet.
-              </p>
-              <p class="wizard-recap" data-recap hidden></p>
-              <div class="field wizard-budget">
-                <label for="budget" data-budget-label>Budget maximal TTC, en euros</label>
-                <input class="input" id="budget" name="budget" inputmode="decimal" maxlength="12" value={budgetText} placeholder="Par exemple 3000" />
-              </div>
-            </fieldset>
 
             <div class="wizard-nav">
               <button class="btn btn-ghost" type="button" data-prev hidden>
