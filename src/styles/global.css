@@ -2016,6 +2016,14 @@ select.input option { background: #fff; color: #06142a; }
 .admin-form { margin-top: 6px; }
 .admin-lock-form { display: grid; justify-items: start; gap: 18px; }
 textarea.admin-textarea--short { min-height: 80px; }
+.admin-quote-group {
+  margin: 24px 0 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 .admin-jobs { display: grid; border-top: 1px solid var(--line); }
 .admin-job {
   display: flex;

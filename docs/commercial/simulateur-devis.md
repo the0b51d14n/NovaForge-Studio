@@ -10,7 +10,7 @@ Page publique : `/devis` (menu « Devis », bouton « Simuler un devis » sur la
 4. **Budget envisagé** : une tranche (`BUDGETS`, ou `MONTHLY_BUDGETS` pour la maintenance), ou « Je ne sais pas encore ».
 
 **Aucun prix n'est affiché pendant ces étapes**, ni envoyé au navigateur. Le visiteur obtient ensuite son
-**estimation**, à une adresse secrète (`/devis/<identifiant>`) avec un numéro (`D-2026-0001`…) :
+**estimation**, à une adresse secrète (`/devis/<identifiant>`) avec un matricule **provisoire** (`P-3F9A1C`…), remplacé par le matricule **définitif** (`D-2026-0001`…) dès que le devis est attribué à un admin+ ou à un dirigeant :
 
 - ses choix, sans prix ligne par ligne, et un **total approximatif** en fourchette (réductions déjà déduites) ;
 - la **comparaison avec son budget** : couvert, dans la fourchette, ou en dessous ;

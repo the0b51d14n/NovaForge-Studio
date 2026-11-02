@@ -19,6 +19,7 @@ import {
   RETENTION_DAYS,
   canRequestCallback,
   canSign,
+  isTemporaryNumber,
   loadQuote,
   quoteStatus,
   requestCallback,
@@ -239,7 +240,7 @@ const kind = final ? 'Devis' : 'Estimation';
                       </p>
                     </div>
                     <dl class="quote-doc-meta">
-                      <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                      <div><dt>Numéro</dt><dd>{quote.number}{isTemporaryNumber(quote.number) && ' (provisoire)'}</dd></div>
                       <div><dt>Statut</dt><dd>{STATUS_LABELS[status!]}</dd></div>
                       <div><dt>Conseiller</dt><dd>{quote.assignee?.name ?? 'Pas encore attribué'}</dd></div>
                       <div><dt>Estimation du</dt><dd>{formatDate(quote.createdAt)}</dd></div>
@@ -281,7 +282,7 @@ const kind = final ? 'Devis' : 'Estimation';
                     {!isRegistered && <p class="quote-doc-muted">Projet en préparation, non immatriculé</p>}
                   </div>
                   <dl class="quote-doc-meta">
-                    <div><dt>Numéro</dt><dd>{quote.number}</dd></div>
+                    <div><dt>Numéro</dt><dd>{quote.number}{isTemporaryNumber(quote.number) && ' (provisoire)'}</dd></div>
                     <div><dt>Devis du</dt><dd>{formatDate(final.issuedAt)}</dd></div>
                     <div>
                       <dt>Valable jusqu'au</dt>

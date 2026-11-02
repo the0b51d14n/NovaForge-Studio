@@ -31,7 +31,7 @@ import {
 } from '../../lib/accounts';
 import { isEmail } from '../../lib/forms';
 import { geocode, isPersistent, saveOpenings, saveSettings } from '../../lib/store';
-import { assignQuote, deleteQuote, listQuotes, loadQuote, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
+import { assignQuote, deleteQuote, isTemporaryNumber, listQuotes, loadQuote, quoteStatus, type Quote, type QuoteStatus } from '../../lib/quotes';
 import { formatEuros, formatRange } from '../../lib/pricing';
 import { site } from '../../data/site';
 import { LOCK_REASONS, isLockReason } from '../../data/lock-reasons';
@@ -386,6 +386,11 @@ const quoteAmount = (q: Quote) =>
   q.final
     ? `${formatEuros(q.final.totals.oneOff.ttc)}${q.final.totals.monthly.ttc > 0 ? ` + ${formatEuros(q.final.totals.monthly.ttc)} / mois` : ''}`
     : `${formatRange([q.totals.oneOff.min.ttc, q.totals.oneOff.max.ttc])}${q.totals.monthly.max.ttc > 0 ? ` + ${formatRange([q.totals.monthly.min.ttc, q.totals.monthly.max.ttc])} / mois` : ''}`;
+// Devis triés par matricule : provisoires (jamais attribués) d'abord, puis définitifs
+const quoteGroups = [
+  { title: 'À attribuer · matricule provisoire', items: quotes.filter((q) => isTemporaryNumber(q.number)) },
+  { title: 'Pris en charge · matricule définitif', items: quotes.filter((q) => !isTemporaryNumber(q.number)) },
+].filter((group) => group.items.length > 0);
 
 // Dates de l'administration : jour et mois seulement (« 11 nov. »)
 const cal = buildCalendar(site.schedule, { ...settings, closures });
@@ -768,8 +773,11 @@ const formatDate = (iso: string) =>
               ) : quotes.length === 0 ? (
                 <p class="admin-text">Aucun devis créé pour le moment.</p>
               ) : (
+                quoteGroups.map((group) => (
+                <Fragment>
+                <h3 class="admin-quote-group">{group.title} ({group.items.length})</h3>
                 <ul class="admin-jobs">
-                  {quotes.map((q) => {
+                  {group.items.map((q) => {
                     const [label, tone] = QUOTE_STATES[quoteStatus(q)];
                     const mine = can.editQuote(user, q.assignee?.id) && !q.signature;
                     return (
@@ -812,7 +820,7 @@ const formatDate = (iso: string) =>
                             Page client
                           </a>
                           {isAdminPlus && (
-                            <form method="post" data-confirm={`Supprimer le devis ${q.number} ?`}>
+                            <form method="post" data-confirm={`Supprimer définitivement le devis ${q.number} ? Il sera effacé de la base, y compris de l'espace du client.`}>
                               <input type="hidden" name="action" value="quote-delete" />
                               <input type="hidden" name="id" value={q.id} />
                               <button class="admin-link admin-link--danger" type="submit">
@@ -825,6 +833,8 @@ const formatDate = (iso: string) =>
                     );
                   })}
                 </ul>
+                </Fragment>
+                ))
               )}
             </section>
 

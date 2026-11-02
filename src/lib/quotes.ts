@@ -159,12 +159,13 @@ export async function createQuote(draft: QuoteDraft, client: string, ownerId?: s
   ]);
   if (Number(count) > MAX_PER_HOUR) return 'limite';
 
-  const [sequence] = await redis([['INCR', KEYS.sequence]]);
   const now = Date.now();
+  const id = crypto.randomUUID().replace(/-/g, '');
   const quote: Quote = {
     ...draft,
-    id: crypto.randomUUID().replace(/-/g, ''),
-    number: `D-${parisNow().date.slice(0, 4)}-${String(sequence).padStart(4, '0')}`,
+    id,
+    // Matricule provisoire : le numéro définitif n'est attribué qu'à la prise en charge (voir assignQuote)
+    number: `P-${id.slice(0, 6).toUpperCase()}`,
     createdAt: new Date(now).toISOString(),
     expiresAt: new Date(now + QUOTE_VALIDITY_DAYS * DAY).toISOString(),
     vat: VAT_REGIME,
@@ -218,9 +219,20 @@ export async function loadQuote(id: string): Promise<Quote | null> {
 /** Fin de validité qui règle la durée de conservation : devis ferme s'il existe, sinon estimation ; null si signé */
 const retentionOf = (quote: Quote) => (quote.signature ? null : (quote.final?.expiresAt ?? quote.expiresAt));
 
-/** Attribue le devis à un admin+ (null : retire l'attribution) ; by : nom de la personne qui attribue */
+/** Matricule provisoire (« P-… ») : devis pas encore pris en charge */
+export const isTemporaryNumber = (number: string) => number.startsWith('P-');
+
+/**
+ * Attribue le devis (null : retire l'attribution) ; by : nom de la personne qui attribue.
+ * À la première attribution, le matricule provisoire est remplacé par le matricule définitif « D-AAAA-NNNN »,
+ * conservé ensuite même si le devis est réattribué.
+ */
 export async function assignQuote(quote: Quote, assignee: { id: string; name: string } | null, by: string): Promise<void> {
   const { assignee: _previous, ...rest } = quote;
+  if (assignee && isTemporaryNumber(rest.number)) {
+    const [sequence] = await redis([['INCR', KEYS.sequence]]);
+    rest.number = `D-${parisNow().date.slice(0, 4)}-${String(sequence).padStart(4, '0')}`;
+  }
   const next: Quote = assignee ? { ...rest, assignee: { ...assignee, assignedAt: new Date().toISOString(), by } } : rest;
   await save(next, retentionOf(next));
 }
@@ -315,10 +327,13 @@ export async function deleteAllQuotes(): Promise<number> {
   return keys.length;
 }
 
+/** Suppression définitive : le devis, sa place dans la liste générale et dans l'espace de son client */
 export async function deleteQuote(id: string): Promise<void> {
   if (!isQuoteId(id)) return;
+  const quote = await loadQuote(id);
   await redis([
     ['DEL', KEYS.quote(id)],
     ['ZREM', KEYS.index, id],
+    ...(quote?.ownerId ? [['ZREM', KEYS.owner(quote.ownerId), id]] : []),
   ]);
 }
