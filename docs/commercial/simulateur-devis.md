@@ -6,16 +6,17 @@ Page publique : `/devis` (menu « Devis », bouton « Simuler un devis » sur la
 
 1. **Famille** : site vitrine, boutique en ligne, identité visuelle, application ou maintenance (une par estimation).
 2. **Type** : une formule de cette famille.
-3. **Options** : celles de la famille, plus celles de l'accompagnement (formation, photos, nom de domaine…).
-4. **Budget envisagé** : une tranche (`BUDGETS`, ou `MONTHLY_BUDGETS` pour la maintenance), ou « Je ne sais pas encore ».
+3. **Options** : celles de la famille, plus celles de l'accompagnement (formation, photos, nom de domaine…), à
+   cocher simplement (pas de budget ni de priorité à indiquer).
+4. **Délais et complexité** : quelques questions simples (rendu visuel, fonctions, délai…), « Je ne sais pas »
+   possible.
 
 **Aucun prix n'est affiché pendant ces étapes**, ni envoyé au navigateur. Le visiteur obtient ensuite son
 **estimation**, à une adresse secrète (`/devis/<identifiant>`) avec un matricule **provisoire** (`P-3F9A1C`…), remplacé par le matricule **définitif** (`D-2026-0001`…) dès que le devis est attribué à un admin+ ou à un dirigeant :
 
-- ses choix, sans prix ligne par ligne, et un **total approximatif** en fourchette (réductions déjà déduites) ;
-- la **comparaison avec son budget** : couvert, dans la fourchette, ou en dessous ;
-- si le budget est en dessous : une **version ajustée** (options les plus chères retirées, puis formule moins chère
-  de la même famille), ou à défaut l'annonce d'une solution par étapes proposée par le conseiller ;
+- un **prix minimum, recommandé et maximum** par prestation, selon la complexité estimée, et le total en
+  fourchette (réductions déjà déduites) ;
+- la possibilité de **retirer des options** et de recalculer, tant qu'aucun rappel n'est demandé ;
 - un formulaire **« Être rappelé par un conseiller »** : nom et téléphone obligatoires, e-mail et précisions
   facultatifs.
 
@@ -23,11 +24,11 @@ L'estimation est figée et valable 30 jours.
 
 ## Le devis ferme
 
-Dans l'administration (« Simulateur de devis » → « Finaliser »), le conseiller voit les coordonnées du client, son
-budget, la version ajustée éventuelle et la fourchette de chaque ligne. Il :
+Dans l'administration (« Devis » → « Fixer les prix »), l'admin+ ou le dirigeant à qui le devis est attribué voit
+les coordonnées du client, la complexité estimée et la fourchette de chaque ligne. Il :
 
 - fixe le prix unitaire HT de chaque ligne (il peut sortir de la fourchette) ;
-- retire des lignes si besoin (pour suivre la version ajustée, par exemple) ;
+- retire des lignes si besoin (périmètre revu avec le client, par exemple) ;
 - accorde une remise facultative, en montant ou en pourcentage, avec un libellé ;
 - ajoute une note, puis émet le devis ferme.
 
@@ -43,7 +44,6 @@ Une empreinte de l'adresse IP est gardée une heure pour limiter les abus (20 es
 |:--|:--|
 | Prestations et fourchettes de prix | `catalog`, champ `price` de chaque prestation |
 | Régime de TVA | `VAT_REGIME` |
-| Tranches de budget | `BUDGETS`, `MONTHLY_BUDGETS` |
 | Réductions automatiques | `discounts` (vide pour l'instant) |
 | Options proposées avec toutes les familles | `ADDON_GROUP` |
 | Durée de validité | `QUOTE_VALIDITY_DAYS` |

@@ -1,6 +1,5 @@
 ---
-// Finalisation d'une estimation par un conseiller : coordonnées et budget du client, version ajustée éventuelle,
-// fourchette de chaque ligne, saisie des prix fermes HT (lignes retirables, remise facultative), puis émission du
+// Finalisation d'une estimation par un conseiller : coordonnées du client, complexité estimée, fourchette de chaque ligne, saisie des prix fermes HT (lignes retirables, remise facultative), puis émission du
 // devis ferme (signable par le client pendant QUOTE_VALIDITY_DAYS jours).
 // Réémettre un devis non signé remplace ses prix et relance sa période de signature.
 // Droits : seul l'admin+ à qui le devis est attribué le modifie ; les autres admins et admins+ le consultent ;
@@ -12,7 +11,6 @@ import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type Unit } from '../../../data/quote
 import { launch } from '../../../data/site';
 import { ADMIN_PATH } from '../../../lib/access';
 import { formatEuros, formatRange, parseEuros } from '../../../lib/pricing';
-import { BUDGET_STATUS_LABELS } from '../../../lib/smartquote';
 import { finalizeQuote, loadQuote, quoteStatus, type Quote } from '../../../lib/quotes';
 import { can } from '../../../lib/accounts';
 
@@ -38,12 +36,8 @@ const values: Record<string, string> = Object.fromEntries(
     return [line.id, fixed === undefined ? '' : toInput(fixed)];
   }),
 );
-// Lignes retirées : celles du devis ferme déjà émis, sinon celles reportées si le client a retenu la proposition optimisée
-let removed = quote.final
-  ? quote.lines.filter((l) => !finalLine(l.id)).map((l) => l.id)
-  : quote.retained === 'optimise'
-    ? (quote.smart?.optimized?.deferred ?? []).map((d) => d.id)
-    : [];
+// Lignes retirées : celles du devis ferme déjà émis
+let removed = quote.final ? quote.lines.filter((l) => !finalLine(l.id)).map((l) => l.id) : [];
 let discountLabel = quote.final?.discount?.label ?? '';
 let discountAmount = quote.final?.discount ? toInput(quote.final.discount.amount) : '';
 let discountPercent = '';
@@ -190,26 +184,8 @@ const locked = !canEdit;
               {quote.totals.monthly.max.ttc > 0 && ` ${quote.totals.oneOff.max.ttc > 0 ? '+ ' : ''}${range(quote.totals.monthly)} / mois`}
             </dd>
           </div>
-          {smart && (
-            <Fragment>
-              <div><dt>Complexité</dt><dd>{smart.complexity.score} / 100</dd></div>
-              <div>
-                <dt>Budget</dt>
-                <dd>{smart.budget ? `${formatEuros(smart.budget.amount)} · ${BUDGET_STATUS_LABELS[smart.budget.status]}` : 'Non précisé'}</dd>
-              </div>
-              <div>
-                <dt>Proposition retenue</dt>
-                <dd>{quote.retained === 'optimise' ? 'Proposition optimisée' : quote.retained === 'initial' ? 'Projet complet' : 'Pas encore choisie'}</dd>
-              </div>
-            </Fragment>
-          )}
+          {smart && <div><dt>Complexité</dt><dd>{smart.complexity.score} / 100</dd></div>}
         </dl>
-        {smart?.optimized && (
-          <p class="admin-quote-message">
-            Proposition optimisée ({formatEuros(smart.optimized.totals[smart.basis].recommended.ttc)}) : reporte
-            {' '}{smart.optimized.deferred.map((d) => smart.lines.find((l) => l.id === d.id)?.label).join(', ')}.
-          </p>
-        )}
         {contact?.message && <p class="admin-quote-message">{contact.message}</p>}
         {quote.signature && (
           <p class="quote-signed">

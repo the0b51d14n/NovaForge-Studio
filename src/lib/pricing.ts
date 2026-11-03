@@ -7,12 +7,10 @@ import {
   computeTotals,
   formatEuros,
   isLevel,
-  isPriority,
   priceRange,
   smartQuote,
   type Criterion,
   type Level,
-  type Priority,
   type Range,
   type SmartInput,
   type SmartResult,
@@ -71,32 +69,30 @@ export function parseEuros(value: string): number | null {
 }
 
 /**
- * Lecture du formulaire du simulateur : family, base:<famille>, option, qty:<id>, prio:<id>, cx:<critère>, budget.
- * Le navigateur n'envoie que des choix : aucun prix n'est lu ici.
+ * Lecture du formulaire du simulateur : family, base:<famille>, option, qty:<id>, cx:<critère>.
+ * Le navigateur n'envoie que des choix : aucun prix n'est lu ici. Ni budget ni priorités : le client ne les indique
+ * plus, le moteur ne fait donc aucune optimisation de périmètre.
  */
 export function readInput(data: FormData): SmartInput {
   const family = String(data.get('family') ?? '');
   const quantities: Record<string, number> = {};
-  const priorities: Record<string, Priority> = {};
   const complexity: Partial<Record<Criterion, Level>> = {};
   for (const [name, value] of data) {
     if (name.startsWith('qty:')) quantities[name.slice(4)] = Number(value);
-    if (name.startsWith('prio:') && isPriority(value)) priorities[name.slice(5)] = value;
     if (name.startsWith('cx:')) {
       const criterion = name.slice(3) as Criterion;
       const level = value === '' ? null : Number(value);
       if (CRITERIA.includes(criterion) && isLevel(level)) complexity[criterion] = level;
     }
   }
-  const budget = parseEuros(String(data.get('budget') ?? '').trim());
   return {
     family,
     base: String(data.get(`base:${family}`) ?? data.get('base') ?? ''),
     options: data.getAll('option').map(String),
     quantities,
     complexity,
-    priorities,
-    budget: budget && budget > 0 ? budget : null,
+    priorities: {},
+    budget: null,
   };
 }
 

@@ -1,7 +1,7 @@
 ---
-// Simulateur de devis, en quatre étapes : famille, type (formule), options, budget envisagé. Aucun prix n'est
-// affiché ni envoyé au navigateur pendant les choix : l'estimation (total en fourchette, comparé au budget, avec une
-// version ajustée si besoin) est calculée ici, côté serveur, à partir de src/data/quote-catalog.ts, puis enregistrée.
+// Simulateur de devis, en quatre étapes : famille, type (formule), options, délais et complexité. Aucun prix n'est
+// affiché ni envoyé au navigateur pendant les choix : l'estimation (total en fourchette) est calculée ici, côté
+// serveur, à partir de src/data/quote-catalog.ts, puis enregistrée.
 // Sans JavaScript, les étapes s'affichent l'une sous l'autre.
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
@@ -10,14 +10,13 @@ import { UNIT_LABELS, type CatalogItem } from '../../data/quote-catalog';
 import { services } from '../../data/content';
 import { launch } from '../../data/site';
 import { addonGroup, families, isMonthlyFamily, readInput, runSmartQuote } from '../../lib/pricing';
-import { CRITERIA, PRIORITIES, PRIORITY_LABELS, weightsFor, type Criterion, type SmartInput } from '../../lib/smartquote';
+import { CRITERIA, weightsFor, type Criterion, type SmartInput } from '../../lib/smartquote';
 import { parisNow } from '../../lib/hours';
 import { clientKey, createQuote, toDraft } from '../../lib/quotes';
 
 const familyList = families();
 const addon = addonGroup();
 let selection: SmartInput = { family: '', base: '', options: [], quantities: {}, complexity: {}, priorities: {}, budget: null };
-let budgetText = '';
 let error = '';
 
 if (Astro.request.method === 'POST' && familyList.length > 0) {
@@ -25,13 +24,11 @@ if (Astro.request.method === 'POST' && familyList.length > 0) {
   // Champ piège rempli : un robot, on fait comme si de rien n'était
   if (data.get('site_web')) return Astro.redirect('/devis', 303);
   selection = readInput(data);
-  budgetText = String(data.get('budget') ?? '').slice(0, 20);
   const family = familyList.find((group) => group.id === selection.family);
   const base = family?.items.find((item) => item.kind === 'base' && item.id === selection.base);
 
   if (!family) error = 'Choisissez d’abord ce que vous souhaitez réaliser.';
   else if (!base) error = `Choisissez un type de ${family.title.toLowerCase()}.`;
-  else if (budgetText.trim() && selection.budget === null) error = 'Budget invalide : indiquez un montant en euros, par exemple 3000.';
   const result = error ? null : runSmartQuote(selection, parisNow().date);
   if (!result) {
     error ||= 'Ce projet ne peut pas être calculé.';
@@ -87,19 +84,18 @@ const QUESTIONS: Record<Criterion, { question: string; answers: string[] }> = {
     answers: ['Pas de date précise', 'Quelques mois', 'Un à deux mois', 'Quelques semaines', 'Très urgent'],
   },
 };
-const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === 'quantity' ? 'importante' : 'facultative');
 ---
 
 <BaseLayout
   title="Simulateur de devis"
-  description="Décrivez votre projet en quelques clics (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et recevez une estimation adaptée à votre budget."
+  description="Décrivez votre projet en quelques clics (site vitrine, boutique en ligne, identité visuelle, application, maintenance) et recevez une estimation de prix immédiate."
 >
   <PageHero
     eyebrow="Simulateur de devis"
     lead={
       launch.commercial
-        ? 'Quatre questions, deux minutes : vous recevez une estimation adaptée à votre budget, puis un conseiller vous rappelle pour établir votre devis.'
-        : 'Quatre questions, deux minutes : vous recevez une estimation adaptée à votre budget. Le studio est en préparation : cette estimation est une simulation, non contractuelle.'
+        ? 'Quatre questions, deux minutes : vous recevez une estimation de prix, puis un conseiller vous rappelle pour établir votre devis.'
+        : 'Quatre questions, deux minutes : vous recevez une estimation de prix. Le studio est en préparation : cette estimation est une simulation, non contractuelle.'
     }
   >
     <Fragment slot="title">Décrivez votre projet, <em>on s'adapte.</em></Fragment>
@@ -191,10 +187,7 @@ const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === '
 
             <fieldset class="wizard-step" data-step="3">
               <legend class="wizard-title">Des options ?</legend>
-              <p class="wizard-hint">
-                Facultatif : cochez ce qui vous intéresse et dites-nous ce qui compte le plus. Si le budget est serré, nous
-                garderons l'indispensable et proposerons de reporter le reste.
-              </p>
+              <p class="wizard-hint">Facultatif : cochez ce qui vous intéresse.</p>
               {[...familyList, ...(addon ? [addon] : [])].map((group) => {
                 const extras = extrasOf(group.items);
                 return (
@@ -242,16 +235,6 @@ const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === '
                               </span>
                             </label>
                           )}
-                          <label class="quote-option-priority">
-                            <span>Pour vous, c'est</span>
-                            <select class="input" name={`prio:${item.id}`}>
-                              {PRIORITIES.map((p) => (
-                                <option value={p} selected={(selection.priorities[item.id] ?? defaultPriority(item)) === p}>
-                                  {PRIORITY_LABELS[p].toLowerCase()}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
                         </div>
                       ))}
                     </div>
@@ -346,10 +329,8 @@ const defaultPriority = (item: CatalogItem) => item.priority ?? (item.kind === '
       form.querySelectorAll<HTMLElement>('.quote-option').forEach((row) => {
         const included = Boolean(chosen) && (row.dataset.includedIn ?? '').split(' ').includes(chosen);
         row.classList.toggle('is-included', included);
-        row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach((field) => (field.disabled = included));
+        row.querySelectorAll<HTMLInputElement>('input').forEach((field) => (field.disabled = included));
       });
-      const label = form.querySelector<HTMLElement>('[data-budget-label]');
-      if (label) label.textContent = f?.dataset.monthly === 'true' ? 'Budget mensuel maximal TTC, en euros' : 'Budget maximal TTC, en euros';
     };
 
     const updateRecap = () => {

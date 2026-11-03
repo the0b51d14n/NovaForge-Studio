@@ -1,7 +1,7 @@
 ---
 // Estimation puis devis ferme, à la même adresse secrète (/devis/<id>), non référencée : seul celui qui a le lien
 // y accède. Voir src/lib/quotes.ts pour les étapes (estimation → demande de rappel → devis ferme → signature).
-// L'estimation ne montre qu'un total approximatif (fourchette), comparé au budget envisagé ; le détail ligne par ligne
+// L'estimation ne montre qu'un total approximatif (fourchette) ; le détail ligne par ligne
 // n'apparaît que dans le devis ferme établi par le conseiller.
 // Demande de rappel et signature en ligne seulement après l'ouverture commerciale (canRequestCallback, canSign).
 import BaseLayout from '../../layouts/BaseLayout.astro';
@@ -10,8 +10,8 @@ import Icon from '../../components/Icon.astro';
 import { QUOTE_VALIDITY_DAYS, UNIT_LABELS, type Unit } from '../../data/quote-catalog';
 import { legal, isRegistered } from '../../data/site';
 import SmartQuoteResult from '../../components/SmartQuoteResult.astro';
-import { formatEuros, formatRange, parseEuros, runSmartQuote, type FinalLine } from '../../lib/pricing';
-import { isPriority, type SmartInput } from '../../lib/smartquote';
+import { formatEuros, formatRange, runSmartQuote, type FinalLine } from '../../lib/pricing';
+import type { SmartInput } from '../../lib/smartquote';
 import { parisNow } from '../../lib/hours';
 import { getSite } from '../../lib/store';
 import { isEmail, oneLine } from '../../lib/forms';
@@ -23,7 +23,6 @@ import {
   loadQuote,
   quoteStatus,
   requestCallback,
-  retainProposal,
   signQuote,
   toDraft,
   updateEstimate,
@@ -47,48 +46,30 @@ const errors: Record<string, string> = {};
 const me = Astro.locals.user?.role === 'client' ? Astro.locals.user : null;
 const form = { name: me?.name ?? '', email: me?.email ?? '', phone: '', message: '' };
 
-// Ajustements SmartQuote (budget, priorités, retrait, réintégration) et choix de la proposition : seulement tant que
-// l'estimation n'a ni demande de rappel ni devis ferme. Recalcul complet côté serveur, prix toujours du catalogue.
+// Ajustement SmartQuote (retrait d'options) : seulement tant que l'estimation n'a ni demande de rappel ni devis
+// ferme. Recalcul complet côté serveur, prix toujours du catalogue.
 const adjustable = Boolean(quote?.input && quote.smart && quoteStatus(quote) === 'estimation');
 let adjustError = '';
-let budgetText = quote?.input?.budget ? String(quote.input.budget / 100).replace('.', ',') : '';
 const postData = quote && Astro.request.method === 'POST' ? await Astro.request.formData() : null;
 const postAction = postData?.get('action');
 
 if (quote && postData && adjustable && postAction === 'adjust') {
   const input = quote.input!;
   const removed = new Set(postData.getAll('remove').map(String));
-  const keep = String(postData.get('keep') ?? '');
-  const priorities = { ...input.priorities };
-  for (const [name, value] of postData) if (name.startsWith('prio:') && isPriority(value)) priorities[name.slice(5)] = value;
-  // Réintégrer une prestation reportée : elle devient indispensable, l'optimisation la conserve
-  if (keep) priorities[keep] = 'obligatoire';
-  budgetText = String(postData.get('budget') ?? '').trim().slice(0, 20);
-  const budget = budgetText ? parseEuros(budgetText) : null;
-  if (budgetText && !budget) {
-    adjustError = 'Budget invalide : indiquez un montant en euros, par exemple 3000.';
-  } else {
-    const next: SmartInput = {
-      ...input,
-      options: input.options.filter((id) => !removed.has(id)),
-      quantities: Object.fromEntries(Object.entries(input.quantities).filter(([id]) => !removed.has(id))),
-      priorities,
-      budget: budget || null,
-    };
-    const result = runSmartQuote(next, parisNow().date);
-    if (result) {
-      await updateEstimate(quote, toDraft(next, result));
-      return Astro.redirect(`/devis/${quote.id}#resultats`, 303);
-    }
-    adjustError = 'Ce projet ne peut pas être recalculé.';
-  }
-  Astro.response.status = 422;
-} else if (quote && postData && adjustable && postAction === 'retain') {
-  const retained = postData.get('retained');
-  if (retained === 'initial' || (retained === 'optimise' && quote.smart?.optimized)) {
-    await retainProposal(quote, retained);
+  const next: SmartInput = {
+    ...input,
+    options: input.options.filter((id) => !removed.has(id)),
+    quantities: Object.fromEntries(Object.entries(input.quantities).filter(([id]) => !removed.has(id))),
+    priorities: {},
+    budget: null,
+  };
+  const result = runSmartQuote(next, parisNow().date);
+  if (result) {
+    await updateEstimate(quote, toDraft(next, result));
     return Astro.redirect(`/devis/${quote.id}#resultats`, 303);
   }
+  adjustError = 'Ce projet ne peut pas être recalculé.';
+  Astro.response.status = 422;
 } else if (quote && postData) {
   const data = postData;
   const action = postAction;
@@ -263,8 +244,6 @@ const kind = final ? 'Devis' : 'Estimation';
                       smart={quote.smart}
                       vatRate={vatRate}
                       editable={adjustable}
-                      retained={quote.retained}
-                      budgetText={budgetText}
                       error={adjustError}
                     />
                   </div>
