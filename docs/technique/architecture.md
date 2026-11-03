@@ -8,7 +8,7 @@
 - **Hébergement** : Vercel (déploiement automatique au push sur `main`). Le CDN met `/api/version` en cache 1 s.
 - **Données** : Upstash Redis via REST (`src/lib/store.ts`) : réglages, offres, version. Sans configuration, les
   données restent en mémoire (développement).
-- **Accès** : middleware (`src/lib/middleware.ts`). Verrou du site, aperçu administrateur, pages légales toujours
+- **Accès** : middleware (`src/lib/middleware.ts`). Verrou du site (sans aperçu pour l'équipe), pages légales toujours
   accessibles, purge des fermetures passées.
 - **Administration** : application séparée `novaforge-studio-admin` (port 1025 en local), détaillée dans [administration.md](administration.md).
 - **E-mails** : Resend (`src/lib/forms.ts`), inactif.

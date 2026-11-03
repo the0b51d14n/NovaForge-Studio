@@ -12,9 +12,7 @@ import '../styles/global.css';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import DirectionsPicker from '../components/DirectionsPicker.astro';
-import Icon from '../components/Icon.astro';
 import { launch, site } from '../data/site';
-import { LOCK_PATH } from '../lib/access';
 
 interface Props {
   title?: string;
@@ -25,10 +23,8 @@ interface Props {
 }
 
 const { title, description = site.description, bare = false, noindex = false } = Astro.props;
-// Aperçu du site verrouillé (choisi par l'administrateur sur /verrouillage) : un rappel évite de croire le site ouvert
 // Pré-lancement : bandeau « projet en préparation » dans l'en-tête (hauteur ajustée par la classe is-prelaunch)
 const prelaunch = !bare && !launch.commercial;
-const adminPreview = !bare && Astro.locals.isAdmin && Astro.locals.settings.locked;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence digitale · ${site.area}`;
 ---
 
@@ -64,18 +60,6 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — Agence 
     </main>
     {!bare && <Footer />}
     {!bare && <DirectionsPicker />}
-    {
-      adminPreview && (
-        <form class="admin-preview surface-dark" method="post" action={LOCK_PATH}>
-          <Icon name="lock" />
-          <span>
-            <strong>Aperçu</strong> · site fermé au public
-          </span>
-          <input type="hidden" name="action" value="preview-off" />
-          <button type="submit">Quitter</button>
-        </form>
-      )
-    }
     <script>
       import '../scripts/main.ts';
       import '../scripts/live.ts';

@@ -15,7 +15,7 @@ import { parisNow, startOfWeek, type Closure } from './hours';
 import type { LockReason } from '../data/lock-reasons';
 
 export type Settings = {
-  /** true : tout le monde voit /verrouillage (l'administrateur peut activer un aperçu depuis cette page) */
+  /** true : tout le monde voit /verrouillage */
   locked: boolean;
   /** Motif affiché sur /verrouillage (maintenance, fermeture complète, mise à jour) */
   lockReason: LockReason;

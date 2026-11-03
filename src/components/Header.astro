@@ -4,19 +4,16 @@ import AccountIcon from './AccountIcon.astro';
 import { launch, nav } from '../data/site';
 import { visibleOffers } from '../lib/store';
 import { LOGIN_PATH } from '../lib/access';
-import { adminHref } from '../lib/portal';
 
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 // « On recrute » seulement si le recrutement est ouvert et qu'au moins une offre est publiée
 const hiring = visibleOffers(Astro.locals).length > 0;
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
-// Compte : portail pour l'équipe, espace client pour un client connecté, connexion sinon
-const { user, isAdmin } = Astro.locals;
-const account = isAdmin
-  ? { href: adminHref(), label: `Portail de l'équipe (${user!.name})`, title: `Portail de l'équipe · ${user!.name}` }
-  : user
-    ? { href: '/espace', label: `Mon espace (${user.name})`, title: `Mon espace · ${user.name}` }
-    : { href: LOGIN_PATH, label: 'Connexion', title: 'Connexion' };
+// Compte : espace client pour un client connecté, connexion sinon
+const { user } = Astro.locals;
+const account = user
+  ? { href: '/espace', label: `Mon espace (${user.name})`, title: `Mon espace · ${user.name}` }
+  : { href: LOGIN_PATH, label: 'Connexion', title: 'Connexion' };
 ---
 
 <header class="site-header" data-header>

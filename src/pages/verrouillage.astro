@@ -1,29 +1,13 @@
 ---
-// Page « site fermé » : quand le site est verrouillé (depuis /administration), tout visiteur y est
-// redirigé par src/lib/middleware.ts, équipe comprise. La connexion se fait sur /connexion (toujours accessible) ;
-// une fois connecté, un membre de l'équipe trouve ici de quoi consulter le site en aperçu.
+// Page « site fermé » : quand le site est verrouillé (depuis le portail de l'équipe), tout visiteur y est
+// redirigé par src/lib/middleware.ts.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { LOCK_PATH, isPreviewing, startPreview, stopPreview } from '../lib/access';
-import { adminHref } from '../lib/portal';
 import { LOCK_REASONS } from '../data/lock-reasons';
 
-const { isAdmin, settings } = Astro.locals;
+const { settings } = Astro.locals;
 if (!settings.locked) return Astro.redirect('/');
-
-if (isAdmin && Astro.request.method === 'POST') {
-  const action = (await Astro.request.formData()).get('action');
-  if (action === 'preview-on') {
-    startPreview(Astro.cookies);
-    return Astro.redirect('/', 303);
-  }
-  if (action === 'preview-off') {
-    stopPreview(Astro.cookies);
-    return Astro.redirect(LOCK_PATH, 303);
-  }
-}
-const previewing = isAdmin && isPreviewing(Astro.cookies);
 
 const reason = LOCK_REASONS[settings.lockReason] ?? LOCK_REASONS.fermeture;
 // Interruption courte : « 503 » indique aux moteurs de recherche de repasser plus tard sans oublier le site
@@ -53,23 +37,6 @@ if (reason.temporary) {
       <p class="lock-note lock-legal">
         <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a>
       </p>
-
-      {
-        isAdmin && (
-          <div class="lock-admin">
-            <p>Session d'administration ouverte : le public voit cette page (motif : {reason.label.toLowerCase()}).</p>
-            <div class="lock-admin-actions">
-              <form method="post">
-                <input type="hidden" name="action" value={previewing ? 'preview-off' : 'preview-on'} />
-                <button class="btn btn-ghost btn-sm" type="submit">
-                  {previewing ? "Quitter l'aperçu" : 'Voir le site en aperçu'}
-                </button>
-              </form>
-              <a class="btn btn-ghost btn-sm" href={adminHref()}>Administration</a>
-            </div>
-          </div>
-        )
-      }
     </div>
   </section>
 </BaseLayout>

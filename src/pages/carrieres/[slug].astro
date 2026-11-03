@@ -10,7 +10,7 @@ import { isRegistered, launch } from '../../data/site';
 import { getSite } from '../../lib/store';
 
 // Recrutement pas encore ouvert : l'offre n'est pas présentée au public (l'administration peut la prévisualiser)
-if (!launch.recruitment && !Astro.locals.isAdmin) return Astro.redirect('/carrieres#recrutement', 302);
+if (!launch.recruitment) return Astro.redirect('/carrieres#recrutement', 302);
 
 const site = getSite(Astro.locals);
 

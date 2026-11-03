@@ -1,16 +1,14 @@
 // Connexion aux comptes (src/lib/accounts.ts) : le cookie ne contient qu'un jeton de session aléatoire, vérifié
-// côté serveur à chaque requête. SITE_PASSWORD ne sert plus qu'une fois : créer le premier compte dirigeant.
+// côté serveur à chaque requête. Le site public et le portail de l'équipe ont chacun leur cookie : être connecté
+// sur l'un ne connecte pas sur l'autre. SITE_PASSWORD ne sert plus qu'une fois : créer le premier compte dirigeant.
 import type { AstroCookies } from 'astro';
 import { SITE_PASSWORD } from 'astro:env/server';
 import { SESSION_MAX_AGE, createSession, deleteSession, sessionUser, type PublicUser } from './accounts';
 
 /** Page « site fermé » affichée au public quand le site est verrouillé */
 export const LOCK_PATH = '/verrouillage';
-/** Connexion de tous les comptes */
+/** Connexion des comptes clients */
 export const LOGIN_PATH = '/connexion';
-const SESSION_COOKIE = 'nf_session';
-// Aperçu du site verrouillé : sans lui, l'équipe voit la page fermée comme tout le monde
-const PREVIEW_COOKIE = 'nf_apercu';
 
 const encoder = new TextEncoder();
 
@@ -36,48 +34,43 @@ export async function checkSitePassword(input: string): Promise<boolean> {
   return safeEqual(await digest(input), await digest(SITE_PASSWORD));
 }
 
-/** Compte connecté, ou null */
-export async function currentUser(cookies: AstroCookies): Promise<PublicUser | null> {
-  const token = cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  try {
-    return await sessionUser(token);
-  } catch (error) {
-    // Base injoignable : personne n'est connecté plutôt qu'une page d'erreur
-    console.error(error);
-    return null;
-  }
+/** Session d'une application, gardée dans son propre cookie (en local, les cookies de localhost valent pour tous
+ * les ports : un nom différent par application évite qu'une connexion au site ouvre le portail) */
+export function sessions(cookie: string) {
+  return {
+    /** Compte connecté, ou null */
+    async currentUser(cookies: AstroCookies): Promise<PublicUser | null> {
+      const token = cookies.get(cookie)?.value;
+      if (!token) return null;
+      try {
+        return await sessionUser(token);
+      } catch (error) {
+        // Base injoignable : personne n'est connecté plutôt qu'une page d'erreur
+        console.error(error);
+        return null;
+      }
+    },
+    async logIn(cookies: AstroCookies, user: PublicUser): Promise<void> {
+      cookies.set(cookie, await createSession(user.id), {
+        path: '/',
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: import.meta.env.PROD,
+        maxAge: SESSION_MAX_AGE,
+      });
+    },
+    async logOut(cookies: AstroCookies): Promise<void> {
+      const token = cookies.get(cookie)?.value;
+      if (token) await deleteSession(token).catch(console.error);
+      cookies.delete(cookie, { path: '/' });
+    },
+  };
 }
 
-export async function logIn(cookies: AstroCookies, user: PublicUser): Promise<void> {
-  cookies.set(SESSION_COOKIE, await createSession(user.id), {
-    path: '/',
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: import.meta.env.PROD,
-    maxAge: SESSION_MAX_AGE,
-  });
-}
-
-export async function logOut(cookies: AstroCookies): Promise<void> {
-  const token = cookies.get(SESSION_COOKIE)?.value;
-  if (token) await deleteSession(token).catch(console.error);
-  cookies.delete(SESSION_COOKIE, { path: '/' });
-  stopPreview(cookies);
-}
+/** Session du site public (comptes clients) ; le portail a la sienne */
+export const { currentUser, logIn, logOut } = sessions('nf_session');
 
 /** Adresse de retour après connexion : seulement une page du site (jamais un autre domaine) */
 export const safeNext = (value: unknown): string | null =>
   typeof value === 'string' && /^\/(?!\/)[\w\-/.?=&#%]*$/.test(value) ? value : null;
 
-/** true : un membre de l'équipe a choisi de consulter le site malgré le verrou (à combiner avec isAdmin) */
-export const isPreviewing = (cookies: AstroCookies): boolean => cookies.get(PREVIEW_COOKIE)?.value === '1';
-
-/** Aperçu valable jusqu'à la fermeture du navigateur */
-export function startPreview(cookies: AstroCookies): void {
-  cookies.set(PREVIEW_COOKIE, '1', { path: '/', httpOnly: true, sameSite: 'lax', secure: import.meta.env.PROD });
-}
-
-export function stopPreview(cookies: AstroCookies): void {
-  cookies.delete(PREVIEW_COOKIE, { path: '/' });
-}

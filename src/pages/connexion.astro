@@ -1,53 +1,44 @@
 ---
-// Connexion (icône de compte de l'en-tête) : une carte à deux onglets, Client (clients et visiteurs) et Employé.
-// Les onglets sont des liens (?espace=client|equipe) : ils marchent sans JavaScript. Chaque formulaire n'accepte
-// que les comptes de son espace (vérifié côté serveur).
-// Après connexion : retour à la page demandée (?suite=…), sinon le portail de l'équipe pour un employé,
-// l'espace client pour un client. Un client dont l'adresse n'est pas confirmée (envoi d'e-mails configuré) n'est
-// pas connecté : un nouveau lien de confirmation lui est envoyé.
+// Connexion des clients (icône de compte de l'en-tête). Le site est réservé aux clients : un compte de l'équipe
+// est refusé ici et renvoyé vers le portail de l'équipe (application séparée, sa propre connexion).
+// Après connexion : retour à la page demandée (?suite=…), sinon l'espace client. Un client dont l'adresse n'est
+// pas confirmée (envoi d'e-mails configuré) n'est pas connecté : un nouveau lien de confirmation lui est envoyé.
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
 import { logIn, safeNext } from '../lib/access';
-import { OLD_ADMIN_PATH, adminHref } from '../lib/portal';
+import { adminHref } from '../lib/portal';
 import { authenticate, isStaff, needsConfirmation, resendConfirmation } from '../lib/accounts';
 
-type Space = 'client' | 'equipe';
-const next = safeNext(Astro.url.searchParams.get('suite'));
-const home = (staff: boolean) => next ?? (staff ? adminHref() : '/espace');
+const next = safeNext(Astro.url.searchParams.get('suite')) ?? '/espace';
 const { user } = Astro.locals;
-if (user && Astro.request.method !== 'POST') return Astro.redirect(home(isStaff(user)));
+if (user && Astro.request.method !== 'POST') return Astro.redirect(next);
 
-const errors: Record<Space, string> = { client: '', equipe: '' };
-const emails: Record<Space, string> = { client: '', equipe: '' };
-// Onglet affiché : celui demandé (?espace=…), sinon Employé si la page demandée est le portail, sinon Client
-const asked = Astro.url.searchParams.get('espace');
-let active: Space = asked === 'equipe' || asked === 'client' ? asked : next?.startsWith(OLD_ADMIN_PATH) ? 'equipe' : 'client';
+let email = '';
+let error = '';
+// Compte de l'équipe : message avec le lien du portail
+let staff = false;
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();
-  const space: Space = data.get('space') === 'equipe' ? 'equipe' : 'client';
-  active = space;
-  emails[space] = String(data.get('email') ?? '').trim().slice(0, 200);
+  email = String(data.get('email') ?? '').trim().slice(0, 200);
   try {
-    const result = await authenticate(emails[space], String(data.get('password') ?? '').slice(0, 200));
+    const result = await authenticate(email, String(data.get('password') ?? '').slice(0, 200));
     if (result === 'bloque') {
-      errors[space] = 'Trop de tentatives sur ce compte : réessayez dans 15 minutes.';
+      error = 'Trop de tentatives sur ce compte : réessayez dans 15 minutes.';
       Astro.response.status = 429;
     } else if (!result) {
       // Petite pause après un échec : ralentit les essais de mots de passe à la chaîne
       await new Promise((resolve) => setTimeout(resolve, 800));
-      errors[space] = 'Adresse e-mail ou mot de passe incorrect.';
+      error = 'Adresse e-mail ou mot de passe incorrect.';
       Astro.response.status = 401;
-    } else if (space === 'equipe' && !isStaff(result)) {
-      errors.equipe = 'Ce compte est un compte client : utilisez le formulaire « Client ».';
-      Astro.response.status = 403;
-    } else if (space === 'client' && isStaff(result)) {
-      errors.client = 'Ce compte appartient à l’équipe : utilisez le formulaire « Employé ».';
+    } else if (isStaff(result)) {
+      staff = true;
+      error = 'Ce compte appartient à l’équipe : il se connecte sur le portail de l’équipe, pas sur le site.';
       Astro.response.status = 403;
     } else if (needsConfirmation(result)) {
       const sent = await resendConfirmation(result, Astro.url.origin);
-      errors.client =
+      error =
         sent === 'recent'
           ? `Votre adresse n'est pas encore confirmée : ouvrez le lien envoyé à ${result.email} il y a quelques minutes (pensez aux indésirables).`
           : sent
@@ -56,32 +47,14 @@ if (Astro.request.method === 'POST') {
       Astro.response.status = 403;
     } else {
       await logIn(Astro.cookies, result);
-      return Astro.redirect(home(isStaff(result)), 303);
+      return Astro.redirect(next, 303);
     }
   } catch (e) {
     console.error(e);
-    errors[space] = 'Connexion momentanément impossible (base de données injoignable). Réessayez dans un instant.';
+    error = 'Connexion momentanément impossible (base de données injoignable). Réessayez dans un instant.';
     Astro.response.status = 503;
   }
 }
-
-const spaces: { id: Space; title: string; lead: string; note: string }[] = [
-  {
-    id: 'client',
-    title: 'Client',
-    lead: 'Retrouvez vos devis et vos candidatures.',
-    note: 'Pas encore de compte ?',
-  },
-  {
-    id: 'equipe',
-    title: 'Employé',
-    lead: 'Accédez au portail de l’équipe.',
-    note: 'Mot de passe oublié ? Demandez à un dirigeant de le réinitialiser.',
-  },
-];
-const current = spaces.find((s) => s.id === active)!;
-// Lien d'un onglet, en gardant la page de retour éventuelle
-const tabHref = (id: Space) => `?${new URLSearchParams({ espace: id, ...(next ? { suite: next } : {}) })}`;
 ---
 
 <BaseLayout title="Connexion" description="Connexion à votre compte NovaForge Studio." bare noindex>
@@ -93,19 +66,11 @@ const tabHref = (id: Space) => `?${new URLSearchParams({ espace: id, ...(next ? 
       <h1 id="login-title">Votre compte.</h1>
 
       <div class="login-card card">
-        <nav class="login-tabs" aria-label="Type de compte">
-          {spaces.map(({ id, title }) => (
-            <a class="login-tab" href={tabHref(id)} aria-current={active === id ? 'page' : undefined}>
-              {title}
-            </a>
-          ))}
-        </nav>
-        <form class="login-form" method="post" aria-label={`Connexion ${current.title.toLowerCase()}`}>
-          <input type="hidden" name="space" value={current.id} />
-          <p class="lock-lead">{current.lead}</p>
+        <form class="login-form" method="post" aria-label="Connexion client">
+          <p class="lock-lead">Retrouvez vos devis et vos candidatures.</p>
           <div class="field">
             <label for="login-email">E-mail</label>
-            <input class="input" id="login-email" name="email" type="email" value={emails[current.id]} autocomplete="username" required />
+            <input class="input" id="login-email" name="email" type="email" value={email} autocomplete="username" required />
           </div>
           <div class="field">
             <label for="login-password">Mot de passe</label>
@@ -116,25 +81,25 @@ const tabHref = (id: Space) => `?${new URLSearchParams({ espace: id, ...(next ? 
               type="password"
               autocomplete="current-password"
               required
-              aria-invalid={errors[current.id] ? 'true' : undefined}
-              aria-describedby={errors[current.id] ? 'login-error' : undefined}
+              aria-invalid={error ? 'true' : undefined}
+              aria-describedby={error ? 'login-error' : undefined}
             />
-            {errors[current.id] && (
+            {error && (
               <p class="field-error" id="login-error" role="alert">
-                {errors[current.id]}
+                {error}
+                {staff && (
+                  <Fragment>
+                    {' '}<a href={adminHref('/connexion')}>Aller au portail</a>
+                  </Fragment>
+                )}
               </p>
             )}
           </div>
-          <button class:list={['btn', current.id === 'equipe' ? 'btn-primary' : 'btn-warm']} type="submit">
+          <button class="btn btn-warm" type="submit">
             Se connecter <Icon name="arrow" class="btn-arrow" />
           </button>
           <p class="lock-note">
-            {current.note}
-            {current.id === 'client' && (
-              <Fragment>
-                {' '}<a href="/inscription">Créer un compte</a>
-              </Fragment>
-            )}
+            Pas encore de compte ? <a href="/inscription">Créer un compte</a>
           </p>
         </form>
       </div>

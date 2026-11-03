@@ -41,7 +41,7 @@ accessibles quand le site est verrouillé.
 | Élément | Fonctionnement | Constat et recommandation |
 |:--|:--|:--|
 | Authentification | E-mail + mot de passe sur `/connexion` ; empreinte scrypt (sel aléatoire), jamais le mot de passe en clair ; 10 caractères au moins | **Pas de MFA** : P2 |
-| Session | Cookie `nf_session` : jeton aléatoire (32 octets) vérifié en base (`nf:session:<jeton>`), `httpOnly`, `sameSite=lax`, `secure` en production, 30 jours. Déconnexion = suppression en base | Un compte désactivé perd aussitôt ses sessions ; un changement de rôle s'applique à la requête suivante |
+| Session | Cookie `nf_session` sur le site (clients), `nf_portail` sur le portail (équipe) : se connecter sur l'un n'ouvre jamais l'autre, même en local. Jeton aléatoire (32 octets) vérifié en base (`nf:session:<jeton>`), `httpOnly`, `sameSite=lax`, `secure` en production, 30 jours. Déconnexion = suppression en base | Un compte désactivé perd aussitôt ses sessions ; un changement de rôle s'applique à la requête suivante |
 | Anti-force brute | Pause de 0,8 s après un échec ; 8 échecs sur une même adresse = blocage 15 minutes | Pas de blocage par IP : P2 |
 | Droits | Vérifiés côté serveur pour chaque action (`can`, `src/lib/accounts.ts`), pas seulement masqués dans la page | — |
 | CSRF | Vérification d'origine native d'Astro (`checkOrigin`) | Contrôlé lors des tests (requête sans origine refusée) |
@@ -55,7 +55,6 @@ désactivation), `nf:user-email:<e-mail>`, index `nf:users`, `nf:session:<jeton>
 | Fonction | Effet public | Données stockées (Upstash `nf:settings` / `nf:openings`) |
 |:--|:--|:--|
 | **Verrouiller ou ouvrir le site**, avec un motif (maintenance, fermeture complète, mise à jour) | Tout le monde, administrateur compris, voit `/verrouillage`. Le statut est 503 pour la maintenance et la mise à jour. Les pages légales restent accessibles | `locked`, `lockReason` |
-| **Aperçu** (depuis `/verrouillage`) | L'administrateur consulte le site fermé (cookie `nf_apercu`, session) | — |
 | **Adresse du siège** (géocodée via Nominatim) | Pied de page, Contact, carte, mentions légales | `street`, `postalCode`, `city`, `geo` |
 | **Fermetures exceptionnelles** (journées ou plages horaires) et **jours fériés** automatiques, avec suggestion de ponts | Calendrier de la page Contact. Purge automatique à la fin de la semaine | `closures`, `holidays` |
 | **Offres d'emploi** (création, modification, suppression) | **Aucun effet public tant que `launch.recruitment` est faux** : prévisualisation seulement | `nf:openings` |

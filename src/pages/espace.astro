@@ -6,13 +6,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
 import Icon from '../components/Icon.astro';
 import { LOGIN_PATH, logOut } from '../lib/access';
-import { adminHref } from '../lib/portal';
 import {
   MIN_PASSWORD,
   changeEmail,
   checkUserPassword,
   deleteUser,
-  isStaff,
   sendConfirmation,
   updateUser,
 } from '../lib/accounts';
@@ -21,8 +19,7 @@ import { formatEuros, formatRange } from '../lib/pricing';
 import { listUserQuotes, quoteStatus, type Quote, type QuoteStatus } from '../lib/quotes';
 
 const { user } = Astro.locals;
-if (!user) return Astro.redirect(`${LOGIN_PATH}?espace=client&suite=/espace`);
-if (isStaff(user)) return Astro.redirect(adminHref());
+if (!user) return Astro.redirect(`${LOGIN_PATH}?suite=/espace`);
 
 let quotes: Quote[] = [];
 try {

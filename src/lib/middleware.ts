@@ -1,9 +1,9 @@
 // Branché dans astro.config.mjs. Pour chaque page : charge le compte connecté et les données modifiables
-// (verrou, adresse, offres) et, si le site est verrouillé, redirige tout le monde vers /verrouillage, équipe
-// comprise, sauf si un membre de l'équipe a choisi « Voir le site en aperçu » sur cette page.
+// (verrou, adresse, offres) et, si le site est verrouillé, redirige tout le monde vers /verrouillage.
+// Le site est réservé aux clients : l'équipe travaille sur le portail (application séparée).
 // Les fichiers statiques (CSS, JS, polices, images, favicon) sont servis directement, sans passer ici.
 import { defineMiddleware } from 'astro:middleware';
-import { LOCK_PATH, LOGIN_PATH, currentUser, isPreviewing } from './access';
+import { LOCK_PATH, LOGIN_PATH, currentUser } from './access';
 import { isStaff } from './accounts';
 import { OLD_ADMIN_PATH, adminHref, hasPortal } from './portal';
 import { loadData, purgeExpiredClosures } from './store';
@@ -26,10 +26,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect(adminHref(pathname.slice(OLD_ADMIN_PATH.length) || '/'), 302);
   }
 
-  const [user, data] = await Promise.all([currentUser(context.cookies), loadData()]);
-  const admin = isStaff(user);
-  context.locals.user = user;
-  context.locals.isAdmin = admin;
+  const [session, data] = await Promise.all([currentUser(context.cookies), loadData()]);
+  // Une session d'un compte de l'équipe (ouverte avant la séparation du portail) ne vaut rien sur le site
+  context.locals.user = isStaff(session) ? null : session;
   context.locals.settings = await purgeExpiredClosures(data.settings);
   context.locals.openings = data.openings;
   context.locals.version = data.version;
@@ -41,8 +40,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // Comptes clients : inscription, confirmation d'adresse et espace restent ouverts, même site verrouillé
     ['/inscription', '/confirmation', '/espace'].includes(pathname.replace(/\/$/, '')) ||
     LEGAL_PATHS.includes(pathname.replace(/\/$/, ''));
-  const preview = admin && isPreviewing(context.cookies);
-  if (preview || !data.settings.locked || alwaysOpen) return next();
+  if (!data.settings.locked || alwaysOpen) return next();
 
   // Formulaires (fetch) : une réponse claire plutôt qu'une redirection vers la page HTML
   if (pathname.startsWith('/api/')) {

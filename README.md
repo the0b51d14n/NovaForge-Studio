@@ -30,7 +30,7 @@ peuvent :
 - **verrouiller ou ouvrir le site** : verrouillé, tout visiteur est redirigé vers `/verrouillage`
   dont le message dépend du motif choisi (maintenance, fermeture complète, mise à jour — textes dans
   `src/data/lock-reasons.ts` ; maintenance et mise à jour répondent « 503 » aux moteurs de recherche) ;
-  l'administrateur connecté aussi, mais il peut consulter le site via « Voir le site en aperçu » sur cette page ;
+  l'équipe comprise (pas d'aperçu : le site est réservé aux clients, l'équipe travaille sur le portail) ;
 - **changer l'adresse du siège** : pied de page, contact, carte (coordonnées recalculées via
   OpenStreetMap), offres d'emploi, mentions légales et confidentialité ;
 - **créer, modifier et supprimer les offres d'emploi** de l'onglet Carrières. Sans offre, les mentions
