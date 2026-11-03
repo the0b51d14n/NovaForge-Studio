@@ -5,7 +5,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHero from '../components/PageHero.astro';
 import Icon from '../components/Icon.astro';
-import { ADMIN_PATH, LOGIN_PATH, logOut } from '../lib/access';
+import { LOGIN_PATH, logOut } from '../lib/access';
+import { adminHref } from '../lib/portal';
 import {
   MIN_PASSWORD,
   changeEmail,
@@ -21,7 +22,7 @@ import { listUserQuotes, quoteStatus, type Quote, type QuoteStatus } from '../li
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect(`${LOGIN_PATH}?espace=client&suite=/espace`);
-if (isStaff(user)) return Astro.redirect(ADMIN_PATH);
+if (isStaff(user)) return Astro.redirect(adminHref());
 
 let quotes: Quote[] = [];
 try {

@@ -24,7 +24,9 @@ export default defineConfig({
   integrations: [accessLock],
   env: {
     schema: {
-      // Mot de passe de /administration : .env en local, variables d'environnement du projet sur Vercel
+      // Adresse du portail de l'équipe (application séparée : dossier novaforge-studio-admin), sans « / » final
+      ADMIN_URL: envField.string({ context: 'server', access: 'public', optional: true }),
+      // Mot de passe du premier compte dirigeant : .env en local, variables d'environnement du projet sur Vercel
       SITE_PASSWORD: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Base Upstash Redis (verrou, adresse, offres) : ajoutées par Vercel → Storage → Upstash.
       // Les noms UPSTASH_* sont acceptés aussi, pour une base créée directement sur upstash.com
@@ -42,6 +44,6 @@ export default defineConfig({
       alias: { [ACCESS_MIDDLEWARE]: fileURLToPath(new URL('./src/lib/middleware.ts', import.meta.url)) },
     },
   },
-  // Ports libres sur le poste : 1024 (dev)
+  // Ports réservés sur le poste : 1024 (dev du site), 1025 (portail de l'équipe, ADMIN_PORT de son .env)
   server: { port: 1024 },
 });

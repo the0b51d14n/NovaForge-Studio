@@ -5,7 +5,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { ADMIN_PATH, LOCK_PATH, isPreviewing, startPreview, stopPreview } from '../lib/access';
+import { LOCK_PATH, isPreviewing, startPreview, stopPreview } from '../lib/access';
+import { adminHref } from '../lib/portal';
 import { LOCK_REASONS } from '../data/lock-reasons';
 
 const { isAdmin, settings } = Astro.locals;
@@ -64,7 +65,7 @@ if (reason.temporary) {
                   {previewing ? "Quitter l'aperçu" : 'Voir le site en aperçu'}
                 </button>
               </form>
-              <a class="btn btn-ghost btn-sm" href={ADMIN_PATH}>Administration</a>
+              <a class="btn btn-ghost btn-sm" href={adminHref()}>Administration</a>
             </div>
           </div>
         )

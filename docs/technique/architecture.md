@@ -10,7 +10,7 @@
   données restent en mémoire (développement).
 - **Accès** : middleware (`src/lib/middleware.ts`). Verrou du site, aperçu administrateur, pages légales toujours
   accessibles, purge des fermetures passées.
-- **Administration** : `/administration`, détaillée dans [administration.md](administration.md).
+- **Administration** : application séparée `novaforge-studio-admin` (port 1025 en local), détaillée dans [administration.md](administration.md).
 - **E-mails** : Resend (`src/lib/forms.ts`), inactif.
 - **Navigateur** : `src/scripts/main.ts` (navigation, formulaires) et `src/scripts/live.ts` (rafraîchissement
   automatique).

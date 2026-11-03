@@ -6,8 +6,6 @@ import { SESSION_MAX_AGE, createSession, deleteSession, sessionUser, type Public
 
 /** Page « site fermé » affichée au public quand le site est verrouillé */
 export const LOCK_PATH = '/verrouillage';
-/** Portail de l'équipe (admins, admins+, dirigeants) */
-export const ADMIN_PATH = '/administration';
 /** Connexion de tous les comptes */
 export const LOGIN_PATH = '/connexion';
 const SESSION_COOKIE = 'nf_session';

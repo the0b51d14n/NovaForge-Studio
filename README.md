@@ -21,7 +21,9 @@ Les polices sont intégrées au projet : le site fonctionne même sans connexion
 
 ## Administration et verrouillage
 
-`/administration` est le portail de l'équipe : chacun se connecte avec son compte sur `/connexion`, et ne voit
+Le portail de l'équipe est une **application séparée** (dépôt `NovaForgeStudio-admin`, dossier
+`novaforge-studio-admin` à côté de celui-ci), sur son propre port (`ADMIN_PORT`) ; le site y renvoie via `ADMIN_URL`
+(`.env`), y compris depuis les anciennes adresses `/administration`. Chacun s'y connecte avec son compte, et ne voit
 que ce que son rôle permet (dirigeant, admin+, admin : voir `docs/technique/administration.md`). Les dirigeants
 peuvent :
 
@@ -35,7 +37,7 @@ peuvent :
   « On recrute » disparaissent et seule la candidature spontanée reste proposée.
 
 - **Les comptes** sont créés par les dirigeants dans le portail. Le tout premier compte dirigeant se crée
-  sur `/administration` avec la variable d'environnement `SITE_PASSWORD` (fichier `.env` en local, jamais
+  sur le portail avec la variable d'environnement `SITE_PASSWORD` (fichier `.env` en local, jamais
   versionné ; réglages du projet sur Vercel en ligne), qui ne sert plus ensuite.
 - **Les données** (verrou, adresse, offres) sont dans **Upstash Redis** (`src/lib/store.ts`) :
   Vercel → projet → Storage → Upstash for Redis, relié au projet, qui ajoute `KV_REST_API_URL` et
@@ -118,7 +120,7 @@ Contact et candidatures sont envoyés par e-mail via [Resend](https://resend.com
 
 Carte interactive (Leaflet + OpenStreetMap, sans clé d'API) sur les pages L'agence et Contact,
 centrée sur le 6 rue Blaise Pascal, Neuville-en-Ferrain.
-L'adresse se change dans `/administration` (coordonnées de la carte recalculées automatiquement). Elle nécessite une connexion internet ;
+L'adresse se change dans le portail de l'équipe (coordonnées de la carte recalculées automatiquement). Elle nécessite une connexion internet ;
 hors ligne, l'adresse reste affichée.
 
 ## Mise en ligne

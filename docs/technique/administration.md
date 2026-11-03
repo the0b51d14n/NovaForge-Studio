@@ -1,12 +1,14 @@
-# Portail de l'équipe (`/administration`)
+# Portail de l'équipe (application `novaforge-studio-admin`)
 
 > Document **préparatoire et interne** (non publié sur le site). Il n'a été validé ni par un avocat ni par un
 > expert-comptable. Version du 30/10/2026.
 
-Espace privé de l'équipe, qui pilote le site sans modifier le code. Fichiers :
-`src/pages/administration/index.astro`, `src/pages/administration/offres/[slug].astro`,
-`src/pages/administration/devis/[id].astro`, `src/pages/connexion.astro`, `src/components/AdminBar.astro`,
-`src/lib/accounts.ts`, `src/lib/access.ts`, `src/lib/store.ts`.
+Espace privé de l'équipe, qui pilote le site sans modifier le code. Application séparée (dossier
+`novaforge-studio-admin`, son propre port `ADMIN_PORT`), qui partage la base et le code métier du site.
+Fichiers du portail : `src/pages/index.astro`, `src/pages/offres/[slug].astro`, `src/pages/devis/[id].astro`,
+`src/pages/connexion.astro`, `src/components/AdminBar.astro`. Code partagé, dans ce dépôt : `src/lib/accounts.ts`,
+`src/lib/access.ts`, `src/lib/store.ts`, `src/lib/quotes.ts`. Lien du site vers le portail : `src/lib/portal.ts`
+(`ADMIN_URL`).
 
 ## 1. Comptes et rôles
 
@@ -30,7 +32,7 @@ accessibles quand le site est verrouillé.
   modifie pas son propre rôle.
 - **Adresse e-mail** : chacun peut changer la sienne dans « Mon compte » (mot de passe actuel demandé). La nouvelle
   adresse sert aussitôt à se connecter ; une adresse déjà utilisée par un autre compte est refusée.
-- **Premier lancement** : tant qu'aucun compte de l'équipe n'existe, `/administration` propose de créer le premier
+- **Premier lancement** : tant qu'aucun compte de l'équipe n'existe, le portail propose de créer le premier
   dirigeant, avec le mot de passe `SITE_PASSWORD`. Ensuite, `SITE_PASSWORD` ne sert plus.
 - **Mot de passe oublié** : un dirigeant le réinitialise (pas d'e-mail tant que la messagerie n'est pas en service).
 

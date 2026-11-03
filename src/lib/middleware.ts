@@ -3,8 +3,9 @@
 // comprise, sauf si un membre de l'équipe a choisi « Voir le site en aperçu » sur cette page.
 // Les fichiers statiques (CSS, JS, polices, images, favicon) sont servis directement, sans passer ici.
 import { defineMiddleware } from 'astro:middleware';
-import { ADMIN_PATH, LOCK_PATH, LOGIN_PATH, currentUser, isPreviewing } from './access';
+import { LOCK_PATH, LOGIN_PATH, currentUser, isPreviewing } from './access';
 import { isStaff } from './accounts';
+import { OLD_ADMIN_PATH, adminHref, hasPortal } from './portal';
 import { loadData, purgeExpiredClosures } from './store';
 
 const LEGAL_PATHS = ['/mentions-legales', '/confidentialite'];
@@ -13,6 +14,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { pathname } = context.url;
   // Vérification fréquente des pages ouvertes : toujours accessible, sans charger toutes les données
   if (pathname === '/api/version') return next();
+
+  // Le portail de l'équipe est une application séparée : les anciennes adresses /administration y mènent
+  if (pathname === OLD_ADMIN_PATH || pathname.startsWith(`${OLD_ADMIN_PATH}/`)) {
+    if (!hasPortal()) {
+      return new Response("Portail de l'équipe non configuré : renseigner ADMIN_URL (voir .env.example).", {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
+    return context.redirect(adminHref(pathname.slice(OLD_ADMIN_PATH.length) || '/'), 302);
+  }
 
   const [user, data] = await Promise.all([currentUser(context.cookies), loadData()]);
   const admin = isStaff(user);
@@ -28,8 +40,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
     pathname === LOGIN_PATH ||
     // Comptes clients : inscription, confirmation d'adresse et espace restent ouverts, même site verrouillé
     ['/inscription', '/confirmation', '/espace'].includes(pathname.replace(/\/$/, '')) ||
-    pathname === ADMIN_PATH ||
-    pathname.startsWith(`${ADMIN_PATH}/`) ||
     LEGAL_PATHS.includes(pathname.replace(/\/$/, ''));
   const preview = admin && isPreviewing(context.cookies);
   if (preview || !data.settings.locked || alwaysOpen) return next();

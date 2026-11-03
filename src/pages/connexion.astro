@@ -8,12 +8,13 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
-import { ADMIN_PATH, logIn, safeNext } from '../lib/access';
+import { logIn, safeNext } from '../lib/access';
+import { OLD_ADMIN_PATH, adminHref } from '../lib/portal';
 import { authenticate, isStaff, needsConfirmation, resendConfirmation } from '../lib/accounts';
 
 type Space = 'client' | 'equipe';
 const next = safeNext(Astro.url.searchParams.get('suite'));
-const home = (staff: boolean) => next ?? (staff ? ADMIN_PATH : '/espace');
+const home = (staff: boolean) => next ?? (staff ? adminHref() : '/espace');
 const { user } = Astro.locals;
 if (user && Astro.request.method !== 'POST') return Astro.redirect(home(isStaff(user)));
 
@@ -21,7 +22,7 @@ const errors: Record<Space, string> = { client: '', equipe: '' };
 const emails: Record<Space, string> = { client: '', equipe: '' };
 // Onglet affiché : celui demandé (?espace=…), sinon Employé si la page demandée est le portail, sinon Client
 const asked = Astro.url.searchParams.get('espace');
-let active: Space = asked === 'equipe' || asked === 'client' ? asked : next?.startsWith(ADMIN_PATH) ? 'equipe' : 'client';
+let active: Space = asked === 'equipe' || asked === 'client' ? asked : next?.startsWith(OLD_ADMIN_PATH) ? 'equipe' : 'client';
 
 if (Astro.request.method === 'POST') {
   const data = await Astro.request.formData();

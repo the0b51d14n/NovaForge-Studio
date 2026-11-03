@@ -70,7 +70,9 @@ if (meta) {
   channel?.addEventListener('message', ({ data }) => {
     if (typeof data === 'string' && data !== current) update(data);
   });
-  if (location.pathname.startsWith('/administration') && new URLSearchParams(location.search).has('ok')) {
+  // (le portail est servi sur une autre origine : il ne prévient que ses propres onglets ; ceux du site vérifient)
+  const portal = document.querySelector('meta[name="nf-app"]')?.getAttribute('content') === 'admin';
+  if (portal && new URLSearchParams(location.search).has('ok')) {
     channel?.postMessage(current);
   }
 
